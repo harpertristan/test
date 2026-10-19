@@ -24,6 +24,7 @@
           <div class="panel-heading"><h2 id="social-filters-title">Поиск публикаций</h2><span class="small-badge">Европа</span></div>
           <form id="social-form">
             <fieldset id="social-filters"><legend class="sr-only">Фильтры публикаций</legend>
+              <label for="profile">Профиль поиска</label><select id="profile"><option value="business">Как ваши примеры · бизнес-счета, EMI, платёжные сервисы</option><option value="strict">Строго · бизнес-счёт, EU IBAN и лицензия</option></select><p class="hint">В основном режиме собственная банковская лицензия не обязательна. IBAN, EU IBAN и обслуживание бизнеса показываются отдельно: неизвестное не выдаётся за подтверждённое.</p>
               <span class="field-label">Источники</span>
               <div class="social-source-options" id="source-options"></div>
               <label for="watch-domains">Мои сайты · домены по одному на строку</label><textarea id="watch-domains" rows="4" placeholder="examplebank.eu"></textarea><p class="hint">До 10 доменов без https и пути. Включите источник «Мои сайты». Проверяется индекс Brave, не все страницы сайта. Изменения по прежнему URL отдельной находкой не считаются.</p>
@@ -35,9 +36,11 @@
               <p id="social-cost" class="hint">Число обращений зависит от выбранных источников и запросов, без дополнительных страниц выдачи. Повторный ручной запуск тоже расходует лимит.</p>
 
               <div class="divider"></div>
-              <label class="schedule-toggle"><input id="strict-banking" type="checkbox" checked> Только бизнес-счета с EU IBAN</label>
+              <div id="strict-controls">
+              <label class="schedule-toggle"><input id="strict-banking" type="checkbox" checked> Требовать явное подтверждение всех трёх признаков</label>
               <label for="institution-type">Тип организации</label><select id="institution-type"><option value="bank">Банк · требуется заявление о банковской лицензии</option><option value="bank_or_emi">Банк или платёжная организация / EMI</option></select>
-              <p class="hint">Нужны три признака в тексте: счёт для бизнеса, выдача IBAN страны ЕС и лицензия. SEPA и GB/CH IBAN сами по себе не подходят. Если сведений нет — результат исключается. Текстовые признаки требуют проверки по реестру и условиям банка.</p>
+              <p class="hint">Для строгого режима нужны три признака в тексте: счёт для бизнеса, выдача IBAN страны ЕС и лицензия. SEPA и GB/CH IBAN сами по себе не подходят. Если сведений нет — результат исключается. Текстовые признаки требуют проверки по реестру и условиям банка.</p>
+              </div>
               <label for="exclude-terms">Исключить слова и фразы</label><textarea id="exclude-terms" rows="5" placeholder="По одному на строку: UPI, IFSC, название банка"></textarea>
               <p class="hint">Каждая строка — отдельное исключение в названии, разработчике или описании. Без регулярных выражений. Удалите ненужные исключения стран.</p>
               <details><summary>Исключить приложения и сайты</summary><label for="exclude-ids">ID приложений Google Play</label><textarea id="exclude-ids" rows="3" placeholder="com.example.app"></textarea><label for="exclude-domains">Домены сайтов</label><textarea id="exclude-domains" rows="3" placeholder="example.com"></textarea></details>

@@ -355,6 +355,7 @@ async function init() {
     }
     monitor = await api("monitor");
     applyFilters(monitor.schedule.filters);
+    $('#profile').addEventListener('change',()=>{const business=$('#profile').value==='business';$('#strict-controls').hidden=business;$('#strict-banking').checked=!business;$('#institution-type').value=business?'bank_or_emi':'bank';});
     await refresh();
     setInterval(refresh, 2000);
   } catch {

@@ -1,13 +1,14 @@
 {
   "name": "play-finance-finder",
-  "version": "1.3.1",
-  "description": "Поиск новых финансовых приложений Google Play в странах ЕС",
+  "version": "2.0.0",
+  "description": "Поиск новых бизнес-счетов и платёжных сервисов в Google Play",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js && node --check lib/qualification.js && node --check public/criteria.js && node --check scripts/configure-brave.js",
-    "configure": "node scripts/configure-brave.js"
+    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js && node --check lib/qualification.js && node --check public/criteria.js && node --check scripts/configure-brave.js && node --check lib/discovery.js && node --check scripts/doctor.js",
+    "configure": "node scripts/configure-brave.js",
+    "doctor": "node scripts/doctor.js"
   },
   "repository": {
     "type": "git",

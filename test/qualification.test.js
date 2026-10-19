@@ -100,10 +100,10 @@ test('old unqualified history is retained in archive, rechecked without duplicat
  await monitor.saveSchedule({enabled:false,time:'11:00',filters:{...config,excludeAppIds:['com.eu.bank']}});
  assert.equal(monitor.findings().length,0);assert.equal(monitor.findings({all:true}).length,1);
 });
-test('migration adds strict defaults while preserving legacy filters and persisted exclusions after reload',async t=>{
+test('migration restores profile defaults while preserving history and persisted exclusions after reload',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'bank-criteria-'));t.after(()=>rm(dir,{recursive:true,force:true}));const path=join(dir,'state.json');
  const state=initialState(now);delete state.schedule.filters.strictBanking;delete state.schedule.filters.excludeTerms;state.findings=[{appId:'legacy.app',title:'Legacy'}];
- await writeFile(path,JSON.stringify(state));let store=await openStore(path,now);assert.equal(store.state.schedule.filters.strictBanking,true);assert.equal(store.state.findings.length,1);
+ await writeFile(path,JSON.stringify(state));let store=await openStore(path,now);assert.equal(store.state.schedule.filters.strictBanking,false);assert.equal(store.state.schedule.filters.profile,'business');assert.equal(store.state.findings.length,1);
  const monitor=createMonitor({store,clock:()=>now,provider:{search:async()=>[]}});await monitor.saveSchedule({enabled:false,time:'12:30',filters:{...config,excludeTerms:['India','Wallet'],excludeAppIds:['com.no'],excludeDomains:['bad.eu']}});
  store=await openStore(path,now);assert.deepEqual(store.state.schedule.filters.excludeTerms,['India','Wallet']);assert.deepEqual(store.state.schedule.filters.excludeAppIds,['com.no']);assert.equal(store.state.findings.length,1);
 });

@@ -8,5 +8,6 @@ RUN --mount=type=secret,id=npm_ca \
 COPY server.js ./
 COPY lib ./lib
 COPY public ./public
+COPY scripts ./scripts
 EXPOSE 3000
 CMD ["node", "server.js"]

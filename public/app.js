@@ -1,3 +1,4 @@
+import { searchPlan, discoveryPreset, rollingDates } from './discovery.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows, filterCandidates } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
 let defaults;
@@ -27,6 +28,15 @@ const formatInstant = (value) =>
   }).format(new Date(value));
 const readConfig = () => ({
   ...readCriteria(),
+  releaseMonths:Number($('#release-months').value),
+  plan:$('#search-plan').value,
+  phoneCountry:$('#phone-country').value.trim().toUpperCase(),
+  referenceDomains:$('#reference-domains').value.split('\n').map(d=>d.trim().toLowerCase()).filter(Boolean),
+  seedApps:$('#seed-apps').value.split('\n').map(x=>x.trim()).filter(Boolean),
+  hideEstablished:$('#hide-established').checked,
+  related:$('#related-source').checked,
+  useWebIndex:$('#use-web-index').checked,
+  maxDetails:Number($('#max-details').value),
   keywords: $("#keywords")
     .value.split("\n")
     .map((k) => k.trim())
@@ -43,15 +53,27 @@ function applyConfig(config, rolling = false) {
   applyCriteria(config);
   $("#ignore-release-date").checked=config.ignoreReleaseDate ?? false;
   syncDateMode();
+  $('#eu-iban-mode').value=config.euIbanMode ?? 'prefer';
+  $('#release-months').value=config.releaseMonths ?? 1;
+  $('#search-plan').value=config.plan ?? 'full';
+  $('#phone-country').value=config.phoneCountry ?? '';
+  $('#seed-apps').value=(config.seedApps ?? []).join('\n');
+  $('#reference-domains').value=(config.referenceDomains ?? []).join('\n');
+  $('#hide-established').checked=config.hideEstablished ?? false;
+  $('#related-source').checked=config.related ?? false;
+  $('#use-web-index').checked=config.useWebIndex ?? false;
+  $('#max-details').value=config.maxDetails ?? 10000;
   $("#keywords").value = config.keywords.join("\n");
   $("#installs").value = config.minInstalls;
   $("#limit").value = config.limit;
-  if (config.from) $("#from").value = rolling ? defaults.from : config.from;
-  if (config.to) $("#to").value = rolling ? defaults.to : config.to;
+  const dates=rollingDates(defaults.to,config.releaseMonths ?? 1);
+  $("#from").value=rolling ? dates.from : (config.from ?? dates.from);
+  $("#to").value=rolling ? dates.to : (config.to ?? dates.to);
   document.querySelectorAll("#country-list input").forEach((input) => {
     input.checked = config.countries.includes(input.value);
   });
   updateCountries();
+  renderPlan();
 }
 
 function updateCountries() {
@@ -112,7 +134,10 @@ function renderRows() {
       const id = Object.assign(document.createElement("small"), {
         textContent: app.appId,
       });
-      name.append(avatar, title, developer, id, renderEvidence(app));
+      name.append(avatar, title, developer, id);
+      if(app.isReference)name.append(Object.assign(document.createElement('small'),{textContent:'Ваш образец · прямая проверка'}));
+      if(app.discoverySources?.includes('query'))name.append(Object.assign(document.createElement('small'),{textContent:'Найдено поиском Google Play'}));
+      name.append(renderEvidence(app));
       const exclude = Object.assign(document.createElement('button'),{type:'button',className:'text-button',textContent:'Исключить это приложение'});
       exclude.addEventListener('click',()=>{
         $('#exclude-ids').value=[...new Set([...readCriteria().excludeAppIds,app.appId])].join('\n');
@@ -123,11 +148,11 @@ function renderRows() {
       const badge = Object.assign(document.createElement("span"), {
         className: "country-chip",
         textContent:
-          app.countries.length > 3
+          (app.countries ?? []).length > 3
             ? `${app.countries.slice(0, 2).join(", ")} +${app.countries.length - 2}`
-            : app.countries.join(", "),
+            : (app.countries?.length ? app.countries.join(', ') : `Карточка: ${app.detailCountry ?? '—'}`),
       });
-      badge.title = app.countries
+      badge.title = (app.countries ?? [])
         .map(
           (code) =>
             defaults.countries.find((c) => c.code === code)?.name || code,
@@ -181,7 +206,7 @@ function renderView() {
     !!rows.length ||
     (!history && !review && (job?.status === "running" || job?.status === "failed"));
   if (review) {
-    $('#results-caption').textContent=`На проверку: ${rows.length}. Бизнес-счёт с европейскими признаками; EU IBAN или лицензия ещё не подтверждены.`;
+    $('#results-caption').textContent=`На проверку: ${rows.length}. Финансовые сервисы с неполными сведениями о бизнес-обслуживании или IBAN.`;
     $('#empty-state h3').textContent='Кандидатов для проверки пока нет';
     $('#empty-state p').textContent='Здесь сохраняются подходящие по теме кандидаты с неполными сведениями, прошедшие фильтры даты, категории и установок.';
   } else if (history) {
@@ -216,11 +241,13 @@ function renderExplanation() {
   box.hidden=!job || job.status==='running' || view!=='latest';
   if(box.hidden)return;
   const skipped=job.skipped;
-  const lines=[`Проверено: ${job.detailDone}. Другая категория: ${skipped.category || 0}. Вне даты первого выпуска: ${skipped.date || 0}. Недостаточно банковских признаков: ${skipped.banking || 0}.`];
+  const lines=[`Проверено: ${job.detailDone}. Другая категория: ${skipped.category || 0}. Вне даты первого выпуска: ${skipped.date || 0}. Не совпали с профилем: ${skipped.banking || 0}.`];
+  if(job.config.profile==='business')lines.push('Режим ваших примеров: совпадение с профилем не подтверждает EU IBAN, доступность открытия компании или лицензию.');
   if(skipped.date && !job.config.ignoreReleaseDate) lines.push('Расширение даты не обновляет старые приложения: здесь учитывается их самый первый выпуск. Для проверки поиска можно выбрать «За всё время».');
   if((monitorData?.totalCandidates || job.reviewCandidates?.length || 0)>0)lines.push('Кандидаты с неполными данными доступны во вкладке «На проверку».');
   if(!monitorData?.evidenceConnection?.configured)lines.push('Ключ Brave не подключён: сайт разработчика пока не проверяется. Настройка: npm run configure, затем npm start.');
   if(job.results.length===0 && job.config.keywords.every(q=>/[а-яё]/iu.test(q)))lines.push('Использованы только русские запросы. Нажмите «Добавить английские варианты» для поиска европейских приложений.');
+  for(const warning of job.warnings??[])lines.push(warning);
   box.textContent=lines.join(' ');
 }
 
@@ -251,7 +278,7 @@ function renderMonitor(data) {
       " Последний автопоиск не завершён полностью; подробности в результатах.";
   $("#history-count").textContent = format(data.totalFindings);
   $('#candidate-count').textContent=format(data.totalCandidates ?? 0);
-  $('#evidence-connection').textContent=data.evidenceConnection?.configured ? 'Ключ Brave задан. Проверка сайта выполняется при поиске, если описания недостаточно.' : 'Ключ Brave не подключён. Проверяется только описание. Для сайтов выполните npm run configure и перезапустите программу.';
+  $('#evidence-connection').textContent=data.evidenceConnection?.configured ? 'Ключ Brave задан. Для проверки доступа нажмите кнопку ниже; в поиске он дополняет карточки Google Play и сведения о сервисе.' : 'Ключ Brave не подключён. Проверяется только описание. Для сайтов выполните npm run configure и перезапустите программу.';
 }
 
 async function refreshMonitor() {
@@ -349,7 +376,7 @@ function renderJob(next) {
   renderRows();
   $("#diagnostics").hidden = running;
   const reasons = {
-    banking: "Нет всех признаков: бизнес-счёт, IBAN ЕС и лицензия",
+    banking: "Не совпало с выбранным профилем сервиса / строгими признаками",
     excludedTerm: "Исключено по слову или фразе",
     excludedDomain: "Исключено по домену",
     excludedId: "Исключено по ID приложения",
@@ -442,6 +469,24 @@ $('#view-candidates').addEventListener('click',async()=>{
   catch(error){$('#form-error').textContent=error.message;}
 });
 $('#ignore-release-date').addEventListener('change',syncDateMode);
+$('#release-months').addEventListener('change',()=>{const dates=rollingDates(defaults.to,Number($('#release-months').value));$('#from').value=dates.from;$('#to').value=dates.to;});
+$('#apply-preset').addEventListener('click',()=>{
+  applyConfig({...defaults.preset,from:defaults.from,to:defaults.to});
+  $('#schedule-feedback').textContent='Применён профиль ваших примеров: 12 месяцев, от 1 установки, без требования собственной банковской лицензии. Сохраните расписание.';
+});
+$('#profile').addEventListener('change',()=>{
+  const business=$('#profile').value==='business';$('#strict-controls').hidden=business;$('#strict-banking').checked=!business;$('#institution-type').value=business?'bank_or_emi':'bank';renderPlan();
+});
+$('#test-brave').addEventListener('click',async()=>{
+  $('#test-brave').disabled=true;
+  try {const result=await api('/api/connections/brave/test',{method:'POST'});$('#brave-feedback').textContent=`Подключение работает. Проверено: ${formatInstant(result.verifiedAt)}.`;}
+  catch(error){$('#brave-feedback').textContent=error.message;}
+  finally{$('#test-brave').disabled=false;}
+});
+function renderPlan() {
+  try{const config=readConfig();const calls=searchPlan(config).length;$('#plan-cost').textContent=`${calls} запросов к Google Play, до ${config.maxDetails} карточек. В сбалансированном плане все выбранные страны проверяются, но число запросов по странам различается.`;}catch{}
+}
+$('#search-form').addEventListener('input',renderPlan);
 $("#view-latest").addEventListener("click", () => {
   view = "latest";
   renderView();
@@ -534,6 +579,7 @@ async function init() {
   $("#search-button").disabled = true;
   try {
     defaults = await api("/api/defaults");
+    $("#app-version").textContent=`Версия ${defaults.version}`;
     $("#from").value = defaults.from;
     $("#to").value = defaults.to;
     $("#from").max = defaults.to;

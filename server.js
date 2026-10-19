@@ -1,3 +1,4 @@
+import { discoveryPreset, DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from "./lib/qualification.js";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -19,6 +20,8 @@ import {
   SOCIAL_QUERIES,
   socialCSV,
 } from "./lib/social-search.js";
+
+const APP_VERSION=JSON.parse(await readFile(new URL('./package.json',import.meta.url),'utf8')).version;
 
 export function createApp({
   provider = liveProvider(),
@@ -51,10 +54,12 @@ export function createApp({
   const files = {
     "/": ["index.html", "text/html"],
     "/criteria.js": ["criteria.js", "text/javascript"],
+    "/discovery.js": ["../lib/discovery.js", "text/javascript"],
     "/qualification.js": ["../lib/qualification.js", "text/javascript"],
     "/app.js": ["app.js", "text/javascript"],
     "/style.css": ["style.css", "text/css"],
     "/social": ["social.html", "text/html"],
+    "/help": ["help.html", "text/html"],
     "/social/": ["social.html", "text/html"],
     "/social.js": ["social.js", "text/javascript"],
   };
@@ -113,6 +118,7 @@ export function createApp({
       if (req.method === "GET" && url.pathname === "/api/health")
         return send(200, {
           status: "ok",
+          version: APP_VERSION,
           source: "Google Play",
           sourceCheck: "not-performed-by-health-endpoint",
         });
@@ -126,9 +132,11 @@ export function createApp({
       if (req.method === "GET" && apiPath === "/api/defaults")
         return send(200, {
           countries: COUNTRIES,
-          keywords: DEFAULT_KEYWORDS,
+          keywords: DISCOVERY_KEYWORDS,
+          version:APP_VERSION,
+          preset:discoveryPreset(COUNTRIES.map(c=>c.code)),
           excludeTerms: DEFAULT_EXCLUDE_TERMS,
-          ...calendarWindow(),
+          ...calendarWindow(new Date(),12),
         });
       if (req.method === "GET" && apiPath === "/api/active")
         return send(200, control.active());
@@ -153,6 +161,15 @@ export function createApp({
         req.headers["sec-fetch-site"] === "cross-site"
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
+      if(req.method==='POST' && url.pathname==='/api/connections/brave/test') {
+        if(!socialProvider.configured())return send(503,{error:'Ключ не задан. Выполните npm run configure и перезапустите программу.'});
+        try {
+          await socialProvider.search({q:'site:play.google.com/store/apps/details Stable.com',count:1,search_lang:'en'});
+          const verifiedAt=new Date().toISOString();
+          await store.update(draft=>{draft.connections??={};draft.connections.brave={verifiedAt};});
+          return send(200,{ok:true,verifiedAt,requests:1});
+        } catch {return send(502,{error:'Brave не ответил успешно. Проверьте ключ, активацию Search API и квоту. Значение ключа не отображается.'});}
+      }
       if (
         req.method === "POST" &&
         ["/api/search", "/api/schedule"].includes(apiPath)
@@ -199,7 +216,7 @@ export function createApp({
         if (req.method === "GET" && match[2] === "/export.csv") {
           if (job.status === "running")
             return send(409, { error: "Дождитесь завершения поиска." });
-          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? job.results : job.results.filter(entry => eligibleFinding(entry,control.summary().schedule.filters))}), "text/csv; charset=utf-8", {
+          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? job.results : job.results.filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${social ? "social-signals" : "play-finance"}.csv"`,
           });
         }

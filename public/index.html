@@ -15,24 +15,29 @@
     <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Рынок Европейского союза<small>27 стран · единый поиск</small></div></div>
   </aside>
   <main>
-    <header class="topbar"><span>Инструменты <span class="slash">/</span> Поиск приложений</span><a class="top-tag" href="/social">Сайты и публикации</a></header>
+    <header class="topbar"><span>Инструменты <span class="slash">/</span> Поиск приложений</span><a href="/help">Инструкция с нуля</a><a class="top-tag" href="/social">Сайты и публикации</a></header>
     <div class="page">
-      <div class="page-heading"><div><div class="eyebrow">ИССЛЕДОВАНИЕ РЫНКА</div><h1>Банки с бизнес-счётом и EU IBAN</h1><p>Финансовые приложения для бизнеса — по вашим критериям.</p></div><div class="region-label">✦ Европейский союз</div></div>
+      <div class="page-heading"><div><div class="eyebrow">ИССЛЕДОВАНИЕ РЫНКА</div><h1>Новые бизнес-счета и платёжные сервисы</h1><p>Google Play: сервисы вроде Stable.com и ваших примеров. EU IBAN проверяется отдельно.</p></div><div class="region-label">Цель: бизнес-счёт с EU IBAN</div></div>
       <div class="layout">
         <section class="panel filter-panel" aria-labelledby="filters-title">
           <div class="panel-heading"><h2 id="filters-title">Параметры поиска</h2><span class="small-badge">Финансы</span></div>
           <form id="search-form">
+            <button type="submit" class="primary-button" id="search-button"><span>⌕</span> Найти приложения</button>
+            <button type="button" class="cancel-button" id="cancel" hidden>Остановить поиск</button>
+            <p id="form-error" class="form-error" role="alert"></p>
+
             <fieldset id="filters"><legend class="sr-only">Фильтры приложений</legend>
-              <label for="keywords">Ключевые слова <span class="label-info">по одному на строку</span></label>
-              <textarea id="keywords" rows="4" required maxlength="1210">бизнес аккаунт
+              <label for="profile">Профиль поиска</label><select id="profile"><option value="business">Как ваши примеры · бизнес-счета, EMI, платёжные сервисы</option><option value="strict">Строго · бизнес-счёт, EU IBAN и лицензия</option></select><p class="hint">В основном режиме собственная банковская лицензия не обязательна. IBAN, EU IBAN и обслуживание бизнеса показываются отдельно: неизвестное не выдаётся за подтверждённое.</p>
+              <label for="eu-iban-mode">EU IBAN</label><select id="eu-iban-mode"><option value="prefer">Показывать похожие сервисы, неизвестный EU IBAN отмечать</option><option value="required">Требовать явное заявление об IBAN страны ЕС</option></select><label for="keywords">Ключевые слова <span class="label-info">по одному на строку</span></label>
+              <textarea id="keywords" rows="4" required maxlength="2410">бизнес аккаунт
 бизнес банк
 бизнес счет</textarea>
-              <button type="button" class="text-button" id="english">+ Добавить английские варианты</button>
+              <button type="button" class="outline-button" id="apply-preset">Настроить под ваши примеры</button><button type="button" class="text-button" id="english">+ Добавить английские варианты</button>
               <div class="divider"></div>
               <div class="field-row"><div><label for="category">Категория</label><select id="category"><option value="FINANCE">Финансы</option></select></div><div><label for="price">Стоимость</label><select id="price"><option>Бесплатные</option></select></div></div>
-              <label for="installs">Установок более</label><input id="installs" type="number" min="0" max="10000000000" step="1" value="100" required>
+              <label for="installs">Установок более · 0 для самых новых</label><input id="installs" type="number" min="0" max="10000000000" step="1" value="100" required>
               <p class="hint">Минимум диапазона Google Play, по всему миру. При пороге 100 диапазон «100+» исключается.</p>
-              <div class="label-row"><span class="field-label">Дата первого выпуска</span><button id="last-month" type="button" class="text-button">Последний месяц</button></div>
+              <label for="release-months">Период ежедневного поиска</label><select id="release-months"><option value="1">Последний месяц</option><option value="3">Последние 3 месяца</option><option value="6">Последние 6 месяцев</option><option value="12" selected>Последние 12 месяцев · стартовое исследование</option><option value="24">Последние 24 месяца</option></select><div class="label-row"><span class="field-label">Дата первого выпуска</span><button id="last-month" type="button" class="text-button">Последний месяц</button></div>
               <div class="field-row"><div><label class="sr-only" for="from">Выпущено с</label><input type="date" id="from" required></div><span class="date-dash">—</span><div><label class="sr-only" for="to">Выпущено по</label><input type="date" id="to" required></div></div>
               <p class="hint">Это первый выпуск приложения, а не дата обновления или появления бизнес-счёта.</p>
               <label class="schedule-toggle"><input type="checkbox" id="ignore-release-date"> За всё время · без ограничения даты выпуска</label>
@@ -41,21 +46,30 @@
               <div class="label-row"><span class="field-label">Страны ЕС <span id="country-count" class="count-badge">27</span></span><button type="button" id="toggle-countries" class="text-button">Выбрать страны</button></div>
               <p class="hint country-hint">Это страны выдачи магазина. IBAN проверяется отдельно по описанию и сведениям с сайта.</p>
               <div id="countries" hidden><div class="country-actions"><button type="button" id="all-countries" class="text-button">Выбрать все</button><button type="button" id="no-countries" class="text-button">Снять выбор</button></div><div id="country-list"></div></div>
+              <details id="advanced-search"><summary>Дополнительные источники и лимиты</summary>
+              <label for="phone-country">Страна аккаунта Google Play на телефоне · необязательно</label><input id="phone-country" type="text" maxlength="2" placeholder="RU, DE, GB…"><p class="hint">Добавляет поиск в этой стране. Это настройка выдачи, а не подтверждение страны банка или EU IBAN. Выдача на телефоне может быть персонализирована.</p><label for="search-plan">План поиска Google Play</label><select id="search-plan"><option value="balanced">Сбалансированный · все выбранные страны, больше запросов в 6 странах</option><option value="full">Полный · все запросы во всех выбранных странах</option></select>
+              <p id="plan-cost" class="hint"></p>
+              <label for="seed-apps">Образцы · ID или ссылки Google Play</label><textarea id="seed-apps" rows="3" placeholder="com.stablecom.app&#10;com.kleos.baas"></textarea>
+              <p class="hint">Образцы проверяются напрямую и помечаются. Они не считаются независимым доказательством качества поиска. По названию можно перепутать приложения: используйте ссылку «Поделиться» с телефона.</p>
+              <label for="reference-domains">Сайты образцов · поиск их карточек через Brave</label><textarea id="reference-domains" rows="3"></textarea><p class="hint">По одному домену на строку. Лимит Brave общий: до 20 обращений за запуск.</p><label class="schedule-toggle"><input type="checkbox" id="hide-established" checked> Скрывать известные крупные приложения</label>
+              <p class="hint">Revolut, Wise, PayPal, Payoneer, bunq, N26, Monzo, Starling и Klarna. Новизна приложения не доказывает новизну компании.</p>
+              <label class="schedule-toggle"><input type="checkbox" id="use-web-index" checked> Дополнять Google Play индексом Brave</label>
+              <details><summary>Дополнительные настройки</summary><label for="max-details">Максимум проверяемых карточек</label><select id="max-details"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="10000">Без дополнительного лимита</option></select><label class="schedule-toggle"><input type="checkbox" id="related-source"> Пробовать ссылки из карточек образцов</label><p class="hint">Google Play не всегда раскрывает их в веб-версии. Это дополнительный источник, его отсутствие не останавливает поиск.</p></details>
+              </details>
               <label for="limit">Глубина выдачи на запрос и страну</label><select id="limit"><option value="50">До 50 приложений</option><option value="100" selected>До 100 приложений</option><option value="250">До 250 приложений</option></select>
               <p class="hint">Поисковая выдача Google Play не охватывает весь каталог. Полный проход может занять несколько минут.</p>
 
               <div class="divider"></div>
-              <label class="schedule-toggle"><input id="strict-banking" type="checkbox" checked> Только бизнес-счета с EU IBAN</label>
+              <div id="strict-controls">
+              <label class="schedule-toggle"><input id="strict-banking" type="checkbox" checked> Требовать явное подтверждение всех трёх признаков</label>
               <label for="institution-type">Тип организации</label><select id="institution-type"><option value="bank">Банк · требуется заявление о банковской лицензии</option><option value="bank_or_emi">Банк или платёжная организация / EMI</option></select>
-              <p class="hint">Нужны три признака в тексте: счёт для бизнеса, выдача IBAN страны ЕС и лицензия. SEPA и GB/CH IBAN сами по себе не подходят. Если сведений не хватает, подходящий по теме европейский бизнес-счёт сохраняется отдельно в «На проверку». Это ещё не совпадение с критериями. Текстовые признаки требуют проверки по реестру и условиям банка.</p>
+              <p class="hint">Нужны три признака в тексте: счёт для бизнеса, выдача IBAN страны ЕС и лицензия. SEPA и GB/CH IBAN сами по себе не подходят. Если сведений не хватает, подходящий по теме европейский бизнес-счёт сохраняется отдельно в «На проверку». Это ещё не совпадение с критериями. Эта галочка нужна для строгого режима. В режиме ваших примеров признаки служат для оценки, а не отсечения EMI.</p>
+              </div>
               <label for="exclude-terms">Исключить слова и фразы</label><textarea id="exclude-terms" rows="5" placeholder="По одному на строку: UPI, IFSC, название банка"></textarea>
               <p class="hint">Каждая строка — отдельное исключение в названии, разработчике или описании. Без регулярных выражений. Удалите ненужные исключения стран.</p>
               <details><summary>Исключить приложения и сайты</summary><label for="exclude-ids">ID приложений Google Play</label><textarea id="exclude-ids" rows="3" placeholder="com.example.app"></textarea><label for="exclude-domains">Домены сайтов</label><textarea id="exclude-domains" rows="3" placeholder="example.com"></textarea></details>
               <p class="hint">Для ежедневного применения исключений нажмите «Сохранить расписание».</p>
-            <p id="evidence-connection" class="hint"></p><p class="hint">При подключённом Brave дополнительно проверяем индекс сайта разработчика: до 20 обращений API за запуск. Без ключа — только описание Google Play.</p></fieldset>
-            <button type="submit" class="primary-button" id="search-button"><span>⌕</span> Найти приложения</button>
-            <button type="button" class="cancel-button" id="cancel" hidden>Остановить поиск</button>
-            <p id="form-error" class="form-error" role="alert"></p>
+            <p id="evidence-connection" class="hint"></p><button id="test-brave" type="button" class="outline-button">Проверить ключ Brave · 1 запрос</button><p id="brave-feedback" class="hint" role="status"></p><p class="hint">При подключённом Brave: 2 запроса по карточкам Google Play и дополнительные проверки сайтов — всего до 20 обращений API за запуск. Без ключа — только описание Google Play.</p></fieldset>
           </form>
         </section>
         <div class="results-column">
@@ -64,12 +78,12 @@
             <div class="schedule-body">
               <div class="schedule-controls"><label class="schedule-toggle"><input type="checkbox" id="schedule-enabled"> Автоматически каждый день</label><div><label for="schedule-time">Время · Калининград (UTC+2)</label><input type="time" id="schedule-time" value="09:00" required></div><button id="save-schedule" class="outline-button" type="button" disabled>Сохранить расписание</button></div>
               <p id="schedule-next" class="schedule-next" role="status"></p>
-              <p class="hint">Для расписания сохраняются запросы, страны и порог установок из формы слева. Период обновляется на последний месяц, кроме включённого режима «За всё время». Исключения и банковские критерии также сохраняются. Ранее найденные приложения повторно не добавляются.</p>
+              <p class="hint">Для расписания сохраняются запросы, страны и порог установок из формы слева. Период пересчитывается на выбранное число месяцев, кроме включённого режима «За всё время». Исключения и банковские критерии также сохраняются. Ранее найденные приложения повторно не добавляются.</p>
               <p class="hint runtime-hint">Компьютер должен быть включён, а программа запущена. Пропущенный запуск выполняется при следующем включении программы. Открытый браузер не обязателен.</p>
               <p id="schedule-feedback" class="schedule-feedback" role="status"></p>
             </div>
           </section>
-          <section class="summary-grid" aria-label="Обзор поиска"><div class="stat"><span>Новых за поиск</span><strong id="result-count">—</strong><small>Ранее найденные исключены</small></div><div class="stat"><span>Проверено карточек</span><strong id="checked-count">—</strong><small id="check-caption">Бизнес-счёт, EU IBAN и заявленная лицензия</small></div><div class="stat"><span>География</span><strong id="geo-count">27 <em>стран</em></strong><small>Присутствие хотя бы в одной</small></div></section>
+          <section class="summary-grid" aria-label="Обзор поиска"><div class="stat"><span>Новых за поиск</span><strong id="result-count">—</strong><small>Ранее найденные исключены</small></div><div class="stat"><span>Проверено карточек</span><strong id="checked-count">—</strong><small id="check-caption">Профиль сервиса и сведения о бизнесе / IBAN</small></div><div class="stat"><span>География</span><strong id="geo-count">27 <em>стран</em></strong><small>Страны выдачи, не страна IBAN</small></div></section>
           <section class="panel results-panel" aria-labelledby="results-title"><div class="panel-heading results-heading"><div><h2 id="results-title">Результаты поиска</h2><p id="results-caption">Новые приложения появятся здесь</p></div><button id="export" type="button" class="outline-button" disabled>↓ Экспорт CSV</button></div>
             <div class="result-tabs" role="group" aria-label="Показать результаты"><button type="button" id="view-latest" class="selected" aria-pressed="true">Новые за последний поиск</button><button type="button" id="view-history" aria-pressed="false">Все находки <span id="history-count">0</span></button><button type="button" id="view-candidates" aria-pressed="false">На проверку <span id="candidate-count">0</span></button></div>
             <label class="archive-toggle"><input type="checkbox" id="show-archive"> Показать архив и результаты без подтверждения критериев</label>
@@ -77,13 +91,13 @@
             <div id="search-explanation" class="notice" role="status" hidden></div>
             <div id="notice" class="notice" role="status" hidden></div>
             <div id="empty-state" class="empty-state"><div class="search-illustration"><span>⌕</span><i>✦</i></div><h3>Следующее открытие начинается с поиска</h3><p>Мы проверим выдачу Google Play в странах ЕС<br>и оставим приложения, подходящие под ваши фильтры.</p><div class="filter-chips"><span>Финансы</span><span>Бесплатные</span><span>Новые релизы</span></div></div>
-            <div class="table-wrap" id="table-wrap" hidden><table><thead><tr><th>Приложение</th><th><button class="sort-button" data-sort="released">Дата выпуска ↕</button></th><th><button class="sort-button" data-sort="minInstalls">Установки ↕</button></th><th>Выдача Google Play</th><th>Рейтинг</th><th><button class="sort-button" data-sort="firstFoundAt">Впервые найдено ↕</button></th><th><span class="sr-only">Ссылка</span></th></tr></thead><tbody id="results-body"></tbody></table></div>
+            <div class="table-wrap" id="table-wrap" hidden><table><thead><tr><th>Приложение</th><th><button class="sort-button" data-sort="released">Дата выпуска ↕</button></th><th><button class="sort-button" data-sort="minInstalls">Установки ↕</button></th><th>Проверено в Google Play</th><th>Рейтинг</th><th><button class="sort-button" data-sort="firstFoundAt">Впервые найдено ↕</button></th><th><span class="sr-only">Ссылка</span></th></tr></thead><tbody id="results-body"></tbody></table></div>
             <details id="diagnostics" hidden><summary>Подробности проверки</summary><div id="diagnostics-content"></div></details>
           </section>
           <div class="source-note"><span>ⓘ</span><p>Страны означают присутствие в поисковой выдаче, а не подтверждение установки с конкретного аккаунта. Бесплатная загрузка не исключает платных банковских услуг или покупок внутри приложения.</p></div>
         </div>
       </div>
-      <footer>PLAY SCOUT <span>Google Play · проверка сайтов через Brave при наличии ключа</span></footer>
+      <footer>PLAY SCOUT <span id="app-version">Версия 2.0</span><span>Google Play · проверка сайтов через Brave при наличии ключа</span></footer>
     </div>
   </main>
 </body>
