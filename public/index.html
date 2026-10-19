@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#133f35"><title>Play Scout — поиск финансовых приложений</title>
+  <link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Play Scout, главная"><span class="brand-icon">▷</span> play<span>scout</span></a>
+    <div class="workspace-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+    <a href="/" class="nav-item active"><span>⌕</span> Поиск приложений</a>
+    <a href="/social" class="nav-item"><span>◎</span> LinkedIn / Facebook</a>
+    <div class="sidebar-note"><span class="status-dot"></span> Источник: Google Play<br><small>Публичная поисковая выдача</small></div>
+    <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Рынок Европейского союза<small>27 стран · единый поиск</small></div></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>Инструменты <span class="slash">/</span> Поиск приложений</span><a class="top-tag" href="/social">LinkedIn / Facebook</a></header>
+    <div class="page">
+      <div class="page-heading"><div><div class="eyebrow">ИССЛЕДОВАНИЕ РЫНКА</div><h1>Найдите новые финтех-приложения</h1><p>Финансовые приложения для бизнеса — по вашим критериям.</p></div><div class="region-label">✦ Европейский союз</div></div>
+      <div class="layout">
+        <section class="panel filter-panel" aria-labelledby="filters-title">
+          <div class="panel-heading"><h2 id="filters-title">Параметры поиска</h2><span class="small-badge">Финансы</span></div>
+          <form id="search-form">
+            <fieldset id="filters"><legend class="sr-only">Фильтры приложений</legend>
+              <label for="keywords">Ключевые слова <span class="label-info">по одному на строку</span></label>
+              <textarea id="keywords" rows="4" required maxlength="1210">бизнес аккаунт
+бизнес банк
+бизнес счет</textarea>
+              <button type="button" class="text-button" id="english">+ Добавить английские варианты</button>
+              <div class="divider"></div>
+              <div class="field-row"><div><label for="category">Категория</label><select id="category"><option value="FINANCE">Финансы</option></select></div><div><label for="price">Стоимость</label><select id="price"><option>Бесплатные</option></select></div></div>
+              <label for="installs">Установок более</label><input id="installs" type="number" min="0" max="10000000000" step="1" value="100" required>
+              <p class="hint">Минимум диапазона Google Play, по всему миру. При пороге 100 диапазон «100+» исключается.</p>
+              <div class="label-row"><span class="field-label">Дата первого выпуска</span><button id="last-month" type="button" class="text-button">Последний месяц</button></div>
+              <div class="field-row"><div><label class="sr-only" for="from">Выпущено с</label><input type="date" id="from" required></div><span class="date-dash">—</span><div><label class="sr-only" for="to">Выпущено по</label><input type="date" id="to" required></div></div>
+              <p class="hint">По дате релиза, а не обновления. Приложения без даты релиза исключаются.</p>
+              <div class="divider"></div>
+              <div class="label-row"><span class="field-label">Страны ЕС <span id="country-count" class="count-badge">27</span></span><button type="button" id="toggle-countries" class="text-button">Выбрать страны</button></div>
+              <p class="hint country-hint">Достаточно присутствия в выдаче одной выбранной страны.</p>
+              <div id="countries" hidden><div class="country-actions"><button type="button" id="all-countries" class="text-button">Выбрать все</button><button type="button" id="no-countries" class="text-button">Снять выбор</button></div><div id="country-list"></div></div>
+              <label for="limit">Глубина выдачи на запрос и страну</label><select id="limit"><option value="50">До 50 приложений</option><option value="100" selected>До 100 приложений</option><option value="250">До 250 приложений</option></select>
+              <p class="hint">Поисковая выдача Google Play не охватывает весь каталог. Полный проход может занять несколько минут.</p>
+            </fieldset>
+            <button type="submit" class="primary-button" id="search-button"><span>⌕</span> Найти приложения</button>
+            <button type="button" class="cancel-button" id="cancel" hidden>Остановить поиск</button>
+            <p id="form-error" class="form-error" role="alert"></p>
+          </form>
+        </section>
+        <div class="results-column">
+          <section class="panel schedule-panel" aria-labelledby="schedule-title">
+            <div class="panel-heading"><h2 id="schedule-title">Ежедневный поиск</h2><span class="small-badge" id="schedule-badge">Загрузка…</span></div>
+            <div class="schedule-body">
+              <div class="schedule-controls"><label class="schedule-toggle"><input type="checkbox" id="schedule-enabled"> Автоматически каждый день</label><div><label for="schedule-time">Время · Калининград (UTC+2)</label><input type="time" id="schedule-time" value="09:00" required></div><button id="save-schedule" class="outline-button" type="button" disabled>Сохранить расписание</button></div>
+              <p id="schedule-next" class="schedule-next" role="status"></p>
+              <p class="hint">Для расписания сохраняются запросы, страны и порог установок из формы слева. Период всегда обновляется: последний месяц на день поиска. Ранее найденные приложения повторно не добавляются.</p>
+              <p class="hint runtime-hint">Компьютер должен быть включён, а программа запущена. Пропущенный запуск выполняется при следующем включении программы. Открытый браузер не обязателен.</p>
+              <p id="schedule-feedback" class="schedule-feedback" role="status"></p>
+            </div>
+          </section>
+          <section class="summary-grid" aria-label="Обзор поиска"><div class="stat"><span>Новых за поиск</span><strong id="result-count">—</strong><small>Ранее найденные исключены</small></div><div class="stat"><span>Проверено карточек</span><strong id="checked-count">—</strong><small id="check-caption">Дата выпуска, категория и установки</small></div><div class="stat"><span>География</span><strong id="geo-count">27 <em>стран</em></strong><small>Присутствие хотя бы в одной</small></div></section>
+          <section class="panel results-panel" aria-labelledby="results-title"><div class="panel-heading results-heading"><div><h2 id="results-title">Результаты поиска</h2><p id="results-caption">Новые приложения появятся здесь</p></div><button id="export" type="button" class="outline-button" disabled>↓ Экспорт CSV</button></div>
+            <div class="result-tabs" role="group" aria-label="Показать результаты"><button type="button" id="view-latest" class="selected" aria-pressed="true">Новые за последний поиск</button><button type="button" id="view-history" aria-pressed="false">Все находки <span id="history-count">0</span></button></div>
+            <div id="progress-area" hidden><div class="progress-label"><span id="progress-text"></span><span id="progress-count"></span></div><progress id="progress" max="100" value="0"></progress><p id="current-task" class="hint"></p></div>
+            <div id="notice" class="notice" role="status" hidden></div>
+            <div id="empty-state" class="empty-state"><div class="search-illustration"><span>⌕</span><i>✦</i></div><h3>Следующее открытие начинается с поиска</h3><p>Мы проверим выдачу Google Play в странах ЕС<br>и оставим приложения, подходящие под ваши фильтры.</p><div class="filter-chips"><span>Финансы</span><span>Бесплатные</span><span>Новые релизы</span></div></div>
+            <div class="table-wrap" id="table-wrap" hidden><table><thead><tr><th>Приложение</th><th><button class="sort-button" data-sort="released">Дата выпуска ↕</button></th><th><button class="sort-button" data-sort="minInstalls">Установки ↕</button></th><th>Найдено в ЕС</th><th>Рейтинг</th><th><button class="sort-button" data-sort="firstFoundAt">Впервые найдено ↕</button></th><th><span class="sr-only">Ссылка</span></th></tr></thead><tbody id="results-body"></tbody></table></div>
+            <details id="diagnostics" hidden><summary>Подробности проверки</summary><div id="diagnostics-content"></div></details>
+          </section>
+          <div class="source-note"><span>ⓘ</span><p>Страны означают присутствие в поисковой выдаче, а не подтверждение установки с конкретного аккаунта. Бесплатная загрузка не исключает платных банковских услуг или покупок внутри приложения.</p></div>
+        </div>
+      </div>
+      <footer>PLAY SCOUT <span>Данные по запросу · без API-ключа</span></footer>
+    </div>
+  </main>
+</body>
+</html>

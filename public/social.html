@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#133f35"><title>Play Scout — сигналы о новых необанках</title>
+  <link rel="stylesheet" href="/style.css"><script src="/social.js" defer></script>
+</head>
+<body class="social-page">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Play Scout"><span class="brand-icon">▷</span> play<span>scout</span></a>
+    <div class="workspace-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+    <a href="/" class="nav-item"><span>⌕</span> Поиск приложений</a>
+    <a href="/social" class="nav-item active"><span>◎</span> LinkedIn / Facebook</a>
+    <div class="sidebar-note">Публичные публикации<br><small>Поисковый индекс Brave</small></div>
+    <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Европейский финтех<small>Сигналы о запуске бизнес-банкинга</small></div></div>
+  </aside>
+  <main>
+    <header class="topbar"><a href="/">Google Play</a><a href="/social">LinkedIn / Facebook</a><span class="top-tag">ПУБЛИЧНЫЕ ПОСТЫ</span></header>
+    <div class="page">
+      <div class="page-heading"><div><div class="eyebrow">МОНИТОРИНГ РЫНКА</div><h1>Новые необанки для бизнеса в Европе</h1><p>Публичные публикации LinkedIn и Facebook о запуске банков и бизнес-счетов.</p></div></div>
+      <div id="social-connection" class="notice connection-notice" role="status">Проверяем подключение…</div>
+      <div class="layout">
+        <section class="panel filter-panel" aria-labelledby="social-filters-title">
+          <div class="panel-heading"><h2 id="social-filters-title">Поиск публикаций</h2><span class="small-badge">Европа</span></div>
+          <form id="social-form">
+            <fieldset id="social-filters"><legend class="sr-only">Фильтры публикаций</legend>
+              <span class="field-label">Источники</span>
+              <div class="social-source-options"><label><input type="checkbox" id="source-linkedin" value="linkedin" checked> LinkedIn</label><label><input type="checkbox" id="source-facebook" value="facebook" checked> Facebook</label></div>
+              <label for="social-queries">Поисковые запросы</label><textarea id="social-queries" rows="12" required maxlength="2010"></textarea>
+              <p class="hint">Один запрос на строку. По умолчанию ищем признаки запуска на английском и русском; можно добавить другие языки и европейские страны. Регион должен упоминаться в заголовке или фрагменте.</p>
+              <label for="social-freshness">Свежесть результатов поисковика</label><select id="social-freshness"><option value="7">Последние 7 дней</option><option value="30" selected>Последние 30 дней</option></select>
+              <p class="hint">Поисковик может учитывать обновление страницы. Это не подтверждение даты публикации или основания банка.</p>
+              <label for="social-limit">Результатов на запрос и соцсеть</label><select id="social-limit"><option value="10">До 10</option><option value="20" selected>До 20</option></select>
+              <p id="social-cost" class="hint">По умолчанию 8 обращений к поисковому API за один запуск, без дополнительных страниц выдачи. Повторный ручной запуск тоже расходует лимит.</p>
+            </fieldset>
+            <button id="social-search" class="primary-button" type="submit" disabled>Найти новые публикации</button>
+            <button id="social-cancel" class="cancel-button" type="button" hidden>Остановить поиск</button>
+            <p id="social-error" class="form-error" role="alert"></p>
+          </form>
+        </section>
+        <div class="results-column">
+          <section class="panel schedule-panel" aria-labelledby="social-schedule-title">
+            <div class="panel-heading"><h2 id="social-schedule-title">Ежедневный мониторинг</h2><span id="social-schedule-badge" class="small-badge">Загрузка…</span></div>
+            <div class="schedule-body"><div class="schedule-controls"><label class="schedule-toggle"><input id="social-enabled" type="checkbox"> Каждый день</label><div><label for="social-time">Калининград · UTC+2</label><input id="social-time" type="time" value="09:15" required></div><button id="social-save" class="outline-button" type="button" disabled>Сохранить расписание</button></div>
+            <p id="social-next" class="schedule-next"></p><p class="hint">Запросы, источники и свежесть из формы сохраняются отдельно от Google Play. Браузер можно закрыть; сервер должен продолжать работать.</p><p id="social-saved" class="schedule-feedback" role="status"></p></div>
+          </section>
+          <section class="summary-grid"><div class="stat"><span>Новых за поиск</span><strong id="social-new-count">—</strong><small>Повторные ссылки исключены</small></div><div class="stat"><span>Просмотрено результатов</span><strong id="social-scanned">—</strong><small>Отбор по теме и региону</small></div><div class="stat"><span>Всего сигналов</span><strong id="social-total">0</strong><small>Сохраняются после перезапуска</small></div></section>
+          <section class="panel results-panel">
+            <div class="panel-heading results-heading"><div><h2>Публикации о запусках</h2><p id="social-caption">Ожидаем первого поиска</p></div><button id="social-export" class="outline-button" disabled>↓ Экспорт CSV</button></div>
+            <div class="result-tabs" role="group" aria-label="Результаты публикаций"><button id="social-latest" class="selected" aria-pressed="true">Новые за последний поиск</button><button id="social-history" aria-pressed="false">Все сигналы</button></div>
+            <div id="social-progress" class="social-progress" hidden><p id="social-progress-text"></p><progress id="social-progress-bar" max="1" value="0"></progress><p id="social-current" class="hint"></p></div>
+            <div id="social-notice" class="notice" hidden role="status"></div>
+            <div id="social-empty" class="empty-state"><div class="search-illustration"><span>⌕</span><i>✦</i></div><h3>Сигналы о новых запусках появятся здесь</h3><p>Проверяем публичную выдачу и сохраняем<br>только ранее не найденные подходящие публикации.</p></div>
+            <div id="social-posts" class="social-posts"></div>
+            <details id="social-diagnostics" hidden><summary>Подробности отбора</summary><div id="social-diagnostics-content"></div></details>
+          </section>
+          <div class="source-note"><span>ⓘ</span><p>Каждая находка требует проверки: новый бизнес-счёт может быть продуктом давно существующего банка. Регион определяется по тексту; лицензия, дата основания и доступность услуг не подтверждены. Поиск охватывает индексируемые публичные посты, полнота выдачи не гарантируется.</p></div>
+        </div>
+      </div>
+      <footer>PLAY SCOUT <span>Публикации · Brave Search API</span></footer>
+    </div>
+  </main>
+</body>
+</html>

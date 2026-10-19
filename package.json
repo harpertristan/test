@@ -1,0 +1,30 @@
+{
+  "name": "play-finance-finder",
+  "version": "1.2.0",
+  "description": "Поиск новых финансовых приложений Google Play в странах ЕС",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harpertristan/test.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bugs": {
+    "url": "https://github.com/harpertristan/test/issues"
+  },
+  "homepage": "https://github.com/harpertristan/test#readme",
+  "dependencies": {
+    "google-play-scraper": "10.1.4",
+    "https-proxy-agent": "7.0.6"
+  }
+}
