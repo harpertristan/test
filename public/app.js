@@ -1,9 +1,10 @@
-import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
+import { readCriteria, applyCriteria, renderEvidence, filterRows, filterCandidates } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
 let defaults;
 let job;
 let pollTimer;
 let historyRows = [];
+let candidateRows = [];
 let view = "latest";
 let monitorData;
 let scheduleDirty = false;
@@ -16,8 +17,8 @@ const countries = () =>
     (el) => el.value,
   );
 const format = (value) => new Intl.NumberFormat("ru-RU").format(value);
-const formatDate = (value) =>
-  new Intl.DateTimeFormat("ru-RU").format(new Date(`${value}T12:00:00Z`));
+const formatDate = (value) => value ?
+  new Intl.DateTimeFormat("ru-RU").format(new Date(`${value}T12:00:00Z`)) : "Не указана";
 const formatInstant = (value) =>
   new Intl.DateTimeFormat("ru-RU", {
     timeZone: "Europe/Kaliningrad",
@@ -31,6 +32,7 @@ const readConfig = () => ({
     .map((k) => k.trim())
     .filter(Boolean),
   countries: countries(),
+  ignoreReleaseDate: $("#ignore-release-date").checked,
   from: $("#from").value,
   to: $("#to").value,
   minInstalls: Number($("#installs").value),
@@ -39,6 +41,8 @@ const readConfig = () => ({
 
 function applyConfig(config, rolling = false) {
   applyCriteria(config);
+  $("#ignore-release-date").checked=config.ignoreReleaseDate ?? false;
+  syncDateMode();
   $("#keywords").value = config.keywords.join("\n");
   $("#installs").value = config.minInstalls;
   $("#limit").value = config.limit;
@@ -74,9 +78,15 @@ function cell(text, className) {
   return el;
 }
 
+function currentRows() {
+  return view === 'candidates' ? filterCandidates(candidateRows) : filterRows(view === 'history' ? historyRows : (job?.results ?? []));
+}
+function syncDateMode() {
+  for (const id of ['#from','#to']) $(id).disabled=$('#ignore-release-date').checked;
+}
 function renderRows() {
   const rows = [
-    ...filterRows(view === "history" ? historyRows : (job?.results ?? [])),
+    ...currentRows(),
   ].sort((a, b) => {
     const av = a[sortKey] ?? "",
       bv = b[sortKey] ?? "";
@@ -150,24 +160,31 @@ function renderRows() {
 
 function renderView() {
   const history = view === "history";
-  $("#view-latest").classList.toggle("selected", !history);
+  const review = view === "candidates";
+  $("#view-latest").classList.toggle("selected", !history && !review);
   $("#view-history").classList.toggle("selected", history);
-  $("#view-latest").setAttribute("aria-pressed", String(!history));
+  $("#view-latest").setAttribute("aria-pressed", String(!history && !review));
   $("#view-history").setAttribute("aria-pressed", String(history));
-  $("#results-title").textContent = history
+  $("#view-candidates").classList.toggle("selected",review);
+  $("#view-candidates").setAttribute("aria-pressed",String(review));
+  $("#results-title").textContent = review ? "Кандидаты: данных для подтверждения не хватает" : history
     ? "Все уникальные находки"
     : "Новые приложения";
-  const rows = filterRows(history ? historyRows : (job?.results ?? []));
+  const rows = currentRows();
   if (job) $("#result-count").textContent = format(filterRows(job.results).length);
   $("#table-wrap").hidden = !rows.length;
-  $("#export").disabled = history
+  $("#export").disabled = (history || review)
     ? !rows.length
     : !rows.length || job?.status === "running";
-  $("#diagnostics").hidden = history || !job || job.status === "running";
+  $("#diagnostics").hidden = history || review || !job || job.status === "running";
   $("#empty-state").hidden =
     !!rows.length ||
-    (!history && (job?.status === "running" || job?.status === "failed"));
-  if (history) {
+    (!history && !review && (job?.status === "running" || job?.status === "failed"));
+  if (review) {
+    $('#results-caption').textContent=`На проверку: ${rows.length}. Бизнес-счёт с европейскими признаками; EU IBAN или лицензия ещё не подтверждены.`;
+    $('#empty-state h3').textContent='Кандидатов для проверки пока нет';
+    $('#empty-state p').textContent='Здесь сохраняются подходящие по теме кандидаты с неполными сведениями, прошедшие фильтры даты, категории и установок.';
+  } else if (history) {
     $("#results-caption").textContent =
       `Сохранено приложений: ${format(historyRows.length)} · каждое добавлено один раз`;
     $("#empty-state h3").textContent = "История находок пока пуста";
@@ -182,7 +199,7 @@ function renderView() {
       cancelled: "Поиск остановлен",
     };
     $("#results-caption").textContent =
-      `${names[job.status]} · ${formatDate(job.config.from)} — ${formatDate(job.config.to)}`;
+      `${names[job.status]} · ${job.config.ignoreReleaseDate ? "за всё время" : `${formatDate(job.config.from)} — ${formatDate(job.config.to)}`}`;
     $("#empty-state h3").textContent =
       job.status === "complete"
         ? "Новых приложений пока нет"
@@ -191,7 +208,20 @@ function renderView() {
       "Ранее найденные приложения исключены. Сохранённый список доступен во вкладке «Все находки».";
   }
   if (job && !job.config.strictBanking && readCriteria().strictBanking) $("#results-caption").textContent += " · старый поиск, требуется перепроверка";
+  renderExplanation();
   renderRows();
+}
+function renderExplanation() {
+  const box=$('#search-explanation');
+  box.hidden=!job || job.status==='running' || view!=='latest';
+  if(box.hidden)return;
+  const skipped=job.skipped;
+  const lines=[`Проверено: ${job.detailDone}. Другая категория: ${skipped.category || 0}. Вне даты первого выпуска: ${skipped.date || 0}. Недостаточно банковских признаков: ${skipped.banking || 0}.`];
+  if(skipped.date && !job.config.ignoreReleaseDate) lines.push('Расширение даты не обновляет старые приложения: здесь учитывается их самый первый выпуск. Для проверки поиска можно выбрать «За всё время».');
+  if((monitorData?.totalCandidates || job.reviewCandidates?.length || 0)>0)lines.push('Кандидаты с неполными данными доступны во вкладке «На проверку».');
+  if(!monitorData?.evidenceConnection?.configured)lines.push('Ключ Brave не подключён: сайт разработчика пока не проверяется. Настройка: npm run configure, затем npm start.');
+  if(job.results.length===0 && job.config.keywords.every(q=>/[а-яё]/iu.test(q)))lines.push('Использованы только русские запросы. Нажмите «Добавить английские варианты» для поиска европейских приложений.');
+  box.textContent=lines.join(' ');
 }
 
 function renderMonitor(data) {
@@ -220,6 +250,8 @@ function renderMonitor(data) {
     $("#schedule-next").textContent +=
       " Последний автопоиск не завершён полностью; подробности в результатах.";
   $("#history-count").textContent = format(data.totalFindings);
+  $('#candidate-count').textContent=format(data.totalCandidates ?? 0);
+  $('#evidence-connection').textContent=data.evidenceConnection?.configured ? 'Ключ Brave задан. Проверка сайта выполняется при поиске, если описания недостаточно.' : 'Ключ Brave не подключён. Проверяется только описание. Для сайтов выполните npm run configure и перезапустите программу.';
 }
 
 async function refreshMonitor() {
@@ -229,6 +261,7 @@ async function refreshMonitor() {
     const data = await api("/api/monitor");
     renderMonitor(data);
     if (view === "history") historyRows = await api("/api/findings?all=1");
+    if (view === "candidates") candidateRows = await api("/api/candidates");
     const id = data.activeJobId || data.latestJobId;
     if (id && job?.id !== id) {
       clearTimeout(pollTimer);
@@ -270,7 +303,7 @@ function renderJob(next) {
     cancelled: "Поиск остановлен",
   };
   $("#results-caption").textContent =
-    `${statusText[job.status]} · ${formatDate(job.config.from)} — ${formatDate(job.config.to)}`;
+    `${statusText[job.status]} · ${job.config.ignoreReleaseDate ? "за всё время" : `${formatDate(job.config.from)} — ${formatDate(job.config.to)}`}`;
   $("#progress-area").hidden = !running;
   const details = job.phase === "details";
   const done = details ? job.detailDone : job.searchDone;
@@ -335,6 +368,9 @@ function renderJob(next) {
   ];
   for (const [key, value] of Object.entries(job.skipped))
     if (value) lines.push(`${reasons[key]}: ${value}.`);
+  const missingNames={business:'Счёт для бизнеса',euIban:'IBAN страны ЕС',licence:'Заявленная лицензия'};
+  for(const [reason,count] of Object.entries(job.bankingMissing ?? {})) if(count) lines.push(`Не найдено: ${missingNames[reason]} — ${count}.`);
+  for(const example of job.filterExamples ?? []) lines.push(`${example.title} · первый выпуск ${example.released || 'не указан'} · ${reasons[example.reason] || example.reason}${example.reason==='banking' ? ` · нет: ${example.missing.map(key=>missingNames[key]).join(', ')}` : ''}`);
   for (const error of job.errors)
     lines.push(
       `${[error.country, error.keyword, error.appId].filter(Boolean).join(" · ")}: ${error.message}`,
@@ -397,9 +433,15 @@ $("#cancel").addEventListener("click", async () => {
   }
 });
 $("#export").addEventListener("click", () => {
-  if (view === "history") window.location.assign(`/api/findings/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
+  if (view === "candidates") window.location.assign("/api/candidates/export.csv");
+  else if (view === "history") window.location.assign(`/api/findings/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
   else if (job) window.location.assign(`/api/jobs/${job.id}/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
 });
+$('#view-candidates').addEventListener('click',async()=>{
+  try {candidateRows=await api('/api/candidates');view='candidates';renderView();}
+  catch(error){$('#form-error').textContent=error.message;}
+});
+$('#ignore-release-date').addEventListener('change',syncDateMode);
 $("#view-latest").addEventListener("click", () => {
   view = "latest";
   renderView();

@@ -134,6 +134,8 @@ export function createApp({
         return send(200, control.active());
       if (req.method === "GET" && apiPath === "/api/monitor")
         return send(200, control.summary());
+      if (req.method === "GET" && apiPath === "/api/candidates") return send(200,control.candidates());
+      if (req.method === "GET" && apiPath === "/api/candidates/export.csv") return send(200,exportCSV({results:control.candidates(),status:'needs_review'}),"text/csv; charset=utf-8",{"Content-Disposition":'attachment; filename="candidates.csv"'});
       if (req.method === "GET" && apiPath === "/api/findings")
         return send(200, control.findings({ all: url.searchParams.get("all") === "1" }));
       if (req.method === "GET" && apiPath === "/api/findings/export.csv") {

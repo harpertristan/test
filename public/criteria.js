@@ -1,4 +1,4 @@
-import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from './qualification.js';
+import { DEFAULT_EXCLUDE_TERMS, eligibleFinding, reviewCandidate } from './qualification.js';
 const $ = s => document.querySelector(s);
 const lines = id => $(id).value.split('\n').map(s=>s.trim()).filter(Boolean);
 export function readCriteria() {
@@ -14,10 +14,11 @@ export function applyCriteria(config) {
 export function filterRows(rows) {
   return $('#show-archive').checked ? rows : rows.filter(row=>eligibleFinding(row,readCriteria()));
 }
+export function filterCandidates(rows) { return rows.filter(row => reviewCandidate(row,readCriteria())); }
 export function renderEvidence(entry) {
   const box=document.createElement('details'); box.className='bank-evidence';
   const summary=document.createElement('summary');
-  summary.textContent=entry.qualification?.status==='text_matches'?'Есть текстовые признаки · проверить':'Критерии не подтверждены · архив';box.append(summary);
+  summary.textContent=entry.qualification?.status==='text_matches'?'Есть текстовые признаки · проверить':entry.qualification?.isCandidate?'Кандидат · данных недостаточно':'Критерии не подтверждены · архив';box.append(summary);
   const names={business:'Счёт для бизнеса',euIban:'IBAN страны ЕС',licence:'Заявленная лицензия'};
   for(const [key,name] of Object.entries(names)) {
     const title=document.createElement('strong');title.textContent=name;box.append(title);
