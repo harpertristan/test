@@ -1,12 +1,13 @@
 {
   "name": "play-finance-finder",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Поиск новых финансовых приложений Google Play в странах ЕС",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js"
+    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js && node --check lib/qualification.js && node --check public/criteria.js && node --check scripts/configure-brave.js",
+    "configure": "node scripts/configure-brave.js"
   },
   "repository": {
     "type": "git",

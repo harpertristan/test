@@ -19,6 +19,7 @@ const bank = (id = "com.example.bank", patch = {}) => ({
   appId: id,
   title: "Business Bank",
   developer: "Test",
+  description: "Open a business account with a German IBAN. We are a licensed bank.",
   genreId: "FINANCE",
   free: true,
   price: 0,
@@ -376,7 +377,7 @@ test("HTTP: schedules persist and history export contains every app only once ac
   const exported = await (
     await fetch(`${base}/api/findings/export.csv`)
   ).text();
-  assert.equal(exported.match(/com\.example\.bank/g).length, 2); // ID column and URL, exactly one row
+  assert.equal(exported.trim().split(/\r?\n/).length, 2); // one header and exactly one data row, including evidence URLs
   const status = await (await fetch(`${base}/api/monitor`)).json();
   assert.equal(status.totalFindings, 1);
   assert.equal(status.schedule.enabled, false);

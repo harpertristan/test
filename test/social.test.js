@@ -26,7 +26,7 @@ const filters = {
 const config = validateSocialConfig(filters, now);
 const post = (patch = {}) => ({
   title: "Acme neobank launches business accounts in Germany",
-  description: "A new digital bank for SME customers in Europe.",
+  description: "Open a business account with a German IBAN. We are a licensed bank in Europe.",
   url: "https://www.linkedin.com/posts/acme_launch-activity-1234567890123456789-abcd?utm_source=test",
   page_age: "2026-10-17T08:00:00Z",
   ...patch,
@@ -141,7 +141,7 @@ test("relevance requires business banking, launch and European evidence; never c
       config,
       now,
     ).reason,
-    "geography",
+    "excludedTerm",
   );
   assert.equal(
     evaluatePost(post({ page_age: "2025-01-01" }), "linkedin", config, now)
@@ -150,7 +150,7 @@ test("relevance requires business banking, launch and European evidence; never c
   );
   assert.equal(evaluatePost(post(), "facebook", config, now).reason, "notPost");
   const ru = evaluatePost(
-    post({ title: "Новый необанк запустил бизнес счет в ЕС", description: "" }),
+    post({ title: "Новый необанк запустил бизнес счет с EU IBAN в ЕС", description: "Есть банковская лицензия." }),
     "linkedin",
     config,
     now,
@@ -193,7 +193,7 @@ test("search filters candidates, merges repeated appearances and preserves unsee
 test("real provider keeps API token in a header, not URLs; validates empty and malformed responses", async () => {
   let captured;
   const key = "test-only-api-key";
-  const provider = braveProvider({
+  const provider = braveProvider({ minInterval: 0,
     key,
     request: async (url, headers) => {
       captured = { url, headers };
@@ -211,7 +211,7 @@ test("real provider keeps API token in a header, not URLs; validates empty and m
   assert.ok(!captured.url.href.includes(key));
   assert.equal(captured.headers["X-Subscription-Token"], key);
   assert.equal(captured.url.searchParams.get("freshness"), "pm");
-  const empty = braveProvider({
+  const empty = braveProvider({ minInterval: 0,
     key,
     request: async () => ({ type: "search" }),
   });
@@ -224,7 +224,7 @@ test("real provider keeps API token in a header, not URLs; validates empty and m
     }),
     [],
   );
-  const malformed = braveProvider({
+  const malformed = braveProvider({ minInterval: 0,
     key,
     request: async () => ({ web: { results: "invalid" } }),
   });
@@ -236,7 +236,7 @@ test("real provider keeps API token in a header, not URLs; validates empty and m
 
 test("missing key never consumes quota or records an empty completed run", async () => {
   let requests = 0;
-  const provider = braveProvider({
+  const provider = braveProvider({ minInterval: 0,
     key: "",
     request: async () => {
       requests++;
@@ -354,7 +354,7 @@ test("independent daily social schedule runs once and remembers posts on the nex
 test('parallel Play and social runs preserve both histories in the same file', async t => {
   const store = await openStore(await file(t), now);
   const social = monitor(store);
-  const bank = { appId: 'com.parallel.bank', title: 'Bank', genreId: 'FINANCE', price: 0, free: true, minInstalls: 500, released: 'Oct 1, 2026' };
+  const bank = { appId: 'com.parallel.bank', title: 'Bank', description: 'Open a business account with a German IBAN. We are a licensed bank.', genreId: 'FINANCE', price: 0, free: true, minInstalls: 500, released: 'Oct 1, 2026' };
   const play = createMonitor({ store, clock: () => now, delay: 0, provider: { search: async () => [bank], app: async () => bank } });
   await Promise.all([social.startJob(filters), play.startJob({ countries: ['DE'], keywords: ['bank'] })]);
   await Promise.all([social.idle(), play.idle()]);
@@ -404,7 +404,7 @@ test("HTTP social flow supports settings, new-only runs, persistent history and 
     });
   assert.equal((await fetch(base + "/social")).status, 401);
   assert.equal((await fetch(base + "/api/social/findings")).status, 401);
-  assert.match(await (await get("/social")).text(), /Необанки|необанки/);
+  assert.match(await (await get("/social")).text(), /EU IBAN/);
   assert.equal((await get("/social.js")).status, 200);
   assert.equal(
     (

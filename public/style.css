@@ -1072,3 +1072,13 @@ summary {
     max-width: none;
   }
 }
+
+.bank-evidence { margin:12px 0; max-width:500px; font-size:12px; white-space:normal; }
+.bank-evidence summary { cursor:pointer; color:#567d5e; padding:5px 0; }
+.bank-evidence strong { display:block; margin-top:12px; }
+.bank-evidence p { margin:6px 0; overflow-wrap:anywhere; line-height:1.5; }
+.bank-evidence a { color:#2d7154; }
+.archive-toggle { display:flex; gap:10px; align-items:flex-start; padding:12px 24px; font-size:12px; color:#777; }
+.social-source-options { flex-wrap:wrap; }
+.filter-panel details { padding:10px 0; }
+.filter-panel details summary { cursor:pointer; font-size:13px; }

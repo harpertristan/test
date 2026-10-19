@@ -1,4 +1,6 @@
+import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
+let sourceOptions = [];
 let monitor,
   job,
   history = [],
@@ -19,7 +21,10 @@ const labels = {
   failed: "Поиск не завершён",
 };
 const reasons = {
-  notPost: "Не ссылка на публикацию",
+  banking: "Не хватает признаков бизнес-счёта, IBAN ЕС или лицензии",
+  excludedTerm: "Исключено по слову или фразе",
+  excludedDomain: "Исключено по домену",
+  notPost: "Ссылка не соответствует источнику",
   topic: "Нет признаков запуска бизнес-банкинга",
   geography: "В заголовке и фрагменте не найден европейский регион",
   date: "Дата поисковика вне периода",
@@ -46,7 +51,9 @@ async function api(path, body) {
 
 function config() {
   return {
-    sources: ["linkedin", "facebook"].filter(
+    ...readCriteria(),
+    watchDomains: $("#watch-domains").value.split("\n").map(x=>x.trim().toLowerCase()).filter(Boolean),
+    sources: sourceOptions.map(s=>s.id).filter(
       (id) => $(`#source-${id}`).checked,
     ),
     queries: $("#social-queries")
@@ -59,10 +66,12 @@ function config() {
 }
 
 function applyFilters(filters) {
+  applyCriteria(filters);
+  $("#watch-domains").value=(filters.watchDomains ?? []).join("\n");
   $("#social-queries").value = filters.queries.join("\n");
   $("#social-limit").value = filters.limit;
   $("#social-freshness").value = filters.lookbackDays;
-  for (const id of ["linkedin", "facebook"])
+  for (const id of sourceOptions.map(s=>s.id))
     $(`#source-${id}`).checked = filters.sources.includes(id);
   updateCost();
 }
@@ -93,7 +102,7 @@ function renderPosts(rows) {
         badges.append(
           node(
             "span",
-            post.source === "linkedin" ? "LinkedIn" : "Facebook",
+            sourceOptions.find(s=>s.id===post.source)?.name || post.source,
             "country-chip",
           ),
           node("span", "Требует проверки", "review-badge"),
@@ -124,6 +133,7 @@ function renderPosts(rows) {
         article.append(
           node("small", `Впервые найдено: ${stamp(post.firstFoundAt)}`),
           node("small", post.reason),
+          renderEvidence(post),
         );
         return article;
       }),
@@ -143,7 +153,7 @@ function render() {
   $("#social-search").disabled = !ready || running;
   $("#social-search").textContent = running
     ? "Поиск выполняется…"
-    : "Найти новые публикации";
+    : "Найти новые сигналы";
   $("#social-filters").disabled = running;
   $("#social-cancel").hidden = !running;
   $("#social-schedule-badge").textContent = !ready
@@ -156,7 +166,7 @@ function render() {
     $("#social-connection").append(
       node("strong", "Поиск публикаций ожидает подключения. "),
       document.createTextNode(
-        "Добавьте BRAVE_SEARCH_API_KEY в защищённые настройки хостинга. В Render: Environment → Add Environment Variable → сохранение и перезапуск сервиса. Сам ключ в приложении не вводится. ",
+        "На Mac задайте BRAVE_SEARCH_API_KEY перед запуском (инструкция MONITORING.md). На сервере добавьте ключ в защищённые настройки. В Render: Environment → Add Environment Variable → сохранение и перезапуск сервиса. Сам ключ в приложении не вводится. ",
       ),
     );
     const link = node("a", "Получить ключ Brave Search API");
@@ -188,14 +198,14 @@ function render() {
   )
     $("#social-next").textContent +=
       " Последний автопоиск завершён не полностью; смотрите подробности.";
-  $("#social-new-count").textContent = job ? job.results.length : "—";
+  $("#social-new-count").textContent = job ? filterRows(job.results).length : "—";
   $("#social-scanned").textContent = job ? job.scanned : "—";
   $("#social-total").textContent = monitor.totalFindings;
   $("#social-latest").classList.toggle("selected", view === "latest");
   $("#social-history").classList.toggle("selected", view === "history");
   $("#social-latest").setAttribute("aria-pressed", String(view === "latest"));
   $("#social-history").setAttribute("aria-pressed", String(view === "history"));
-  const rows = view === "history" ? history : job?.results || [];
+  const rows = filterRows(view === "history" ? history : job?.results || []);
   $("#social-export").disabled =
     !rows.length || (view !== "history" && running);
   $("#social-caption").textContent =
@@ -261,7 +271,7 @@ async function refresh() {
     monitor = await api("monitor");
     const id = monitor.activeJobId || monitor.latestJobId;
     if (id) job = await api(`jobs/${id}`);
-    if (view === "history") history = await api("findings");
+    if (view === "history") history = await api("findings?all=1");
     render();
   } catch {
     $("#social-error").textContent =
@@ -318,7 +328,8 @@ for (const selector of ["#social-enabled", "#social-time"])
     dirty = true;
     $("#social-saved").textContent = "Изменения ещё не сохранены.";
   });
-$("#social-form").addEventListener("input", updateCost);
+$("#social-form").addEventListener("input", ()=>{updateCost();render();});
+$("#show-archive").addEventListener("change",render);
 $("#social-latest").addEventListener("click", () => {
   view = "latest";
   render();
@@ -329,14 +340,19 @@ $("#social-history").addEventListener("click", async () => {
 });
 $("#social-export").addEventListener("click", () => {
   window.location.assign(
-    view === "history"
+    (view === "history"
       ? "/api/social/findings/export.csv"
-      : `/api/social/jobs/${job.id}/export.csv`,
+      : `/api/social/jobs/${job.id}/export.csv`) + `?all=${$('#show-archive').checked ? 1 : 0}`,
   );
 });
 
 async function init() {
   try {
+    const defaults = await api('defaults');
+    sourceOptions=defaults.sources;
+    for(const source of sourceOptions) {
+      const label=node('label',''); const input=document.createElement('input');input.type='checkbox';input.id=`source-${source.id}`;input.value=source.id;label.append(input,document.createTextNode(` ${source.name}`));$('#source-options').append(label);
+    }
     monitor = await api("monitor");
     applyFilters(monitor.schedule.filters);
     await refresh();

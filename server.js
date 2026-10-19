@@ -1,3 +1,4 @@
+import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from "./lib/qualification.js";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
@@ -31,7 +32,7 @@ export function createApp({
   password = process.env.APP_PASSWORD || "",
 } = {}) {
   const monitor = createMonitor({
-    provider,
+    provider: { ...provider, research: socialProvider },
     store,
     delay,
     autoSchedule,
@@ -49,6 +50,8 @@ export function createApp({
   });
   const files = {
     "/": ["index.html", "text/html"],
+    "/criteria.js": ["criteria.js", "text/javascript"],
+    "/qualification.js": ["../lib/qualification.js", "text/javascript"],
     "/app.js": ["app.js", "text/javascript"],
     "/style.css": ["style.css", "text/css"],
     "/social": ["social.html", "text/html"],
@@ -124,6 +127,7 @@ export function createApp({
         return send(200, {
           countries: COUNTRIES,
           keywords: DEFAULT_KEYWORDS,
+          excludeTerms: DEFAULT_EXCLUDE_TERMS,
           ...calendarWindow(),
         });
       if (req.method === "GET" && apiPath === "/api/active")
@@ -131,11 +135,11 @@ export function createApp({
       if (req.method === "GET" && apiPath === "/api/monitor")
         return send(200, control.summary());
       if (req.method === "GET" && apiPath === "/api/findings")
-        return send(200, control.findings());
+        return send(200, control.findings({ all: url.searchParams.get("all") === "1" }));
       if (req.method === "GET" && apiPath === "/api/findings/export.csv") {
         return send(
           200,
-          exportCSV({ results: control.findings(), status: "history" }),
+          exportCSV({ results: control.findings({all:url.searchParams.get("all") === "1"}), status: "history" }),
           "text/csv; charset=utf-8",
           {
             "Content-Disposition": `attachment; filename="${social ? "social-signals" : "play-finance"}-history.csv"`,
@@ -193,7 +197,7 @@ export function createApp({
         if (req.method === "GET" && match[2] === "/export.csv") {
           if (job.status === "running")
             return send(409, { error: "Дождитесь завершения поиска." });
-          return send(200, exportCSV(job), "text/csv; charset=utf-8", {
+          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? job.results : job.results.filter(entry => eligibleFinding(entry,control.summary().schedule.filters))}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${social ? "social-signals" : "play-finance"}.csv"`,
           });
         }
@@ -222,6 +226,8 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  try { process.loadEnvFile(resolve('.env')); }
+  catch (error) { if (error.code !== 'ENOENT') { console.error('Не удалось прочитать .env. Проверьте формат файла.'); process.exit(1); } }
   if (process.env.RENDER && !process.env.APP_PASSWORD) {
     console.error(
       "Для облачного запуска задайте APP_PASSWORD в настройках хостинга.",

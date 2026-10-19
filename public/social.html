@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#133f35"><title>Play Scout — сигналы о новых необанках</title>
-  <link rel="stylesheet" href="/style.css"><script src="/social.js" defer></script>
+  <link rel="stylesheet" href="/style.css"><script src="/social.js" type="module"></script>
 </head>
 <body class="social-page">
   <aside class="sidebar">
     <a class="brand" href="/" aria-label="Play Scout"><span class="brand-icon">▷</span> play<span>scout</span></a>
     <div class="workspace-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
     <a href="/" class="nav-item"><span>⌕</span> Поиск приложений</a>
-    <a href="/social" class="nav-item active"><span>◎</span> LinkedIn / Facebook</a>
+    <a href="/social" class="nav-item active"><span>◎</span> Сайты и публикации</a>
     <div class="sidebar-note">Публичные публикации<br><small>Поисковый индекс Brave</small></div>
     <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Европейский финтех<small>Сигналы о запуске бизнес-банкинга</small></div></div>
   </aside>
   <main>
-    <header class="topbar"><a href="/">Google Play</a><a href="/social">LinkedIn / Facebook</a><span class="top-tag">ПУБЛИЧНЫЕ ПОСТЫ</span></header>
+    <header class="topbar"><a href="/">Google Play</a><a href="/social">Сайты и публикации</a><span class="top-tag">НОВОСТИ · САЙТЫ · ПРИЛОЖЕНИЯ</span></header>
     <div class="page">
-      <div class="page-heading"><div><div class="eyebrow">МОНИТОРИНГ РЫНКА</div><h1>Новые необанки для бизнеса в Европе</h1><p>Публичные публикации LinkedIn и Facebook о запуске банков и бизнес-счетов.</p></div></div>
+      <div class="page-heading"><div><div class="eyebrow">МОНИТОРИНГ РЫНКА</div><h1>Мониторинг банков с бизнес-счётом и EU IBAN</h1><p>Публикации, новости, приложения App Store и выбранные вами сайты — через поисковый индекс.</p></div></div>
       <div id="social-connection" class="notice connection-notice" role="status">Проверяем подключение…</div>
       <div class="layout">
         <section class="panel filter-panel" aria-labelledby="social-filters-title">
@@ -25,13 +25,23 @@
           <form id="social-form">
             <fieldset id="social-filters"><legend class="sr-only">Фильтры публикаций</legend>
               <span class="field-label">Источники</span>
-              <div class="social-source-options"><label><input type="checkbox" id="source-linkedin" value="linkedin" checked> LinkedIn</label><label><input type="checkbox" id="source-facebook" value="facebook" checked> Facebook</label></div>
+              <div class="social-source-options" id="source-options"></div>
+              <label for="watch-domains">Мои сайты · домены по одному на строку</label><textarea id="watch-domains" rows="4" placeholder="examplebank.eu"></textarea><p class="hint">До 10 доменов без https и пути. Включите источник «Мои сайты». Проверяется индекс Brave, не все страницы сайта. Изменения по прежнему URL отдельной находкой не считаются.</p>
               <label for="social-queries">Поисковые запросы</label><textarea id="social-queries" rows="12" required maxlength="2010"></textarea>
-              <p class="hint">Один запрос на строку. По умолчанию ищем признаки запуска на английском и русском; можно добавить другие языки и европейские страны. Регион должен упоминаться в заголовке или фрагменте.</p>
+              <p class="hint">Один запрос на строку. Один запрос выполняется для каждого выбранного источника. Для банков с IBAN других стран ЕС добавьте запросы, например «business account Spanish IBAN». В новостях и соцсетях также ищем признаки запуска.</p>
               <label for="social-freshness">Свежесть результатов поисковика</label><select id="social-freshness"><option value="7">Последние 7 дней</option><option value="30" selected>Последние 30 дней</option></select>
               <p class="hint">Поисковик может учитывать обновление страницы. Это не подтверждение даты публикации или основания банка.</p>
-              <label for="social-limit">Результатов на запрос и соцсеть</label><select id="social-limit"><option value="10">До 10</option><option value="20" selected>До 20</option></select>
-              <p id="social-cost" class="hint">По умолчанию 8 обращений к поисковому API за один запуск, без дополнительных страниц выдачи. Повторный ручной запуск тоже расходует лимит.</p>
+              <label for="social-limit">Результатов на запрос и источник</label><select id="social-limit"><option value="10">До 10</option><option value="20" selected>До 20</option></select>
+              <p id="social-cost" class="hint">Число обращений зависит от выбранных источников и запросов, без дополнительных страниц выдачи. Повторный ручной запуск тоже расходует лимит.</p>
+
+              <div class="divider"></div>
+              <label class="schedule-toggle"><input id="strict-banking" type="checkbox" checked> Только бизнес-счета с EU IBAN</label>
+              <label for="institution-type">Тип организации</label><select id="institution-type"><option value="bank">Банк · требуется заявление о банковской лицензии</option><option value="bank_or_emi">Банк или платёжная организация / EMI</option></select>
+              <p class="hint">Нужны три признака в тексте: счёт для бизнеса, выдача IBAN страны ЕС и лицензия. SEPA и GB/CH IBAN сами по себе не подходят. Если сведений нет — результат исключается. Текстовые признаки требуют проверки по реестру и условиям банка.</p>
+              <label for="exclude-terms">Исключить слова и фразы</label><textarea id="exclude-terms" rows="5" placeholder="По одному на строку: UPI, IFSC, название банка"></textarea>
+              <p class="hint">Каждая строка — отдельное исключение в названии, разработчике или описании. Без регулярных выражений. Удалите ненужные исключения стран.</p>
+              <details><summary>Исключить приложения и сайты</summary><label for="exclude-ids">ID приложений Google Play</label><textarea id="exclude-ids" rows="3" placeholder="com.example.app"></textarea><label for="exclude-domains">Домены сайтов</label><textarea id="exclude-domains" rows="3" placeholder="example.com"></textarea></details>
+              <p class="hint">Для ежедневного применения исключений нажмите «Сохранить расписание».</p>
             </fieldset>
             <button id="social-search" class="primary-button" type="submit" disabled>Найти новые публикации</button>
             <button id="social-cancel" class="cancel-button" type="button" hidden>Остановить поиск</button>
@@ -46,15 +56,16 @@
           </section>
           <section class="summary-grid"><div class="stat"><span>Новых за поиск</span><strong id="social-new-count">—</strong><small>Повторные ссылки исключены</small></div><div class="stat"><span>Просмотрено результатов</span><strong id="social-scanned">—</strong><small>Отбор по теме и региону</small></div><div class="stat"><span>Всего сигналов</span><strong id="social-total">0</strong><small>Сохраняются после перезапуска</small></div></section>
           <section class="panel results-panel">
-            <div class="panel-heading results-heading"><div><h2>Публикации о запусках</h2><p id="social-caption">Ожидаем первого поиска</p></div><button id="social-export" class="outline-button" disabled>↓ Экспорт CSV</button></div>
+            <div class="panel-heading results-heading"><div><h2>Сигналы по вашим критериям</h2><p id="social-caption">Ожидаем первого поиска</p></div><button id="social-export" class="outline-button" disabled>↓ Экспорт CSV</button></div>
             <div class="result-tabs" role="group" aria-label="Результаты публикаций"><button id="social-latest" class="selected" aria-pressed="true">Новые за последний поиск</button><button id="social-history" aria-pressed="false">Все сигналы</button></div>
+            <label class="archive-toggle"><input type="checkbox" id="show-archive"> Показать архив и результаты без подтверждения критериев</label>
             <div id="social-progress" class="social-progress" hidden><p id="social-progress-text"></p><progress id="social-progress-bar" max="1" value="0"></progress><p id="social-current" class="hint"></p></div>
             <div id="social-notice" class="notice" hidden role="status"></div>
             <div id="social-empty" class="empty-state"><div class="search-illustration"><span>⌕</span><i>✦</i></div><h3>Сигналы о новых запусках появятся здесь</h3><p>Проверяем публичную выдачу и сохраняем<br>только ранее не найденные подходящие публикации.</p></div>
             <div id="social-posts" class="social-posts"></div>
             <details id="social-diagnostics" hidden><summary>Подробности отбора</summary><div id="social-diagnostics-content"></div></details>
           </section>
-          <div class="source-note"><span>ⓘ</span><p>Каждая находка требует проверки: новый бизнес-счёт может быть продуктом давно существующего банка. Регион определяется по тексту; лицензия, дата основания и доступность услуг не подтверждены. Поиск охватывает индексируемые публичные посты, полнота выдачи не гарантируется.</p></div>
+          <div class="source-note"><span>ⓘ</span><p>Каждая находка требует проверки: новый бизнес-счёт может быть продуктом давно существующего банка. Регион определяется по тексту; лицензия, дата основания и доступность услуг не подтверждены. Поиск охватывает страницы в поисковом индексе, полнота выдачи не гарантируется.</p></div>
         </div>
       </div>
       <footer>PLAY SCOUT <span>Публикации · Brave Search API</span></footer>

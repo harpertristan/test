@@ -5,7 +5,7 @@ import { createApp } from '../server.js';
 
 const now = new Date('2026-10-19T10:00:00Z');
 const config = (patch = {}) => validateConfig({ keywords: ['бизнес банк', 'бизнес счет'], countries: ['DE', 'FR'], from: '2026-09-19', to: '2026-10-19', ...patch }, now);
-const app = (patch = {}) => ({ appId: 'com.example.bank', title: 'Business Bank', developer: 'Example', genreId: 'FINANCE', free: true, price: 0, minInstalls: 500, installs: '500+', released: 'Oct 1, 2026', ...patch });
+const app = (patch = {}) => ({ appId: 'com.example.bank', title: 'Business Bank', developer: 'Example', description: 'Open a business account with a German IBAN. We are a licensed bank.', genreId: 'FINANCE', free: true, price: 0, minInstalls: 500, installs: '500+', released: 'Oct 1, 2026', ...patch });
 
 test('EU has 27 unique members, excludes UK and Switzerland', () => {
   assert.equal(new Set(COUNTRIES.map(c => c.code)).size, 27);

@@ -1,3 +1,4 @@
+import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
 let defaults;
 let job;
@@ -24,6 +25,7 @@ const formatInstant = (value) =>
     timeStyle: "short",
   }).format(new Date(value));
 const readConfig = () => ({
+  ...readCriteria(),
   keywords: $("#keywords")
     .value.split("\n")
     .map((k) => k.trim())
@@ -36,6 +38,7 @@ const readConfig = () => ({
 });
 
 function applyConfig(config, rolling = false) {
+  applyCriteria(config);
   $("#keywords").value = config.keywords.join("\n");
   $("#installs").value = config.minInstalls;
   $("#limit").value = config.limit;
@@ -73,7 +76,7 @@ function cell(text, className) {
 
 function renderRows() {
   const rows = [
-    ...(view === "history" ? historyRows : (job?.results ?? [])),
+    ...filterRows(view === "history" ? historyRows : (job?.results ?? [])),
   ].sort((a, b) => {
     const av = a[sortKey] ?? "",
       bv = b[sortKey] ?? "";
@@ -99,7 +102,13 @@ function renderRows() {
       const id = Object.assign(document.createElement("small"), {
         textContent: app.appId,
       });
-      name.append(avatar, title, developer, id);
+      name.append(avatar, title, developer, id, renderEvidence(app));
+      const exclude = Object.assign(document.createElement('button'),{type:'button',className:'text-button',textContent:'Исключить это приложение'});
+      exclude.addEventListener('click',()=>{
+        $('#exclude-ids').value=[...new Set([...readCriteria().excludeAppIds,app.appId])].join('\n');
+        $('#save-schedule').click(); renderView();
+      });
+      name.append(exclude);
       const regions = cell("");
       const badge = Object.assign(document.createElement("span"), {
         className: "country-chip",
@@ -148,7 +157,8 @@ function renderView() {
   $("#results-title").textContent = history
     ? "Все уникальные находки"
     : "Новые приложения";
-  const rows = history ? historyRows : (job?.results ?? []);
+  const rows = filterRows(history ? historyRows : (job?.results ?? []));
+  if (job) $("#result-count").textContent = format(filterRows(job.results).length);
   $("#table-wrap").hidden = !rows.length;
   $("#export").disabled = history
     ? !rows.length
@@ -180,6 +190,7 @@ function renderView() {
     $("#empty-state p").textContent =
       "Ранее найденные приложения исключены. Сохранённый список доступен во вкладке «Все находки».";
   }
+  if (job && !job.config.strictBanking && readCriteria().strictBanking) $("#results-caption").textContent += " · старый поиск, требуется перепроверка";
   renderRows();
 }
 
@@ -217,7 +228,7 @@ async function refreshMonitor() {
   try {
     const data = await api("/api/monitor");
     renderMonitor(data);
-    if (view === "history") historyRows = await api("/api/findings");
+    if (view === "history") historyRows = await api("/api/findings?all=1");
     const id = data.activeJobId || data.latestJobId;
     if (id && job?.id !== id) {
       clearTimeout(pollTimer);
@@ -245,7 +256,7 @@ function renderJob(next) {
     : "⌕ Найти приложения";
   $("#cancel").hidden = !running;
   $("#export").disabled = running || !job.results.length;
-  $("#result-count").textContent = format(job.results.length);
+  $("#result-count").textContent = format(filterRows(job.results).length);
   $("#checked-count").textContent = format(job.detailDone);
   $("#geo-count").replaceChildren(
     document.createTextNode(`${job.config.countries.length} `),
@@ -305,6 +316,10 @@ function renderJob(next) {
   renderRows();
   $("#diagnostics").hidden = running;
   const reasons = {
+    banking: "Нет всех признаков: бизнес-счёт, IBAN ЕС и лицензия",
+    excludedTerm: "Исключено по слову или фразе",
+    excludedDomain: "Исключено по домену",
+    excludedId: "Исключено по ID приложения",
     category: "Другая категория",
     paid: "Платная загрузка",
     date: "Вне периода выпуска",
@@ -382,8 +397,8 @@ $("#cancel").addEventListener("click", async () => {
   }
 });
 $("#export").addEventListener("click", () => {
-  if (view === "history") window.location.assign("/api/findings/export.csv");
-  else if (job) window.location.assign(`/api/jobs/${job.id}/export.csv`);
+  if (view === "history") window.location.assign(`/api/findings/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
+  else if (job) window.location.assign(`/api/jobs/${job.id}/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
 });
 $("#view-latest").addEventListener("click", () => {
   view = "latest";
@@ -391,7 +406,7 @@ $("#view-latest").addEventListener("click", () => {
 });
 $("#view-history").addEventListener("click", async () => {
   try {
-    historyRows = await api("/api/findings");
+    historyRows = await api("/api/findings?all=1");
     view = "history";
     renderView();
   } catch (error) {
@@ -471,6 +486,8 @@ document.querySelectorAll(".sort-button").forEach((button) =>
   }),
 );
 
+$('#show-archive').addEventListener('change',renderView);
+$('#search-form').addEventListener('input',()=>{renderView();});
 async function init() {
   $("#search-button").disabled = true;
   try {
