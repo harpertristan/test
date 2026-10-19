@@ -1,6 +1,8 @@
+import {socialPlan} from './source-catalog.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
 let sourceOptions = [];
+let sourcePreset;
 let monitor,
   job,
   history = [],
@@ -52,6 +54,7 @@ async function api(path, body) {
 function config() {
   return {
     ...readCriteria(),
+    requestBudget:Number($("#social-budget").value),
     watchDomains: $("#watch-domains").value.split("\n").map(x=>x.trim().toLowerCase()).filter(Boolean),
     sources: sourceOptions.map(s=>s.id).filter(
       (id) => $(`#source-${id}`).checked,
@@ -67,6 +70,7 @@ function config() {
 
 function applyFilters(filters) {
   applyCriteria(filters);
+  $("#social-budget").value=filters.requestBudget??8;
   $("#watch-domains").value=(filters.watchDomains ?? []).join("\n");
   $("#social-queries").value = filters.queries.join("\n");
   $("#social-limit").value = filters.limit;
@@ -78,9 +82,9 @@ function applyFilters(filters) {
 
 function updateCost() {
   const filters = config(),
-    requests = filters.sources.length * filters.queries.length;
+    plan=socialPlan(filters),requests=plan.requests.length;
   $("#social-cost").textContent =
-    `${requests} обращений к поисковому API за запуск, до ${requests * filters.limit} результатов до фильтрации. Дополнительных страниц нет. Ручной поиск тоже расходует лимит; тариф проверяется в Brave.`;
+    `${requests} обращений Brave за запуск; около ${requests*30} за 30 ежедневных запусков. Всего пар «источник × запрос»: ${plan.total}; полный круг — ${plan.cycleDays} дн. Остальные пары переходят на следующие дни. Лимит Google Play считается отдельно. Ручной запуск тоже расходует квоту.`;
 }
 
 function node(tag, text, className) {
@@ -105,7 +109,7 @@ function renderPosts(rows) {
             sourceOptions.find(s=>s.id===post.source)?.name || post.source,
             "country-chip",
           ),
-          node("span", "Требует проверки", "review-badge"),
+          node("span", post.trust==='user_report'?'Сообщение пользователя · проверить':post.signalType==='register_lead'?'Реестр · продукт не подтверждён':'Требует проверки', "review-badge"),
         );
         const heading = node("h3", "");
         const link = node("a", post.title || "Открыть публикацию");
@@ -231,6 +235,7 @@ function render() {
     messages.push(
       "Поиск остановлен. Уже сохранённые сигналы доступны в истории.",
     );
+  if(job?.rotationDays>1)messages.push(`Выполнена часть дневного плана. Полный круг выбранных источников: ${job.rotationDays} дн. Невыполненные сегодня пары не считаются ошибкой.`);
   if (job?.truncatedQueries)
     messages.push(
       `В ${job.truncatedQueries} запросах достигнут лимит первой страницы. Полный охват не гарантируется.`,
@@ -256,6 +261,7 @@ function render() {
     const lines = Object.entries(job.skipped)
       .filter(([, count]) => count)
       .map(([reason, count]) => `${reasons[reason] || reason}: ${count}`);
+    for(const item of job.sourceStatus??[])lines.push(`${sourceOptions.find(s=>s.id===item.source)?.name??item.source}: ${item.status==='ok'?`ответ получен, результатов ${item.returned}`:'ошибка доступа'}`);
     for (const error of job.errors)
       lines.push(`${error.source || ""}: ${error.message}`);
     $("#social-diagnostics-content").replaceChildren(
@@ -350,8 +356,9 @@ async function init() {
   try {
     const defaults = await api('defaults');
     sourceOptions=defaults.sources;
+    sourcePreset=defaults.preset;
     for(const source of sourceOptions) {
-      const label=node('label',''); const input=document.createElement('input');input.type='checkbox';input.id=`source-${source.id}`;input.value=source.id;label.append(input,document.createTextNode(` ${source.name}`));$('#source-options').append(label);
+      const label=node('label','');label.title=(source.domains??[]).join(', '); const input=document.createElement('input');input.type='checkbox';input.id=`source-${source.id}`;input.value=source.id;label.append(input,document.createTextNode(` ${source.name}`));$('#source-options').append(label);
     }
     monitor = await api("monitor");
     applyFilters(monitor.schedule.filters);
@@ -363,4 +370,5 @@ async function init() {
       "Не удалось загрузить настройки. Обновите страницу.";
   }
 }
+$('#social-preset').addEventListener('click',()=>{const current=config();applyFilters({...current,...sourcePreset,watchDomains:current.watchDomains,sources:[...new Set([...sourcePreset.sources,...(current.sources.includes('custom')?['custom']:[])])]});$('#social-saved').textContent='Добавлены все рекомендованные источники, лимит 8 Brave за запуск. Сохраните расписание.';});
 void init();

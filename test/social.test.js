@@ -101,7 +101,8 @@ test("non-post pages, spoofed hosts and unsafe URLs are excluded", () => {
 
 test("query validation respects source restrictions and API limits; quota is bounded", () => {
   const defaults = validateSocialConfig({}, now);
-  assert.equal(defaults.queries.length * defaults.sources.length, 8);
+  assert.equal(defaults.requestBudget, 8);
+  assert.ok(defaults.sources.includes("forums"));
   for (const bad of [
     { sources: [] },
     { sources: ["instagram"] },

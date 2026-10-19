@@ -1,3 +1,7 @@
+import {pageProvider} from './lib/page-provider.js';
+import {watchCSV,DEFAULT_WATCH_URLS} from './lib/watch.js';
+import {companyGroups} from './lib/companies.js';
+import {socialPreset,SOURCE_CATALOG_VERSION,RECOMMENDED_SOURCES} from './lib/source-catalog.js';
 import { discoveryPreset, DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from "./lib/qualification.js";
 import http from "node:http";
@@ -12,12 +16,13 @@ import {
   toCSV,
 } from "./lib/search.js";
 import { liveProvider } from "./lib/provider.js";
-import { openStore, memoryStore } from "./lib/store.js";
+import { openStore, memoryStore, dailySlot, nextDailyRun } from "./lib/store.js";
 import { createMonitor } from "./lib/monitor.js";
 import { braveProvider } from "./lib/brave-provider.js";
 import {
   SOCIAL_SOURCES,
   SOCIAL_QUERIES,
+  validateSocialConfig,socialFilters,
   socialCSV,
 } from "./lib/social-search.js";
 
@@ -27,6 +32,8 @@ export function createApp({
   provider = liveProvider(),
   socialProvider = braveProvider(),
   socialDelay = 1100,
+  watchProvider = {...pageProvider(),app:provider.app},
+  watchDelay = 1000,
   delay = 500,
   store = memoryStore(),
   autoSchedule = false,
@@ -51,8 +58,12 @@ export function createApp({
     clock,
     tickInterval,
   });
+  const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval});
   const files = {
     "/": ["index.html", "text/html"],
+    "/watch": ["watch.html", "text/html"],
+    "/watch.js": ["watch.js", "text/javascript"],
+    "/source-catalog.js": ["../lib/source-catalog.js", "text/javascript"],
     "/criteria.js": ["criteria.js", "text/javascript"],
     "/discovery.js": ["../lib/discovery.js", "text/javascript"],
     "/qualification.js": ["../lib/qualification.js", "text/javascript"],
@@ -87,11 +98,12 @@ export function createApp({
     try {
       const url = new URL(req.url, "http://localhost");
       const social = url.pathname.startsWith("/api/social/");
-      const apiPath = social
+      const watch = url.pathname.startsWith("/api/watch/");
+      const apiPath = watch ? url.pathname.replace("/api/watch/", "/api/") : social
         ? url.pathname.replace("/api/social/", "/api/")
         : url.pathname;
-      const control = social ? socialMonitor : monitor;
-      const exportCSV = social ? socialCSV : toCSV;
+      const control = watch ? watchMonitor : social ? socialMonitor : monitor;
+      const exportCSV = watch ? watchCSV : social ? socialCSV : toCSV;
       if (password && url.pathname !== "/api/health") {
         const header = req.headers.authorization || "";
         const supplied = /^Basic /i.test(header)
@@ -122,9 +134,13 @@ export function createApp({
           source: "Google Play",
           sourceCheck: "not-performed-by-health-endpoint",
         });
+      if(req.method==="GET" && url.pathname==="/api/companies")return send(200,companyGroups(store.state));
+      if(req.method==="GET" && watch && apiPath==="/api/defaults")return send(200,{watchUrls:DEFAULT_WATCH_URLS});
       if (req.method === "GET" && social && apiPath === "/api/defaults")
         return send(200, {
-          sources: SOCIAL_SOURCES.map(({ id, name }) => ({ id, name })),
+          sources: SOCIAL_SOURCES.map(({ id, name,category,domains }) => ({ id, name,category,domains })),
+          preset:socialPreset(),
+          sourceCatalogVersion:SOURCE_CATALOG_VERSION,
           queries: SOCIAL_QUERIES,
           lookbackDays: 30,
           limit: 20,
@@ -161,6 +177,22 @@ export function createApp({
         req.headers["sec-fetch-site"] === "cross-site"
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
+      if(req.method==='POST' && url.pathname==='/api/monitoring/enable'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        const now=clock?clock():new Date();
+        await store.update(draft=>{
+          const social=draft.social.schedule.filters;
+          draft.social.schedule.filters=socialFilters(validateSocialConfig({...social,sources:[...new Set([...social.sources,...RECOMMENDED_SOURCES])],requestBudget:social.requestBudget??8},now));
+          draft.social.sourceCatalogVersion=SOURCE_CATALOG_VERSION;
+          for(const section of [draft,draft.social,draft.watch]){
+            const schedule=section.schedule;
+            const sameDay=schedule.lastRunAt&&calendarWindow(new Date(schedule.lastRunAt)).to===calendarWindow(now).to;
+            Object.assign(schedule,{enabled:true,savedAt:now.toISOString(),nextRunAt:sameDay?nextDailyRun(now,schedule.time):dailySlot(now,schedule.time).toISOString()});
+          }
+        });
+        void monitor.tick();void socialMonitor.tick();void watchMonitor.tick();
+        return send(200,{play:monitor.summary(),social:socialMonitor.summary(),watch:watchMonitor.summary()});
+      }
       if(req.method==='POST' && url.pathname==='/api/connections/brave/test') {
         if(!socialProvider.configured())return send(503,{error:'Ключ не задан. Выполните npm run configure и перезапустите программу.'});
         try {
@@ -230,13 +262,16 @@ export function createApp({
   });
   server.monitor = monitor;
   server.socialMonitor = socialMonitor;
+  server.watchMonitor=watchMonitor;
   server.on("listening", () => {
     monitor.start();
     socialMonitor.start();
+    watchMonitor.start();
   });
   server.on("close", () => {
     void monitor.stop();
     void socialMonitor.stop();
+    void watchMonitor.stop();
   });
   return server;
 }
@@ -267,7 +302,7 @@ if (
     console.log(`Play Finance Finder: port ${port}`),
   );
   const stop = async () => {
-    await Promise.all([server.monitor.stop(), server.socialMonitor.stop()]);
+    await Promise.all([server.monitor.stop(), server.socialMonitor.stop(), server.watchMonitor.stop()]);
     server.close(() => process.exit(0));
   };
   process.on("SIGTERM", stop);

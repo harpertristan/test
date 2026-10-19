@@ -1082,3 +1082,10 @@ summary {
 .social-source-options { flex-wrap:wrap; }
 .filter-panel details { padding:10px 0; }
 .filter-panel details summary { cursor:pointer; font-size:13px; }
+
+/* Multi-source monitoring navigation and long public URLs. */
+.topbar { flex-wrap:wrap; gap:8px; min-height:46px; height:auto; padding-top:12px; padding-bottom:12px; }
+.social-source-options label { min-width:0; overflow-wrap:anywhere; align-items:flex-start; }
+#watch-results, #company-groups, #watch-diagnostics { overflow-wrap:anywhere; min-width:0; }
+#company-groups details { padding:10px 0; border-bottom:1px solid #e4eae6; }
+#watch-status { overflow-wrap:anywhere; }

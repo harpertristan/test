@@ -1,12 +1,12 @@
 {
   "name": "play-finance-finder",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Поиск новых бизнес-счетов и платёжных сервисов в Google Play",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js && node --check lib/qualification.js && node --check public/criteria.js && node --check scripts/configure-brave.js && node --check lib/discovery.js && node --check scripts/doctor.js",
+    "check": "node --check server.js && node --check lib/search.js && node --check lib/store.js && node --check lib/monitor.js && node --check lib/provider.js && node --check lib/social-search.js && node --check lib/brave-provider.js && node --check public/app.js && node --check public/social.js && node --check lib/qualification.js && node --check public/criteria.js && node --check scripts/configure-brave.js && node --check lib/discovery.js && node --check scripts/doctor.js && node --check lib/source-catalog.js && node --check lib/page-provider.js && node --check lib/watch.js && node --check lib/companies.js && node --check public/watch.js",
     "configure": "node scripts/configure-brave.js",
     "doctor": "node scripts/doctor.js"
   },
