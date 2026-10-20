@@ -1,3 +1,4 @@
+import {buildReport,reportHTML,reportDOCX,reportCSV,updateShortlist,REPORT_CSP} from './lib/report.js';
 import {createNeuralSearch} from './lib/neural-search.js';
 import {groupedCandidates} from './lib/neural-inbox.js';
 import {createAIReview} from './lib/ai-review.js';
@@ -87,6 +88,7 @@ export function createApp({
     '/web/':['web.html','text/html'],
     '/web.js':['web.js','text/javascript'],
     '/references.js':['../lib/references.js','text/javascript'],
+    '/web-presence.js':['../lib/web-presence.js','text/javascript'],
     '/api.js':['api.js','text/javascript'],
     '/exclusions.js':['exclusions.js','text/javascript'],
     '/manual-exclusions.js':['../lib/manual-exclusions.js','text/javascript'],
@@ -170,7 +172,13 @@ export function createApp({
       if(req.method==='GET'&&url.pathname==='/api/references')return send(200,REFERENCE_LIBRARY);
       if(req.method==='GET'&&url.pathname==='/api/ai/inbox')return send(200,groupedCandidates(store.state).map(e=>({...e,documents:undefined,screeningText:undefined,snippet:undefined,isNew:store.state.ai.newIds.includes(e.id)})));
       if(req.method==='GET'&&url.pathname==='/api/neural/monitor')return send(200,neural.summary());
-      if(req.method==='GET'&&url.pathname==='/api/ai/monitor')return send(200,{...aiReview.summary(),braveBudget:braveBudget()});
+      if(req.method==='GET'&&url.pathname==='/api/ai/monitor')return send(200,{...aiReview.summary(),braveBudget:braveBudget(),shortlistIds:store.state.ai.shortlist??[]});
+      if(req.method==='GET'&&['/api/ai/report.html','/api/ai/export.docx','/api/ai/export.csv'].includes(url.pathname)){
+        let report;try{report=buildReport(store.state,{scope:url.searchParams.get('scope')??'remaining',filter:url.searchParams.get('filter')??'all'},clock?clock():new Date());}catch(error){if(error.status===400)return send(400,{error:error.message});throw error;}
+        const day=calendarWindow(clock?clock():new Date()).to;
+        if(url.pathname.endsWith('report.html'))return send(200,reportHTML(report),'text/html; charset=utf-8',{'Content-Security-Policy':REPORT_CSP});
+        const word=url.pathname.endsWith('.docx');return send(200,word?reportDOCX(report):reportCSV(report),word?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'text/csv; charset=utf-8',{'Content-Disposition':`attachment; filename="play-scout-${report.options.scope}-${day}.${word?'docx':'csv'}"`});
+      }
       if(req.method==='GET'&&url.pathname==='/api/ai/results')return send(200,aiReview.results());
       if(req.method==='GET'&&url.pathname.startsWith('/api/ai/jobs/')){const job=aiReview.job(url.pathname.split('/').at(-1));return send(job?200:404,job??{error:'Проверка не найдена.'});}
       if(req.method==='GET'&&url.pathname==='/api/exclusions')return send(200,store.state.manualExclusions??[]);
@@ -222,6 +230,11 @@ export function createApp({
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
       if(req.method==='POST'&&['/api/neural/start','/api/neural/cancel'].includes(url.pathname)){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{return send(202,url.pathname.endsWith('/cancel')?await neural.cancel():await neural.start());}catch(error){return send(error.status??400,{error:error.message});}}
+      if(req.method==='POST'&&url.pathname==='/api/ai/shortlist'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1024*1024)return send(413,{error:'Слишком большой список.'});}
+        try{const input=JSON.parse(raw);return send(200,await store.update(d=>updateShortlist(d,input)));}catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
+      }
       if(req.method==='POST'&&['/api/ai/start','/api/ai/cancel','/api/ai/config'].includes(url.pathname)){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
@@ -233,11 +246,11 @@ export function createApp({
         try{
           const input=JSON.parse(raw);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Некорректное исключение.');
           if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);});return send(200,{exclusions:store.state.manualExclusions});}
-          const sections={inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
+          const sections={company:{findings:groupedCandidates(store.state).filter(e=>e.id.startsWith('company:')),jobs:[]},inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
           if(!section||typeof input.id!=='string')throw new Error('Выберите запись из результатов.');
           const entries=[...section.findings,...(section.reviewCandidates??[]),...section.jobs.flatMap(j=>[...(j.results??[]),...(j.existingResults??[]),...(j.reviewCandidates??[])])];
           const entry=entries.find(e=>(e.id??e.appId)===input.id);if(!entry)return send(404,{error:'Находка не найдена. Обновите список.'});
-          const kind=entry.appId?'app':input.section==='web'?'domain':'url',value=kind==='app'?entry.appId:kind==='domain'?new URL(entry.url).hostname.replace(/^www\./,''):canonicalFindingURL(entry.url);
+          const kind=input.section==='company'?'domain':entry.appId?'app':input.section==='web'?'domain':'url',value=input.section==='company'?entry.id.slice('company:'.length):kind==='app'?entry.appId:kind==='domain'?new URL(entry.url).hostname.replace(/^www\./,''):canonicalFindingURL(entry.url);
           if(!value)throw new Error('Не удалось определить запись для исключения.');
           const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,title:entry.title,url:entry.url,createdAt:(clock?clock():new Date()).toISOString()};
           await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){if(d.manualExclusions.length>=2000)throw new Error('Список исключений заполнен. Восстановите ненужные записи.');d.manualExclusions.push(rule);}d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,d.manualExclusions));});

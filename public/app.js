@@ -1,3 +1,4 @@
+import {assessWebPresence,webPresenceLabel} from './web-presence.js';
 import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
@@ -139,6 +140,7 @@ function renderRows() {
         textContent: app.appId,
       });
       name.append(avatar, title, developer, id);
+      const presence=assessWebPresence([{url:app.url,text:app.screeningText,kind:'listing'}],{productURL:app.developerWebsite});for(const [key,label]of [['service','Веб-сервис'],['cabinet','Веб-кабинет']])name.append(Object.assign(document.createElement('small'),{textContent:label+': '+webPresenceLabel(presence[key])}));
       if(app.isReference)name.append(Object.assign(document.createElement('small'),{textContent:'Ваш образец · прямая проверка'}));
       if(app.discoverySources?.includes('query'))name.append(Object.assign(document.createElement('small'),{textContent:'Найдено поиском Google Play'}));
       if(app.firstJobId===job?.id&&!app.fromHistory&&!app.isReference)name.append(Object.assign(document.createElement('small'),{textContent:'НОВОЕ · впервые найдено'}));
