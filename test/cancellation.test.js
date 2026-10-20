@@ -51,3 +51,9 @@ test('HTTP cancellation reports cancelling during checkpoint and responds only a
 test('restart recovers a persisted cancelling job without clearing history or exclusions',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'cancel-recovery-'));t.after(()=>rm(dir,{recursive:true,force:true}));const path=join(dir,'state.json'),s=initialState(now);s.jobs=[{id:'stopping-job',status:'cancelling',source:'scheduled',errors:[],results:[],current:'request'}];s.findings=[{appId:bank.appId,title:bank.title}];s.manualExclusions=[{key:'saved',kind:'app',value:'com.excluded.app'}];await writeFile(path,JSON.stringify(s));const recovered=await openStore(path,now);assert.equal(recovered.state.jobs[0].status,'cancelled');assert.equal(recovered.state.jobs[0].errors[0].code,'INTERRUPTED');assert.equal(recovered.state.findings.length,1);assert.equal(recovered.state.manualExclusions.length,1);
 });
+
+test('shutdown waits for an in-flight initial checkpoint before cancelling the newly reserved worker',{timeout:3000},async()=>{
+ const store=memoryStore(now),original=store.update.bind(store),entered=deferred(),checkpoint=deferred();let first=true,calls=0;
+ store.update=async change=>{if(first){first=false;entered.resolve();await checkpoint.promise;}return original(change);};
+ const monitor=make({search:async()=>{calls++;return[];}},{store});const starting=monitor.startJob(filters);await entered.promise;const stopping=monitor.stop();checkpoint.resolve();await starting;await stopping;assert.equal(calls,0);assert.equal(monitor.summary().busy,false);assert.equal([...monitor.jobs.values()][0].status,'cancelled');
+});

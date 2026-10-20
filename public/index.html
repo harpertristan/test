@@ -11,7 +11,7 @@
     <div class="workspace-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
     <a href="/" class="nav-item active"><span>⌕</span> Поиск приложений</a>
     <a href="/web" class="nav-item">Веб-версии</a><a href="/social" class="nav-item"><span>◎</span> Сайты и публикации</a>
-    <a href="/watch" class="nav-item"><span>↻</span> Изменения и компании</a>
+    <a href="/review" class="nav-item">Нейронный поиск</a><a href="/watch" class="nav-item"><span>↻</span> Изменения и компании</a>
     <div class="sidebar-note"><span class="status-dot"></span> Источник: Google Play<br><small>Публичная поисковая выдача</small></div>
     <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Рынок Европейского союза<small>27 стран · единый поиск</small></div></div>
   </aside>
@@ -33,7 +33,7 @@
               <textarea id="keywords" rows="4" required maxlength="2410">бизнес аккаунт
 бизнес банк
 бизнес счет</textarea>
-              <button type="button" class="outline-button" id="apply-preset">Настроить под ваши примеры</button><button type="button" class="outline-button" id="catalogue-preset">Широкий каталог + рекомендации</button><button type="button" class="text-button" id="english">+ Добавить английские варианты</button>
+              <button type="button" class="outline-button" id="early-preset" disabled>Раннее обнаружение · ваши примеры</button><button type="button" class="outline-button" id="apply-preset">Настроить под ваши примеры</button><button type="button" class="outline-button" id="catalogue-preset">Широкий каталог + рекомендации</button><button type="button" class="text-button" id="english">+ Добавить английские варианты</button>
               <div class="divider"></div>
               <div class="field-row"><div><label for="category">Категория</label><select id="category"><option value="FINANCE">Финансы</option></select></div><div><label for="price">Стоимость</label><select id="price"><option>Бесплатные</option></select></div></div>
               <label for="installs">Установок более · 0 для самых новых</label><input id="installs" type="number" min="0" max="10000000000" step="1" value="100" required>
@@ -52,7 +52,7 @@
               <p id="plan-cost" class="hint"></p>
               <label for="seed-apps">Образцы · ID или ссылки Google Play</label><textarea id="seed-apps" rows="3" placeholder="com.stablecom.app&#10;com.kleos.baas"></textarea>
               <p class="hint">Образцы проверяются напрямую и помечаются. Они не считаются независимым доказательством качества поиска. По названию можно перепутать приложения: используйте ссылку «Поделиться» с телефона.</p>
-              <label for="reference-domains">Сайты образцов · поиск их карточек через Brave</label><textarea id="reference-domains" rows="3"></textarea><p class="hint">По одному домену на строку. Лимит Brave общий: до 20 обращений за запуск.</p><label class="schedule-toggle"><input type="checkbox" id="hide-established" checked> Скрывать известные крупные приложения</label>
+              <label class="schedule-toggle"><input type="checkbox" id="reference-discovery"> Использовать библиотеку ваших сервисов</label><p class="hint">Ежедневно добавляет 6 названий из библиотеки по кругу. Известные сайты помогают находить карточки и рекомендации, но не подтверждают EU IBAN.</p><label for="reference-domains">Сайты образцов · поиск их карточек через Brave</label><textarea id="reference-domains" rows="3"></textarea><p class="hint">По одному домену на строку. Лимит Brave общий: до 20 обращений за запуск.</p><label class="schedule-toggle"><input type="checkbox" id="hide-established" checked> Скрывать известные крупные приложения</label>
               <p class="hint">Revolut, Wise, PayPal, Payoneer, bunq, N26, Monzo, Starling и Klarna. Новизна приложения не доказывает новизну компании.</p>
               <label class="schedule-toggle"><input type="checkbox" id="use-web-index" checked> Дополнять Google Play индексом Brave</label>
               <details><summary>Дополнительные настройки</summary><label for="max-details">Максимум проверяемых карточек</label><select id="max-details"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1000">1000</option><option value="10000">Без дополнительного лимита</option></select><label class="schedule-toggle"><input type="checkbox" id="related-source"> Обходить «Похожие приложения» Google Play</label><p class="hint">До двух переходов, до 20 списков рекомендаций за запуск. Каждая карточка проверяется по вашим критериям. Публичный список может отличаться от рекомендаций на телефоне.</p></details>
@@ -86,7 +86,7 @@
           </section>
           <section class="summary-grid" aria-label="Обзор поиска"><div class="stat"><span>Новых за поиск</span><strong id="result-count">—</strong><small>Ранее найденные исключены</small></div><div class="stat"><span>Проверено карточек</span><strong id="checked-count">—</strong><small id="check-caption">Профиль сервиса и сведения о бизнесе / IBAN</small></div><div class="stat"><span>География</span><strong id="geo-count">27 <em>стран</em></strong><small>Страны выдачи, не страна IBAN</small></div></section>
           <section class="panel results-panel" aria-labelledby="results-title"><div class="panel-heading results-heading"><div><h2 id="results-title">Результаты поиска</h2><p id="results-caption">Новые приложения появятся здесь</p></div><button id="export" type="button" class="outline-button" disabled>↓ Экспорт CSV</button></div>
-            <div class="result-tabs" role="group" aria-label="Показать результаты"><button type="button" id="view-latest" class="selected" aria-pressed="true">Результаты поиска</button><button type="button" id="view-history" aria-pressed="false">Все находки <span id="history-count">0</span></button><button type="button" id="view-candidates" aria-pressed="false">На проверку <span id="candidate-count">0</span></button></div>
+            <div class="result-tabs" role="group" aria-label="Показать результаты"><button type="button" id="view-latest" class="selected" aria-pressed="true">Результаты поиска</button><button type="button" id="view-new" aria-pressed="false">Новые <span id="new-tab-count">0</span></button><button type="button" id="view-history" aria-pressed="false">Все находки <span id="history-count">0</span></button><button type="button" id="view-candidates" aria-pressed="false">На проверку <span id="candidate-count">0</span></button></div>
             <label class="archive-toggle"><input type="checkbox" id="show-archive"> Показать архив и результаты без подтверждения критериев</label>
             <div class="archive-toggle"><button type="button" id="continue-checks" class="outline-button" hidden>Продолжить проверку</button><span id="pending-checks" role="status"></span></div><div id="progress-area" hidden><div class="progress-label"><span id="progress-text"></span><span id="progress-count"></span></div><progress id="progress" max="100" value="0"></progress><p id="current-task" class="hint"></p></div>
             <div id="search-explanation" class="notice" role="status" hidden></div>

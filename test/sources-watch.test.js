@@ -21,7 +21,7 @@ async function historyFile(t){const dir=await mkdtemp(join(tmpdir(),'watch-scout
 
 test('bounded daily rotation covers every selected source/query pair and uses Kaliningrad day',()=>{
  const c=validateSocialConfig({...socialPreset(),eventMode:'signals'},now),pairs=new Set();
- const first=socialPlan(c,now);assert.equal(first.requests.length,8);assert.equal(first.total,34);assert.equal(first.cycleDays,5);
+ const first=socialPlan(c,now);assert.equal(first.requests.length,8);assert.equal(first.total,36);assert.equal(first.cycleDays,5);
  for(let day=0;day<first.cycleDays;day++)for(const r of socialPlan(c,new Date(+now+day*86400000)).requests)pairs.add(`${r.source}|${r.query}`);
  assert.equal(pairs.size,first.total);
  assert.deepEqual(socialPlan(c,new Date('2026-10-19T22:01:00Z')),socialPlan(c,new Date('2026-10-20T20:00:00Z')));

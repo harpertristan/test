@@ -1,0 +1,52 @@
+import {apiJSON} from './api.js';
+import {mountExclusions,refreshExclusions,exclusionControl,isManuallyHidden} from './exclusions.js';
+const $=s=>document.querySelector(s),el=(tag,text)=>Object.assign(document.createElement(tag),{textContent:text});
+let monitor,job,neural,inbox=[],rows=[],refreshing=false,dirty=false,feedback='',limit=30,poll;
+const names={business:'Счёт для бизнеса',account:'Сервис выдаёт счёт / IBAN',euIban:'IBAN страны ЕС',utility:'Утилита или неподходящий продукт'};
+const sourceNames={play:'Google Play',web:'Веб-сервисы',social:'Публикации / форумы / соцсети / реестры',watch:'Наблюдаемые страницы / RSS / приложения'};
+const status={yes:'есть свидетельство',no:'есть отрицательное свидетельство',unknown:'не подтверждено'};
+const decisions={match:'Есть цитаты по критериям',review:'На проверку · сведений недостаточно',irrelevant:'Похоже на неподходящий продукт'};
+function link(url,label){const a=el('a',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
+function render(){
+ if(!monitor)return;const busy=monitor.busy||neural?.busy;
+ $('#ai-run').disabled=busy||!monitor.configured||monitor.due===0;$('#neural-run').disabled=busy;$('#ai-cancel').hidden=!busy;$('#ai-cancel').disabled=job?.status==='cancelling'||neural?.status==='cancelling';$('#ai-settings button').disabled=busy;
+ $('#ai-connection').textContent=monitor.configured?`Ключ OpenAI задан · модель ${monitor.model}. ${monitor.lastSuccessAt?'Есть успешный ответ API.':'Доступ пока не проверен; первый запуск выполнит реальное обращение.'}`:'OpenAI пока не подключён. Можно собрать входящий список, затем добавить ключ для анализа.';
+ if(!dirty){$('#ai-enabled').checked=monitor.config.enabled;$('#neural-auto').checked=monitor.config.collectSources??false;$('#ai-time').value=monitor.config.time;$('#ai-per-run').value=monitor.config.perRun;$('#ai-monthly').value=monitor.config.monthlyLimit;$('#ai-known').checked=monitor.config.includeKnown;document.querySelectorAll('.ai-source').forEach(e=>e.checked=monitor.config.sources?.includes(e.value)??true);}
+ $('#ai-usage').textContent=`Ожидают проверки: ${monitor.due}. Brave за месяц: ${monitor.braveBudget?.used??0} / ${monitor.braveBudget?.limit??1000}. Попыток OpenAI за месяц: ${monitor.usage.attempts} / ${monitor.config.monthlyLimit}. Токенов: вход ${monitor.usage.inputTokens}, выход ${monitor.usage.outputTokens}.${monitor.inboxOverflow?' Входящий список ИИ заполнен; сырая выборка неполна.':''}`;
+ $('#ai-status').textContent=neural?.busy?`Нейронный поиск: ${neural.stage}. ${job?.current??''} ${job?.stage??''}`:job?`${{running:'Проверяем',cancelling:'Останавливаем',complete:'Проверка завершена',partial:'Проверка завершена частично',failed:'Проверка прервана',cancelled:'Проверка остановлена'}[job.status]??job.status}: ${job.done} / ${job.total}. ${job.current??''} ${job.stage??''}`:'';
+ const errors=feedback||(neural?.errors?.join(' ')||job?.errors?.map(e=>e.message).join(' ')||'');$('#ai-error').textContent=errors;
+ $('#neural-sources').replaceChildren(...(neural?.sources??[]).map(s=>el('p',`${sourceNames[s.name]}: ${{running:'сбор идёт',complete:'готово',partial:'частично',failed:'ошибка',cancelled:'остановлен',unavailable:'нет подключения'}[s.status]??s.status}${s.found!==undefined?' · получено '+s.found+' записей':''}${s.total?' · '+s.done+' / '+s.total:''}${s.current?' · '+s.current:''}${s.request?' · ожидаем '+Math.max(0,Math.floor((Date.now()-Date.parse(s.request.startedAt))/1000))+' с / '+Math.ceil(s.request.timeoutMs/1000)+' с':''}${s.error?' · '+s.error:''}`)));
+ const byId=new Map(rows.map(r=>[r.id,r])),all=inbox.map(e=>({...e,...byId.get(e.id),isNew:e.isNew})).filter(r=>!isManuallyHidden(r));
+ const mode=$('#ai-filter').value,shown=all.filter(r=>mode==='all'||mode==='new'&&r.isNew||mode==='early'&&r.earlySignal||mode==='pending'&&!r.facts||r.decision===mode);
+ $('#ai-new-count').textContent=all.filter(r=>r.isNew).length;$('#ai-all-tab').classList.toggle('selected',mode==='all');$('#ai-new-tab').classList.toggle('selected',mode==='new');$('#ai-early-tab').classList.toggle('selected',mode==='early');
+ $('#ai-count').textContent=`Всего ${all.length}; новых ${all.filter(r=>r.isNew).length}; по критериям ${all.filter(r=>r.decision==='match').length}, на проверку ${all.filter(r=>r.decision==='review').length}, неподходящих ${all.filter(r=>r.decision==='irrelevant').length}, ожидают ИИ ${all.filter(r=>!r.facts).length}. Показаны первые ${Math.min(limit,shown.length)} из ${shown.length}.`;
+ $('#ai-results').replaceChildren();$('#ai-more').hidden=shown.length<=limit;
+ const groups=new Map();for(const r of shown.slice(0,limit)){const key=r.serviceName?r.serviceName.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,''):r.id;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
+ for(const group of groups.values()){
+  const article=el('article','');article.className='company-group';const row=group[0];article.append(link(row.url,row.serviceName??row.title));if(group.length>1)article.append(el('p','Объединено по названию из цитат. Юридические лица и условия могут различаться; ниже сохранены отдельные выводы и ссылки.'));
+  for(const row of group){
+   if(row.isNew)article.append(el('strong','НОВОЕ · впервые найдено в последнем сборе'));article.append(el('strong',row.facts?decisions[row.decision]:'Ожидает анализа ИИ'));
+   article.append(el('p',`Источники: ${(row.sources??[]).map(s=>sourceNames[s]??s).join(', ')}`));if(row.reference)article.append(el('p',`Ваш известный образец: ${row.reference}`));
+   for(const target of row.targets??[])article.append(link(target.url,`${sourceNames[target.section]??target.section}: ${target.title} ↗`));
+   if(row.earlySignal)article.append(el('p','Ранний сигнал · доступность работающего счёта требует проверки'));
+   if(row.facts){article.append(el('p',`Комментарий ИИ: ${row.summary}`));if(row.availability)article.append(el('p',`Доступность: ${{live:'в источнике заявлено, что работает',waitlist:'лист ожидания',planned:'планируется',unknown:'не подтверждена'}[row.availability.status]}`));
+    for(const [name,fact]of Object.entries(row.facts)){article.append(el('p',`${names[name]}: ${status[fact.status]}`));for(const proof of fact.evidence){const p=el('blockquote',proof.quote);p.append(link(proof.url,`${proof.kind==='official_page'?'Прочитанная страница':proof.kind==='official_index'?'Индекс сайта':proof.kind==='third_party'?'Публикация / сообщение':'Описание приложения / сервиса'} ↗`));article.append(p);}}
+    if(row.rejectedQuotes)article.append(el('p','Часть цитат ответа ИИ не найдена в исходных текстах и не принята как доказательство.'));
+    for(const message of row.sourceErrors??[])article.append(el('p',message));article.append(el('small',`${row.model} · ${new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Kaliningrad',dateStyle:'short',timeStyle:'short'}).format(new Date(row.checkedAt))}`),el('p',row.notice));
+   }
+   const target=row.targets?.find(t=>t.section!=='inbox')??row.targets?.[0]??row;article.append(exclusionControl({...target,id:target.targetId},target.section));
+  }
+  $('#ai-results').append(article);
+ }
+}
+async function refresh(){if(refreshing)return;refreshing=true;try{await refreshExclusions();[monitor,neural,inbox,rows]=await Promise.all([apiJSON('/api/ai/monitor'),apiJSON('/api/neural/monitor'),apiJSON('/api/ai/inbox'),apiJSON('/api/ai/results')]);if(monitor.activeJobId||monitor.latestJobId)job=await apiJSON(`/api/ai/jobs/${monitor.activeJobId??monitor.latestJobId}`);render();}catch(e){$('#ai-error').textContent=e.message;}finally{refreshing=false;clearTimeout(poll);poll=setTimeout(()=>{void refresh();},monitor?.busy||neural?.busy?1200:5000);}}
+const sources=()=>[...document.querySelectorAll('.ai-source:checked')].map(e=>e.value);
+async function save(){monitor=await apiJSON('/api/ai/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:$('#ai-enabled').checked,collectSources:$('#neural-auto').checked,time:$('#ai-time').value,perRun:Number($('#ai-per-run').value),monthlyLimit:Number($('#ai-monthly').value),includeKnown:$('#ai-known').checked,sources:sources()})});dirty=false;}
+$('#ai-settings').addEventListener('input',()=>dirty=true);
+$('#ai-settings').addEventListener('submit',async e=>{e.preventDefault();try{await save();feedback='';render();}catch(error){feedback=error.message;$('#ai-error').textContent=error.message;}});
+async function start(neuralMode){try{$('#ai-run').disabled=true;$('#neural-run').disabled=true;feedback='';if(dirty)await save();await apiJSON(neuralMode?'/api/neural/start':'/api/ai/start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});await refresh();}catch(error){feedback=error.message;await refresh();}}
+$('#ai-run').addEventListener('click',()=>start(false));$('#neural-run').addEventListener('click',()=>start(true));
+$('#ai-cancel').addEventListener('click',async()=>{try{$('#ai-cancel').disabled=true;await apiJSON(neural?.busy?'/api/neural/cancel':'/api/ai/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});await refresh();}catch(error){feedback=error.message;$('#ai-error').textContent=error.message;}});
+const filter=value=>{$('#ai-filter').value=value;limit=30;render();};$('#ai-filter').addEventListener('change',()=>{limit=30;render();});$('#ai-all-tab').addEventListener('click',()=>filter('all'));$('#ai-new-tab').addEventListener('click',()=>filter('new'));$('#ai-early-tab').addEventListener('click',()=>filter('early'));$('#ai-more').addEventListener('click',()=>{limit+=30;render();});
+async function init(){await mountExclusions(refresh);const references=await apiJSON('/api/references');for(const ref of references){const item=el('p',ref.name);if(ref.url||ref.observedWebsite)item.append(link(ref.url??ref.observedWebsite,ref.url?' Сайт ↗':' Сайт из Google Play ↗'));else item.append(el('small',' · адрес не указан'));$('#reference-library').append(item);}await refresh();}
+init().catch(error=>$('#ai-error').textContent=error.message);

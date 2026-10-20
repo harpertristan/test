@@ -75,7 +75,7 @@ test('launch screening separates named product launches from commentary, plans, 
  assert.equal(assessLaunch({title:'Acme raises EUR 10m to build business accounts',description:desc}).kind,'not_launch');
 });
 test('launch feed uses announcement sources, rejects opinion articles and leaves forums accessible in signals mode',()=>{
- const c=validateSocialConfig(socialPreset(),now),plan=socialPlan(c,now);assert.equal(plan.total,22);assert.equal(plan.cycleDays,3);assert.equal(plan.requests.length,8);assert.ok(!plan.requests.some(r=>['registers','reddit','forums','appstore'].includes(r.source)));
+ const c=validateSocialConfig(socialPreset(),now),plan=socialPlan(c,now);assert.equal(plan.total,24);assert.equal(plan.cycleDays,3);assert.equal(plan.requests.length,8);assert.ok(!plan.requests.some(r=>['registers','reddit','forums','appstore'].includes(r.source)));
  const entry={url:'https://finextra.com/newsarticle/1/acme',title:'Acme launches business accounts in Europe',description:'Open business accounts with EUR IBAN and SEPA transfers for companies in Europe.',page_age:'2026-10-20'};
  assert.ok(evaluatePost(entry,'finextra',c,now).post);assert.equal(evaluatePost({...entry,title:'How business banking launches are changing Europe'},'finextra',c,now).reason,'commentary');assert.equal(evaluatePost({...entry,title:'Acme plans to launch business accounts'},'finextra',c,now).reason,'planned');
  assert.ok(socialPlan({...c,eventMode:'signals',requestBudget:64},now).requests.some(r=>r.source==='forums'));

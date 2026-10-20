@@ -1,10 +1,15 @@
+import {createNeuralSearch} from './lib/neural-search.js';
+import {groupedCandidates} from './lib/neural-inbox.js';
+import {createAIReview} from './lib/ai-review.js';
+import {openaiProvider} from './lib/openai-provider.js';
+import {REFERENCE_LIBRARY} from './lib/references.js';
 import{manuallyExcluded,canonicalFindingURL}from'./lib/manual-exclusions.js';
 import{webFilters,webCSV}from'./lib/web-services.js';
 import {pageProvider} from './lib/page-provider.js';
 import {watchCSV,DEFAULT_WATCH_URLS} from './lib/watch.js';
 import {companyGroups} from './lib/companies.js';
 import {socialPreset,SOURCE_CATALOG_VERSION,RECOMMENDED_SOURCES} from './lib/source-catalog.js';
-import { discoveryPreset, cataloguePreset,DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
+import { discoveryPreset, cataloguePreset,earlyPreset,DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from "./lib/qualification.js";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -33,6 +38,8 @@ const APP_VERSION=JSON.parse(await readFile(new URL('./package.json',import.meta
 export function createApp({
   provider = liveProvider(),
   socialProvider = braveProvider(),
+  aiProvider = openaiProvider(),
+  aiPages = pageProvider(),
   socialDelay = 1100,
   watchProvider = {...pageProvider(),app:provider.app},
   watchDelay = 1000,
@@ -44,6 +51,11 @@ export function createApp({
   requestTimeoutMs,
   password = process.env.APP_PASSWORD || "",
 } = {}) {
+  const configuredBraveLimit=Number(process.env.BRAVE_MONTHLY_REQUEST_LIMIT??1000);
+  const braveLimit=Number.isInteger(configuredBraveLimit)&&configuredBraveLimit>0?configuredBraveLimit:1000;
+  const budgetMonth=()=>calendarWindow(clock?clock():new Date()).to.slice(0,7);
+  const braveBudget=()=>({limit:braveLimit,used:store.state.braveUsage?.[budgetMonth()]??0});
+  socialProvider.setBeforeRequest?.(async()=>store.update(d=>{d.braveUsage??={};const month=budgetMonth(),used=d.braveUsage[month]??0;if(used>=braveLimit)throw Object.assign(new Error('Monthly Brave request limit reached'),{code:'BRAVE_BUDGET',status:429});d.braveUsage[month]=used+1;}));
   const monitor = createMonitor({
     provider: { ...provider, research: socialProvider },
     store,
@@ -65,10 +77,16 @@ export function createApp({
   });
   const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
+  const aiReview=createAIReview({store,provider:aiProvider,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor].some(source=>source.summary().busy),tickInterval});
+  const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor},clock});
+  aiReview.setCollector(options=>neural.start(options));
   const files = {
+    "/review":["review.html","text/html"],
+    "/review.js":["review.js","text/javascript"],
     '/web':['web.html','text/html'],
     '/web/':['web.html','text/html'],
     '/web.js':['web.js','text/javascript'],
+    '/references.js':['../lib/references.js','text/javascript'],
     '/api.js':['api.js','text/javascript'],
     '/exclusions.js':['exclusions.js','text/javascript'],
     '/manual-exclusions.js':['../lib/manual-exclusions.js','text/javascript'],
@@ -149,6 +167,12 @@ export function createApp({
           source: "Google Play",
           sourceCheck: "not-performed-by-health-endpoint",
         });
+      if(req.method==='GET'&&url.pathname==='/api/references')return send(200,REFERENCE_LIBRARY);
+      if(req.method==='GET'&&url.pathname==='/api/ai/inbox')return send(200,groupedCandidates(store.state).map(e=>({...e,documents:undefined,screeningText:undefined,snippet:undefined,isNew:store.state.ai.newIds.includes(e.id)})));
+      if(req.method==='GET'&&url.pathname==='/api/neural/monitor')return send(200,neural.summary());
+      if(req.method==='GET'&&url.pathname==='/api/ai/monitor')return send(200,{...aiReview.summary(),braveBudget:braveBudget()});
+      if(req.method==='GET'&&url.pathname==='/api/ai/results')return send(200,aiReview.results());
+      if(req.method==='GET'&&url.pathname.startsWith('/api/ai/jobs/')){const job=aiReview.job(url.pathname.split('/').at(-1));return send(job?200:404,job??{error:'Проверка не найдена.'});}
       if(req.method==='GET'&&url.pathname==='/api/exclusions')return send(200,store.state.manualExclusions??[]);
       if(req.method==='GET'&&web&&apiPath==='/api/defaults')return send(200,{preset:webFilters(),version:APP_VERSION});
       if(req.method==="GET" && url.pathname==="/api/companies")return send(200,companyGroups(store.state));
@@ -169,13 +193,15 @@ export function createApp({
           version:APP_VERSION,
           preset:discoveryPreset(COUNTRIES.map(c=>c.code)),
           cataloguePreset:cataloguePreset(COUNTRIES.map(c=>c.code)),
+          earlyPreset:earlyPreset(COUNTRIES.map(c=>c.code)),
+          referenceCount:REFERENCE_LIBRARY.length,
           excludeTerms: DEFAULT_EXCLUDE_TERMS,
           ...calendarWindow(new Date(),12),
         });
       if (req.method === "GET" && apiPath === "/api/active")
         return send(200, control.visibleJob(control.active()));
       if (req.method === "GET" && apiPath === "/api/monitor")
-        return send(200, control.summary());
+        return send(200, {...control.summary(),braveBudget:braveBudget()});
       if (req.method === "GET" && apiPath === "/api/candidates") return send(200,control.candidates());
       if (req.method === "GET" && apiPath === "/api/candidates/export.csv") return send(200,exportCSV({results:control.candidates(),status:'needs_review'}),"text/csv; charset=utf-8",{"Content-Disposition":'attachment; filename="candidates.csv"'});
       if (req.method === "GET" && apiPath === "/api/findings")
@@ -195,13 +221,19 @@ export function createApp({
         req.headers["sec-fetch-site"] === "cross-site"
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
+      if(req.method==='POST'&&['/api/neural/start','/api/neural/cancel'].includes(url.pathname)){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{return send(202,url.pathname.endsWith('/cancel')?await neural.cancel():await neural.start());}catch(error){return send(error.status??400,{error:error.message});}}
+      if(req.method==='POST'&&['/api/ai/start','/api/ai/cancel','/api/ai/config'].includes(url.pathname)){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
+        try{const body=JSON.parse(raw||'{}');if(url.pathname.endsWith('/config'))return send(200,await aiReview.saveConfig(body));if(url.pathname.endsWith('/cancel'))return send(200,await aiReview.cancel());return send(202,await aiReview.startJob());}catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:error.status??400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
+      }
       if(req.method==='POST'&&['/api/exclusions','/api/exclusions/remove'].includes(url.pathname)){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
         try{
           const input=JSON.parse(raw);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Некорректное исключение.');
           if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);});return send(200,{exclusions:store.state.manualExclusions});}
-          const sections={play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
+          const sections={inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
           if(!section||typeof input.id!=='string')throw new Error('Выберите запись из результатов.');
           const entries=[...section.findings,...(section.reviewCandidates??[]),...section.jobs.flatMap(j=>[...(j.results??[]),...(j.existingResults??[]),...(j.reviewCandidates??[])])];
           const entry=entries.find(e=>(e.id??e.appId)===input.id);if(!entry)return send(404,{error:'Находка не найдена. Обновите список.'});
@@ -289,7 +321,7 @@ export function createApp({
         if (req.method === "GET" && match[2] === "/export.csv") {
           if (["running","cancelling"].includes(job.status))
             return send(409, { error: "Дождитесь завершения поиска." });
-          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? [...job.results,...(job.existingResults??[])].filter(e=>!manuallyExcluded(e,store.state.manualExclusions)) : [...job.results,...(job.existingResults??[])].filter(e=>!manuallyExcluded(e,store.state.manualExclusions)).filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
+          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,store.state.manualExclusions)) : (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,store.state.manualExclusions)).filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${web?"web-services":watch?"changes":social ? "social-signals" : "play-finance"}.csv"`,
           });
         }
@@ -305,13 +337,18 @@ export function createApp({
   server.socialMonitor = socialMonitor;
   server.watchMonitor=watchMonitor;
   server.webMonitor=webMonitor;
+  server.aiReview=aiReview;
+  server.neural=neural;
   server.on("listening", () => {
     monitor.start();
     socialMonitor.start();
     watchMonitor.start();
     webMonitor.start();
+    aiReview.start();
   });
   server.on("close", () => {
+    void neural.stop();
+    void aiReview.stop();
     void monitor.stop();
     void socialMonitor.stop();
     void watchMonitor.stop();
@@ -323,8 +360,9 @@ export function createApp({
 export async function shutdownApp(server){
   // Stop accepting connections first. Finish worker checkpoints before closing
   // browser connections, including clients that never finished a POST body.
+  await server.neural.stop();
   const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
-  await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop()]);
+  await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.aiReview.stop()]);
   server.closeAllConnections();
   await closed;
 }

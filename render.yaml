@@ -11,7 +11,8 @@ services:
       mountPath: /var/data
       sizeGB: 1
     envVars:
-      # Optional social monitoring: add BRAVE_SEARCH_API_KEY securely in Render Environment after deployment.
+      # Optional: add BRAVE_SEARCH_API_KEY and OPENAI_API_KEY securely in Render Environment.
+      # AI stays disabled until explicitly enabled in its own settings.
       - key: DATA_DIR
         value: /var/data
       - key: APP_PASSWORD

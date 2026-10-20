@@ -7,6 +7,7 @@ if(Number(process.versions.node.split('.')[0])<22){console.log('Нужен Node.
 try{process.loadEnvFile('.env');console.log('Файл .env: прочитан');}
 catch(error){console.log(error.code==='ENOENT'?'Файл .env: отсутствует (Google Play может работать)':'Файл .env: ошибка чтения');}
 console.log(`Ключ Brave: ${process.env.BRAVE_SEARCH_API_KEY?'задан, проверьте кнопкой в приложении':'не задан'}`);
+console.log(`Ключ OpenAI: ${process.env.OPENAI_API_KEY?'задан, проверьте на вкладке «Нейронный поиск»':'не задан (необязателен)'}`);
 try{await access('node_modules/google-play-scraper');console.log('Зависимости: установлены');}
 catch{console.log('Зависимости: выполните npm ci');process.exitCode=1;}
 try{

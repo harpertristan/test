@@ -32,6 +32,7 @@ const formatInstant = (value) =>
   }).format(new Date(value));
 const readConfig = () => ({
   ...readCriteria(),
+  referenceDiscovery:$('#reference-discovery').checked,
   releaseMonths:Number($('#release-months').value),
   plan:$('#search-plan').value,
   phoneCountry:$('#phone-country').value.trim().toUpperCase(),
@@ -56,6 +57,7 @@ const readConfig = () => ({
 
 function applyConfig(config, rolling = false) {
   applyCriteria(config);
+  $('#reference-discovery').checked=config.referenceDiscovery??false;
   $("#ignore-release-date").checked=config.ignoreReleaseDate ?? false;
   syncDateMode();
   $('#eu-iban-mode').value=config.euIbanMode ?? 'prefer';
@@ -100,7 +102,9 @@ function cell(text, className) {
   return el;
 }
 
+function newRows(){return filterRows(job?.results??[]).filter(e=>e.firstJobId===job.id&&!e.isReference);}
 function currentRows() {
+  if(view==='new')return newRows();
   return view === 'candidates' ? filterCandidates(candidateRows) : filterRows(view === 'history' ? historyRows : [...(job?.results ?? []),...(job?.existingResults ?? [])]);
 }
 function syncDateMode() {
@@ -137,6 +141,7 @@ function renderRows() {
       name.append(avatar, title, developer, id);
       if(app.isReference)name.append(Object.assign(document.createElement('small'),{textContent:'Ваш образец · прямая проверка'}));
       if(app.discoverySources?.includes('query'))name.append(Object.assign(document.createElement('small'),{textContent:'Найдено поиском Google Play'}));
+      if(app.firstJobId===job?.id&&!app.fromHistory&&!app.isReference)name.append(Object.assign(document.createElement('small'),{textContent:'НОВОЕ · впервые найдено'}));
       if(app.fromHistory)name.append(Object.assign(document.createElement('small'),{textContent:'Из истории · повторно не добавлено; описание сохранено ранее'}));
       if(app.discoverySources?.includes('related'))name.append(Object.assign(document.createElement('small'),{textContent:`Рекомендации Google Play: ${(app.recommendationParents??[]).join(', ')}`}));
       if(app.discoverySources?.includes('developer'))name.append(Object.assign(document.createElement('small'),{textContent:'Другие приложения разработчика'}));
@@ -183,19 +188,21 @@ function renderRows() {
 }
 
 function renderView() {
+  const onlyNew=view==='new';
+  $('#view-new').classList.toggle('selected',onlyNew);$('#view-new').setAttribute('aria-pressed',String(onlyNew));$('#new-tab-count').textContent=format(newRows().length);
   const history = view === "history";
   const review = view === "candidates";
-  $("#view-latest").classList.toggle("selected", !history && !review);
+  $("#view-latest").classList.toggle("selected", !history && !review && !onlyNew);
   $("#view-history").classList.toggle("selected", history);
-  $("#view-latest").setAttribute("aria-pressed", String(!history && !review));
+  $("#view-latest").setAttribute("aria-pressed", String(!history && !review && !onlyNew));
   $("#view-history").setAttribute("aria-pressed", String(history));
   $("#view-candidates").classList.toggle("selected",review);
   $("#view-candidates").setAttribute("aria-pressed",String(review));
-  $("#results-title").textContent = review ? "Кандидаты: данных для подтверждения не хватает" : history
+  $("#results-title").textContent = onlyNew?"Новые за последний поиск":review ? "Кандидаты: данных для подтверждения не хватает" : history
     ? "Все уникальные находки"
     : "Результаты поиска";
   const rows = currentRows();
-  if (job) $("#result-count").textContent = format(filterRows(job.results).length);
+  if (job) $("#result-count").textContent = format(newRows().length);
   $("#table-wrap").hidden = !rows.length;
   $("#export").disabled = (history || review)
     ? !rows.length
@@ -204,7 +211,8 @@ function renderView() {
   $("#empty-state").hidden =
     !!rows.length ||
     (!history && !review && (isBusyJob(job) || job?.status === "failed"));
-  if (review) {
+  if(onlyNew){$('#results-caption').textContent=`Впервые найдены: ${rows.length}. Ранее известные и повторные совпадения здесь не показываются.`;$('#empty-state h3').textContent='Новых находок в этом поиске нет';$('#empty-state p').textContent='Ранее найденные сервисы доступны во вкладке «Все находки».';}
+  else if (review) {
     $('#results-caption').textContent=`На проверку: ${rows.length}. Финансовые сервисы с неполными сведениями о бизнес-обслуживании или IBAN.`;
     $('#empty-state h3').textContent='Кандидатов для проверки пока нет';
     $('#empty-state p').textContent='Здесь сохраняются подходящие по теме кандидаты с неполными сведениями, прошедшие фильтры даты, категории и установок.';
@@ -478,7 +486,7 @@ $("#cancel").addEventListener("click", async () => {
 $("#export").addEventListener("click", () => {
   if (view === "candidates") window.location.assign("/api/candidates/export.csv");
   else if (view === "history") window.location.assign(`/api/findings/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
-  else if (job) window.location.assign(`/api/jobs/${job.id}/export.csv?all=${$("#show-archive").checked ? 1 : 0}`);
+  else if (job) window.location.assign(`/api/jobs/${job.id}/export.csv?new=${view==='new'?1:0}&all=${$("#show-archive").checked ? 1 : 0}`);
 });
 $('#view-candidates').addEventListener('click',async()=>{
   try {candidateRows=await api('/api/candidates');view='candidates';renderView();}
@@ -500,7 +508,7 @@ $('#test-brave').addEventListener('click',async()=>{
   finally{$('#test-brave').disabled=false;}
 });
 function renderPlan() {
-  try{const config=readConfig();const calls=searchPlan(config).length;$('#plan-cost').textContent=`${calls} запросов к Google Play, до ${config.maxDetails} карточек. В сбалансированном плане все выбранные страны проверяются, но число запросов по странам различается.`;}catch{}
+  try{const config=readConfig();const calls=searchPlan(config).length+(config.referenceDiscovery?6:0);$('#plan-cost').textContent=`${calls} запросов к Google Play, до ${config.maxDetails} карточек. В сбалансированном плане все выбранные страны проверяются, но число запросов по странам различается.`;}catch{}
 }
 $('#search-form').addEventListener('input',renderPlan);
 $("#view-latest").addEventListener("click", () => {
@@ -643,6 +651,7 @@ async function init() {
         } catch {}
       }
     }
+    $('#early-preset').disabled=false;
     setInterval(() => {
       void refreshMonitor();
     }, 5000);
@@ -655,3 +664,7 @@ void init();
 
 $('#catalogue-preset').addEventListener('click',()=>{const current=readConfig();applyConfig({...defaults.cataloguePreset,excludeTerms:current.excludeTerms,excludeDomains:current.excludeDomains,excludeAppIds:current.excludeAppIds,seedApps:[...new Set([...defaults.cataloguePreset.seedApps,...current.seedApps])],from:defaults.from,to:defaults.to});$('#schedule-feedback').textContent='Каталог за всё время: все запросы по выбранным странам, рекомендации и разработчики. Сохраните расписание, если хотите использовать этот режим ежедневно.';});
 $('#continue-checks').addEventListener('click',async()=>{try{clearTimeout(pollTimer);view='latest';renderJob(await api('/api/backlog/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}));pollTimer=setTimeout(poll,700);}catch(error){$('#form-error').textContent=error.message;}});
+
+$('#early-preset').addEventListener('click',()=>{const old=readConfig();applyConfig({...defaults.earlyPreset,excludeTerms:old.excludeTerms,excludeDomains:old.excludeDomains,excludeAppIds:old.excludeAppIds});$('#schedule-feedback').textContent=`Раннее обнаружение: библиотека ${defaults.referenceCount} известных сервисов, без ограничения даты и порога установок, рекомендации. Известные примеры помечаются; сохраните расписание.`;});
+
+$('#view-new').addEventListener('click',()=>{view='new';renderView();});
