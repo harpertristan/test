@@ -69,6 +69,7 @@ export function createApp({
     '/web':['web.html','text/html'],
     '/web/':['web.html','text/html'],
     '/web.js':['web.js','text/javascript'],
+    '/api.js':['api.js','text/javascript'],
     '/exclusions.js':['exclusions.js','text/javascript'],
     '/manual-exclusions.js':['../lib/manual-exclusions.js','text/javascript'],
     "/": ["index.html", "text/html"],
@@ -319,6 +320,15 @@ export function createApp({
   return server;
 }
 
+export async function shutdownApp(server){
+  // Stop accepting connections first. Finish worker checkpoints before closing
+  // browser connections, including clients that never finished a POST body.
+  const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+  await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop()]);
+  server.closeAllConnections();
+  await closed;
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
@@ -344,10 +354,11 @@ if (
   server.listen(port, process.env.HOST || "0.0.0.0", () =>
     console.log(`Play Finance Finder: port ${port}`),
   );
-  const stop = async () => {
-    await Promise.all([server.monitor.stop(), server.socialMonitor.stop(), server.watchMonitor.stop(),server.webMonitor.stop()]);
-    server.close(() => process.exit(0));
-  };
+  let stopping;
+  const stop=()=>stopping??=(async()=>{
+    try{await shutdownApp(server);process.exit(0);}
+    catch{console.error('Не удалось корректно завершить программу. Сохраните папку data и проверьте историю перед следующим запуском.');process.exit(1);}
+  })();
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
 }

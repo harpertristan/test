@@ -1,10 +1,11 @@
+import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
 import{renderEvidence}from'./criteria.js';
 import{mountExclusions,refreshExclusions,exclusionControl,isManuallyHidden}from'./exclusions.js';
 const $=s=>document.querySelector(s),lines=id=>$(id).value.split('\n').map(x=>x.trim()).filter(Boolean),node=(tag,text)=>{const el=document.createElement(tag);el.textContent=text;return el;};
 const stamp=t=>t?new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Kaliningrad',dateStyle:'short',timeStyle:'short'}).format(new Date(t)):'—';
 let monitor,job,view='latest',history=[],refreshing=false,dirty=false;
-async function api(path,body){const r=await fetch('/api/web/'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();if(!r.ok)throw new Error(d.error??'Не удалось выполнить запрос.');return d;}
+async function api(path,body){return apiJSON('/api/web/'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
 function config(){return {profile:'business',strictBanking:false,institutionType:'bank_or_emi',queries:lines('#web-queries'),referenceDomains:lines('#web-domains'),requestBudget:Number($('#web-budget').value),limit:Number($('#web-limit').value),requireWebAccess:$('#require-web-access').checked,euIbanMode:$('#web-eu-iban').value,excludeTerms:lines('#web-exclude-terms'),excludeDomains:lines('#web-exclude-domains')};}
 function apply(c){$('#web-queries').value=c.queries.join('\n');$('#web-domains').value=c.referenceDomains.join('\n');$('#web-budget').value=c.requestBudget;$('#web-limit').value=c.limit;$('#require-web-access').checked=c.requireWebAccess;$('#web-eu-iban').value=c.euIbanMode;$('#web-exclude-terms').value=c.excludeTerms.join('\n');$('#web-exclude-domains').value=c.excludeDomains.join('\n');}
 function rows(){return (view==='history'?history:[...(job?.results??[]),...(job?.existingResults??[])]).filter(e=>!isManuallyHidden(e)&&(!$('#require-web-access').checked||e.webAccess?.status==='mentioned')&&($('#web-eu-iban').value!=='required'||e.discovery?.euIban==='explicit_claim'));}

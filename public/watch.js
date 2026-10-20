@@ -1,3 +1,4 @@
+import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl,isManuallyHidden}from'./exclusions.js';
 import {renderEvidence} from './criteria.js';
@@ -5,7 +6,7 @@ const $=s=>document.querySelector(s),lines=id=>$(id).value.split('\n').map(s=>s.
 const stamp=t=>t?new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Kaliningrad',dateStyle:'short',timeStyle:'short'}).format(new Date(t)):'—';
 const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
 let monitor,job,view='latest',history=[],refreshing=false,dirty=false;
-async function api(path,body){const r=await fetch(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error??'Не удалось выполнить запрос');return d;}
+async function api(path,body){return apiJSON(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
 function config(){return {profile:'business',strictBanking:false,institutionType:'bank_or_emi',watchUrls:lines('#watch-urls'),feedUrls:lines('#feed-urls'),watchApps:lines('#watch-apps'),autoWatchFindings:$('#auto-apps').checked,autoWatchSites:$('#auto-sites').checked,country:$('#watch-country').value.trim().toUpperCase(),excludeTerms:lines('#watch-exclude-terms'),excludeAppIds:lines('#watch-exclude-ids'),excludeDomains:lines('#watch-exclude-domains')};}
 function apply(filters){$('#watch-urls').value=filters.watchUrls.join('\n');$('#feed-urls').value=filters.feedUrls.join('\n');$('#watch-apps').value=filters.watchApps.join('\n');$('#auto-apps').checked=filters.autoWatchFindings;$('#auto-sites').checked=filters.autoWatchSites??true;$('#watch-country').value=filters.country;$('#watch-exclude-terms').value=filters.excludeTerms.join('\n');$('#watch-exclude-ids').value=filters.excludeAppIds.join('\n');$('#watch-exclude-domains').value=filters.excludeDomains.join('\n');}
 function render(){if(!monitor)return;const running=isBusyJob(job);$('#watch-run').disabled=running;$('#watch-fields').disabled=running;$('#watch-cancel').hidden=!running;$('#watch-cancel').disabled=job?.status==='cancelling';$('#watch-cancel').textContent=job?.status==='cancelling'?'Останавливаем поиск…':'Остановить';if(!dirty){$('#watch-enabled').checked=monitor.schedule.enabled;$('#watch-time').value=monitor.schedule.time;}

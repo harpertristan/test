@@ -1,7 +1,8 @@
+import {apiJSON} from './api.js';
 import{manuallyExcluded}from'./manual-exclusions.js';
 let rules=[],onChange=async()=>{},panel,status,lastRule;
 export const isManuallyHidden=entry=>manuallyExcluded(entry,rules);
-async function request(path,body){const response=await fetch(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.error??'Не удалось сохранить исключение.');return data;}
+async function request(path,body){return apiJSON(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
 function node(tag,text){const el=document.createElement(tag);el.textContent=text;return el;}
 function render(){if(!panel)return;const wasOpen=panel.querySelector('details')?.open;panel.replaceChildren();const details=node('details','');details.open=wasOpen??false;const summary=node('summary',`Исключённые вручную (${rules.length})`);details.append(summary,node('p','Исключения действуют сразу во всех вкладках и будущих поисках. История сохраняется. Здесь можно восстановить запись.'));
  for(const rule of [...rules].reverse()){const row=node('div','');row.className='exclusion-entry';const text=node('span',`${rule.title??rule.value} · ${rule.kind==='app'?'приложение':rule.kind==='domain'?'весь сервис по домену':'эта ссылка'} · ${rule.value}`),restore=node('button','Восстановить');restore.type='button';restore.className='outline-button';restore.addEventListener('click',()=>remove(rule.key,restore));row.append(text,restore);details.append(row);}

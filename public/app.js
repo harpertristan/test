@@ -1,3 +1,4 @@
+import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
 import { searchPlan, discoveryPreset, rollingDates } from './discovery.js';
@@ -90,13 +91,7 @@ function updateCountries() {
   );
 }
 
-async function api(path, options) {
-  const response = await fetch(path, options);
-  const result = await response.json();
-  if (!response.ok)
-    throw Object.assign(new Error(result.error || "Не удалось выполнить запрос."),{status:response.status,activeJobId:result.activeJobId});
-  return result;
-}
+const api=apiJSON;
 
 function cell(text, className) {
   const el = document.createElement("td");
@@ -407,7 +402,7 @@ function renderJob(next) {
     previouslySeen: "Уже найдены раньше, не добавлены повторно",
   };
   const lines = [
-    `Успешных поисковых запросов: ${job.successfulSearches} из ${job.searchTotal}.`,
+    `Успешных поисковых запросов: ${job.successfulSearches}; выполнено ${job.searchDone} из ${job.searchTotal} этапов поиска. Остальные этапы могли не запускаться.`,
     `Карточек проверено: ${job.detailDone} из ${job.detailTotal}.`,
     `Списков рекомендаций: ${job.recommendationChecks??0}; разработчиков: ${job.developerChecks??0}; в очереди: ${job.pendingCount??0}.`,
   ];
@@ -641,7 +636,7 @@ async function init() {
           applyConfig(prior.config, prior.source === "scheduled");
         updateCountries();
         renderJob(prior);
-        if (prior.status === "running") pollTimer = setTimeout(poll, 500);
+        if (isBusyJob(prior)) pollTimer = setTimeout(poll, 500);
       } catch {
         try {
           localStorage.removeItem(storageKey);

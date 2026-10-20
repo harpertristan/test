@@ -15,4 +15,17 @@ try{
   console.log(`История: ${state.findings?.length ?? 0} приложений, ${state.reviewCandidates?.length ?? 0} кандидатов`);
   console.log(`Профиль: ${state.schedule?.filters?.profile ?? 'старая версия, требуется перезапуск'}`);
 }catch(error){if(error.code==='ENOENT')console.log('История: появится при первом запуске');else{console.log('История: ошибка чтения. Сохраните файл и проверьте резервную копию; не удаляйте data.');process.exitCode=1;}}
-console.log('Google Play и доступ Brave эта команда не проверяет. Первый поиск и кнопка проверки ключа проверят источники.');
+if(process.argv.includes('--play')){
+ console.log('Проверка Google Play: два обращения, без Brave и без изменения истории. Предел каждого — 30 секунд.');
+ const [{liveProvider},{runProvider},{publicError}]=await Promise.all([import('../lib/provider.js'),import('../lib/run-context.js'),import('../lib/search.js')]);
+ const provider=runProvider(liveProvider(),new AbortController().signal);
+ for(const [label,operation]of[
+  ['Поиск AT / business account',()=>provider.search({term:'business account',country:'at',lang:'en',num:50,price:'free'})],
+  ['Карточка Wamo / AT',()=>provider.app({appId:'com.wamo.business',country:'at',lang:'en'})]
+ ]){
+  const start=Date.now();
+  try{const result=await operation();console.log(`${label}: ответ получен за ${((Date.now()-start)/1000).toFixed(1)} с; ${Array.isArray(result)?`карточек: ${result.length}`:result.title?'карточка прочитана':'данные неполные'}.`);}
+  catch(error){const safe=publicError(error);console.log(`${label}: ${safe.code} — ${safe.message} (${((Date.now()-start)/1000).toFixed(1)} с).`);process.exitCode=1;}
+ }
+ console.log('Brave этим тестом не проверяется. Ключ проверяйте кнопкой в приложении.');
+}else console.log('Для проверки подключения Google Play: npm run doctor -- --play. Доступ Brave проверяется кнопкой в приложении.');

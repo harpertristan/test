@@ -1,3 +1,4 @@
+import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
 import {socialPlan,activeSocialSources,LAUNCH_QUERIES,BUSINESS_SOCIAL_QUERIES} from './source-catalog.js';
@@ -39,20 +40,7 @@ const reasons = {
 };
 
 async function api(path, body) {
-  const response = await fetch(
-    `/api/social/${path}`,
-    body === undefined
-      ? undefined
-      : {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-  );
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error || "Не удалось выполнить запрос.");
-  return data;
+  return apiJSON(`/api/social/${path}`,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 }
 
 function config() {
