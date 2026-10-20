@@ -1,3 +1,4 @@
+import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
 import {socialPlan,activeSocialSources,LAUNCH_QUERIES,BUSINESS_SOCIAL_QUERIES} from './source-catalog.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
@@ -17,6 +18,7 @@ const stamp = (value) =>
     timeStyle: "short",
   }).format(new Date(value));
 const labels = {
+  cancelling:"Останавливаем поиск…",
   running: "Идёт поиск",
   complete: "Поиск завершён",
   partial: "Поиск завершён с пропусками",
@@ -154,7 +156,7 @@ function renderPosts(rows) {
 function render() {
   if (!monitor) return;
   const ready = monitor.connection.configured,
-    running = job?.status === "running";
+    running = isBusyJob(job);
   const schedule = monitor.schedule;
   if (!dirty) {
     $("#social-enabled").checked = schedule.enabled;
@@ -167,6 +169,8 @@ function render() {
     : "Найти новые сигналы";
   $("#social-filters").disabled = running;
   $("#social-cancel").hidden = !running;
+  $("#social-cancel").disabled=job?.status==='cancelling';
+  $("#social-cancel").textContent=job?.status==='cancelling'?"Останавливаем поиск…":"Остановить поиск";
   $("#social-schedule-badge").textContent = !ready
     ? "Нужен ключ API"
     : schedule.enabled
@@ -231,7 +235,7 @@ function render() {
       `Запросы: ${job.searchDone}/${job.searchTotal} · найдено новых сигналов: ${job.results.length}`;
     $("#social-progress-bar").max = job.searchTotal;
     $("#social-progress-bar").value = job.searchDone;
-    $("#social-current").textContent = job.current;
+    $("#social-current").textContent = requestStatus(job);
   }
   const messages = [];
   if (job?.status === "failed")
@@ -281,10 +285,11 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   try {
+    const priorJobId=job?.id;
     await refreshExclusions();
     monitor = await api("monitor");
     const id = monitor.activeJobId || monitor.latestJobId;
-    if (id) job = await api(`jobs/${id}`);
+    if (id){const next=await api(`jobs/${id}`);if(job?.id!==priorJobId)return;job=next;}
     if (view === "history") history = await api("findings?all=1");
     render();
   } catch {
@@ -311,7 +316,8 @@ $("#social-form").addEventListener("submit", async (event) => {
 });
 $("#social-cancel").addEventListener("click", async () => {
   try {
-    job = await api(`jobs/${job.id}/cancel`, {});
+    const id=job.id;job={...job,status:'cancelling'};$("#social-error").textContent='';render();
+    job = await api(`jobs/${id}/cancel`, {});
     render();
   } catch (error) {
     $("#social-error").textContent = error.message;

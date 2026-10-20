@@ -41,6 +41,7 @@ export function createApp({
   autoSchedule = false,
   clock,
   tickInterval,
+  requestTimeoutMs,
   password = process.env.APP_PASSWORD || "",
 } = {}) {
   const monitor = createMonitor({
@@ -50,6 +51,7 @@ export function createApp({
     autoSchedule,
     clock,
     tickInterval,
+    requestTimeoutMs,
   });
   const socialMonitor = createMonitor({
     provider: socialProvider,
@@ -59,9 +61,10 @@ export function createApp({
     autoSchedule,
     clock,
     tickInterval,
+    requestTimeoutMs,
   });
-  const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval});
-  const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval});
+  const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
+  const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const files = {
     '/web':['web.html','text/html'],
     '/web/':['web.html','text/html'],
@@ -76,6 +79,7 @@ export function createApp({
     "/criteria.js": ["criteria.js", "text/javascript"],
     "/discovery.js": ["../lib/discovery.js", "text/javascript"],
     "/qualification.js": ["../lib/qualification.js", "text/javascript"],
+    "/job-state.js":["job-state.js","text/javascript"],
     "/app.js": ["app.js", "text/javascript"],
     "/style.css": ["style.css", "text/css"],
     "/social": ["social.html", "text/html"],
@@ -263,6 +267,7 @@ export function createApp({
                 error instanceof SyntaxError
                   ? "Некорректный JSON."
                   : error.message,
+              activeJobId:error.status===409?control.active()?.id:undefined,
             },
           );
         }
@@ -281,7 +286,7 @@ export function createApp({
           return send(200, control.visibleJob(await control.cancel(job.id)));
         }
         if (req.method === "GET" && match[2] === "/export.csv") {
-          if (job.status === "running")
+          if (["running","cancelling"].includes(job.status))
             return send(409, { error: "Дождитесь завершения поиска." });
           return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? [...job.results,...(job.existingResults??[])].filter(e=>!manuallyExcluded(e,store.state.manualExclusions)) : [...job.results,...(job.existingResults??[])].filter(e=>!manuallyExcluded(e,store.state.manualExclusions)).filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${web?"web-services":watch?"changes":social ? "social-signals" : "play-finance"}.csv"`,

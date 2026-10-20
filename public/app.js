@@ -1,3 +1,4 @@
+import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
 import { searchPlan, discoveryPreset, rollingDates } from './discovery.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows, filterCandidates } from "./criteria.js";
@@ -11,6 +12,7 @@ let view = "latest";
 let monitorData;
 let scheduleDirty = false;
 let refreshing = false;
+let cancellingId=null;
 let sortKey = "released";
 let sortDirection = -1;
 const storageKey = "playscout-last-job";
@@ -92,7 +94,7 @@ async function api(path, options) {
   const response = await fetch(path, options);
   const result = await response.json();
   if (!response.ok)
-    throw new Error(result.error || "Не удалось выполнить запрос.");
+    throw Object.assign(new Error(result.error || "Не удалось выполнить запрос."),{status:response.status,activeJobId:result.activeJobId});
   return result;
 }
 
@@ -202,11 +204,11 @@ function renderView() {
   $("#table-wrap").hidden = !rows.length;
   $("#export").disabled = (history || review)
     ? !rows.length
-    : !rows.length || job?.status === "running";
-  $("#diagnostics").hidden = history || review || !job || job.status === "running";
+    : !rows.length || isBusyJob(job);
+  $("#diagnostics").hidden = history || review || !job || isBusyJob(job);
   $("#empty-state").hidden =
     !!rows.length ||
-    (!history && !review && (job?.status === "running" || job?.status === "failed"));
+    (!history && !review && (isBusyJob(job) || job?.status === "failed"));
   if (review) {
     $('#results-caption').textContent=`На проверку: ${rows.length}. Финансовые сервисы с неполными сведениями о бизнес-обслуживании или IBAN.`;
     $('#empty-state h3').textContent='Кандидатов для проверки пока нет';
@@ -219,6 +221,7 @@ function renderView() {
       "Новые подходящие приложения будут сохраняться здесь после ежедневного или ручного поиска.";
   } else if (job) {
     const names = {
+      cancelling:"Останавливаем поиск…",
       running: "Проверяем Google Play",
       complete: "Поиск завершён",
       partial: "Поиск завершён с пропусками",
@@ -240,7 +243,7 @@ function renderView() {
 }
 function renderExplanation() {
   const box=$('#search-explanation');
-  box.hidden=!job || job.status==='running' || view!=='latest';
+  box.hidden=!job || isBusyJob(job) || view!=='latest';
   if(box.hidden)return;
   const skipped=job.skipped;
   const lines=[`Проверено: ${job.detailDone}. Другая категория: ${skipped.category || 0}. Вне даты первого выпуска: ${skipped.date || 0}. Не совпали с профилем: ${skipped.banking || 0}.`];
@@ -273,7 +276,7 @@ function renderMonitor(data) {
   $("#schedule-next").textContent =
     data.lastError ||
     (data.activeJobId
-      ? "Поиск выполняется. Новые находки сохраняются автоматически."
+      ? data.stopping ? "Останавливаем поиск и сохраняем очередь карточек…" : "Поиск выполняется. Новые находки сохраняются автоматически."
       : next);
   if (
     !data.lastError &&
@@ -281,7 +284,7 @@ function renderMonitor(data) {
     ["failed", "partial", "cancelled"].includes(schedule.lastStatus)
   )
     $("#schedule-next").textContent +=
-      " Последний автопоиск не завершён полностью; подробности в результатах.";
+      schedule.lastStatus==='cancelled'?" Последний автопоиск остановлен. Уже найденные приложения сохранены.":" Последний автопоиск не завершён полностью; подробности в результатах.";
   $("#history-count").textContent = format(data.totalFindings);
   $('#candidate-count').textContent=format(data.totalCandidates ?? 0);
   $('#evidence-connection').textContent=data.evidenceConnection?.configured ? 'Ключ Brave задан. Для проверки доступа нажмите кнопку ниже; в поиске он дополняет карточки Google Play и сведения о сервисе.' : 'Ключ Brave не подключён. Проверяется только описание. Для сайтов выполните npm run configure и перезапустите программу.';
@@ -291,19 +294,21 @@ async function refreshMonitor() {
   if (refreshing) return;
   refreshing = true;
   try {
+    const priorJobId=job?.id;
     await refreshExclusions();
     const data = await api("/api/monitor");
+    if(job?.id!==priorJobId)return;
     renderMonitor(data);
     if (view === "history") historyRows = await api("/api/findings?all=1");
     if (view === "candidates") candidateRows = await api("/api/candidates");
     const id = data.activeJobId || data.latestJobId;
-    if (id && job?.id !== id) {
+    if (id && (job?.id !== id || data.busy!==isBusyJob(job))) {
       clearTimeout(pollTimer);
       renderJob(await api(`/api/jobs/${id}`));
       try {
         localStorage.setItem(storageKey, id);
       } catch {}
-      if (job.status === "running") pollTimer = setTimeout(poll, 700);
+      if (isBusyJob(job)) pollTimer = setTimeout(poll, 700);
     } else renderView();
   } catch {
     $("#schedule-next").textContent =
@@ -314,14 +319,18 @@ async function refreshMonitor() {
 }
 
 function renderJob(next) {
+  if(cancellingId===next.id&&next.status!=='failed')next={...next,status:'cancelling'};
   job = next;
-  const running = job.status === "running";
+  const running = isBusyJob(job);
+  const cancelling=job.status==='cancelling';
   $("#filters").disabled = running;
   $("#search-button").disabled = running;
   $("#search-button").textContent = running
-    ? "Поиск идёт…"
+    ? cancelling?"Останавливаем поиск…":"Поиск идёт…"
     : "⌕ Найти приложения";
   $("#cancel").hidden = !running;
+  $("#cancel").disabled=cancelling;
+  $("#cancel").textContent=cancelling?"Останавливаем поиск…":"Остановить поиск";
   $("#export").disabled = running || !job.results.length;
   $("#result-count").textContent = format(filterRows(job.results).length);
   $("#checked-count").textContent = running && job.phase!=="details" ? "—" : format(job.detailDone);
@@ -330,6 +339,7 @@ function renderJob(next) {
     Object.assign(document.createElement("em"), { textContent: "стран" }),
   );
   const statusText = {
+    cancelling:"Останавливаем поиск…",
     running: "Проверяем Google Play",
     complete: "Поиск завершён",
     partial: "Поиск завершён с пропусками",
@@ -348,7 +358,7 @@ function renderJob(next) {
   $("#progress-count").textContent = `${done} / ${total}`;
   $("#progress").max = Math.max(total, 1);
   $("#progress").value = done;
-  $("#current-task").textContent = job.current;
+  $("#current-task").textContent = requestStatus(job);
   const notices = [];
   if (job.status === "failed")
     notices.push(
@@ -420,13 +430,15 @@ function renderJob(next) {
 
 async function poll() {
   try {
-    renderJob(await api(`/api/jobs/${job.id}`));
-    if (job.status === "running") pollTimer = setTimeout(poll, 1200);
+    const id=job?.id;if(!id)return;const next=await api(`/api/jobs/${id}`);
+    if(job?.id!==id)return;
+    renderJob(next);
+    if (isBusyJob(job)) pollTimer = setTimeout(poll, 1200);
     else void refreshMonitor();
   } catch (error) {
     $("#form-error").textContent =
       `${error.message} Обновите страницу, чтобы восстановить связь.`;
-    if (job?.status === "running") pollTimer = setTimeout(poll, 5000);
+    if (isBusyJob(job)) pollTimer = setTimeout(poll, 5000);
   }
 }
 
@@ -453,19 +465,20 @@ $("#search-form").addEventListener("submit", async (event) => {
     renderJob(next);
     pollTimer = setTimeout(poll, 700);
   } catch (error) {
+    if(error.status===409){try{const active=await api('/api/active');if(active){view='latest';renderJob(active);pollTimer=setTimeout(poll,700);return;}}catch{}}
     $("#form-error").textContent = error.message;
     $("#search-button").disabled = false;
   }
 });
 
 $("#cancel").addEventListener("click", async () => {
+  const id=job?.id;if(!id||cancellingId)return;
+  cancellingId=id;clearTimeout(pollTimer);$("#form-error").textContent='';renderJob({...job,status:'cancelling'});
   try {
-    clearTimeout(pollTimer);
-    renderJob(await api(`/api/jobs/${job.id}/cancel`, { method: "POST" }));
-  } catch (error) {
-    $("#form-error").textContent = error.message;
-    pollTimer = setTimeout(poll, 1200);
-  }
+    const stopped=await api(`/api/jobs/${id}/cancel`,{method:'POST'});
+    cancellingId=null;if(job?.id===id)renderJob(stopped);
+    await refreshMonitor();
+  } catch(error){cancellingId=null;$("#form-error").textContent=error.message;pollTimer=setTimeout(poll,700);}
 });
 $("#export").addEventListener("click", () => {
   if (view === "candidates") window.location.assign("/api/candidates/export.csv");
@@ -605,8 +618,10 @@ async function init() {
     }
     updateCountries();
     $("#search-button").disabled = false;
+    const priorJobId=job?.id;
     await refreshExclusions();
     const data = await api("/api/monitor");
+    if(job?.id!==priorJobId)return;
     renderMonitor(data);
     applyConfig(data.schedule.filters);
     let saved;
