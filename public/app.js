@@ -1,3 +1,4 @@
+import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
 import { searchPlan, discoveryPreset, rollingDates } from './discovery.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows, filterCandidates } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
@@ -142,13 +143,9 @@ function renderRows() {
       if(app.fromHistory)name.append(Object.assign(document.createElement('small'),{textContent:'Из истории · повторно не добавлено; описание сохранено ранее'}));
       if(app.discoverySources?.includes('related'))name.append(Object.assign(document.createElement('small'),{textContent:`Рекомендации Google Play: ${(app.recommendationParents??[]).join(', ')}`}));
       if(app.discoverySources?.includes('developer'))name.append(Object.assign(document.createElement('small'),{textContent:'Другие приложения разработчика'}));
+      if(app.developerWebsite){const site=Object.assign(document.createElement('a'),{href:app.developerWebsite,target:'_blank',rel:'noopener noreferrer',textContent:'Сайт сервиса ↗'});name.append(site);}
       name.append(renderEvidence(app));
-      const exclude = Object.assign(document.createElement('button'),{type:'button',className:'text-button',textContent:'Исключить это приложение'});
-      exclude.addEventListener('click',()=>{
-        $('#exclude-ids').value=[...new Set([...readCriteria().excludeAppIds,app.appId])].join('\n');
-        $('#save-schedule').click(); renderView();
-      });
-      name.append(exclude);
+      name.append(exclusionControl(app,'play'));
       const regions = cell("");
       const badge = Object.assign(document.createElement("span"), {
         className: "country-chip",
@@ -294,6 +291,7 @@ async function refreshMonitor() {
   if (refreshing) return;
   refreshing = true;
   try {
+    await refreshExclusions();
     const data = await api("/api/monitor");
     renderMonitor(data);
     if (view === "history") historyRows = await api("/api/findings?all=1");
@@ -588,6 +586,7 @@ $('#search-form').addEventListener('input',()=>{renderView();});
 async function init() {
   $("#search-button").disabled = true;
   try {
+    await mountExclusions(async()=>{renderView();await refreshMonitor();if(job)renderJob(await api(`/api/jobs/${job.id}`));});
     defaults = await api("/api/defaults");
     $("#app-version").textContent=`Версия ${defaults.version}`;
     $("#from").value = defaults.from;
@@ -606,6 +605,7 @@ async function init() {
     }
     updateCountries();
     $("#search-button").disabled = false;
+    await refreshExclusions();
     const data = await api("/api/monitor");
     renderMonitor(data);
     applyConfig(data.schedule.filters);

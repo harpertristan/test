@@ -1,3 +1,4 @@
+import{isManuallyHidden}from'./exclusions.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding, reviewCandidate } from './qualification.js';
 const $ = s => document.querySelector(s);
 const lines = id => $(id).value.split('\n').map(s=>s.trim()).filter(Boolean);
@@ -14,9 +15,10 @@ export function applyCriteria(config) {
   $('#exclude-domains').value=(config.excludeDomains ?? []).join('\n');
 }
 export function filterRows(rows) {
+  rows=rows.filter(row=>!isManuallyHidden(row));
   return $('#show-archive').checked ? rows : rows.filter(row=>eligibleFinding(row,readCriteria()));
 }
-export function filterCandidates(rows) { return rows.filter(row => reviewCandidate(row,readCriteria())); }
+export function filterCandidates(rows) { return rows.filter(row => !isManuallyHidden(row)&&reviewCandidate(row,readCriteria())); }
 export function renderEvidence(entry) {
   const box=document.createElement('details'); box.className='bank-evidence';
   const summary=document.createElement('summary');

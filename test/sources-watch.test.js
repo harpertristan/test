@@ -101,13 +101,13 @@ test('daily watch resumes and maintains a separate schedule and persisted baseli
 test('company grouping retains one app and marks name-based associations as unconfirmed',()=>{
  const s=initialState(now);s.schedule.filters.strictBanking=false;s.findings=[{appId:'com.stablecom.app',title:'Stable.com',developerWebsite:'https://stable.com',discovery:{version:2,status:'service_match'}}];s.social.schedule.filters.eventMode='signals';s.social.findings=[{id:'post:1',title:'Stable.com launches business accounts',url:'https://finextra.com/article/1',discovery:{version:2,status:'service_match'}}];const groups=companyGroups(s);assert.equal(groups.length,1);assert.equal(groups[0].items.length,2);assert.equal(groups[0].unconfirmedAssociations,1);
 });
-test('one action enables all three schedules; watch API, assets and CSV respect authentication',async t=>{
- const store=memoryStore(now);for(const s of [store.state,store.state.social,store.state.watch])s.schedule.enabled=false;
+test('one action enables all four schedules; watch API, assets and CSV respect authentication',async t=>{
+ const store=memoryStore(now);for(const s of [store.state,store.state.social,store.state.web,store.state.watch])s.schedule.enabled=false;
  const server=createApp({store,password:'fixture-pass',clock:()=>now,watchDelay:0,watchProvider:{page:async()=>webpage(text)}});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));const base=`http://127.0.0.1:${server.address().port}`,headers={Authorization:'Basic '+Buffer.from('admin:fixture-pass').toString('base64'),'Content-Type':'application/json'};
  assert.equal((await fetch(base+'/watch')).status,401);
  assert.equal((await fetch(base+'/api/monitoring/enable',{method:'POST',headers:{Authorization:headers.Authorization}})).status,415);
  for(const path of ['/watch','/watch.js','/source-catalog.js','/api/companies'])assert.equal((await fetch(base+path,{headers})).status,200,path);
- const response=await fetch(base+'/api/monitoring/enable',{method:'POST',headers,body:'{}'});assert.equal(response.status,200);for(const s of [store.state,store.state.social,store.state.watch])assert.equal(s.schedule.enabled,true);assert.ok(store.state.social.schedule.filters.sources.includes('forums'));
+ const response=await fetch(base+'/api/monitoring/enable',{method:'POST',headers,body:'{}'});assert.equal(response.status,200);for(const s of [store.state,store.state.social,store.state.web,store.state.watch])assert.equal(s.schedule.enabled,true);assert.ok(store.state.social.schedule.filters.sources.includes('forums'));
  assert.equal((await fetch(base+'/api/monitoring/enable',{method:'POST',headers:{...headers,'Sec-Fetch-Site':'cross-site'},body:'{}'})).status,403);
  const run=await fetch(base+'/api/watch/search',{method:'POST',headers,body:JSON.stringify(config())});assert.equal(run.status,202);await server.watchMonitor.idle();assert.equal(Object.keys(store.state.watch.snapshots).length,1);assert.equal((await fetch(base+'/api/watch/findings/export.csv',{headers})).status,200);
 });

@@ -1,3 +1,4 @@
+import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
 import {socialPlan,activeSocialSources,LAUNCH_QUERIES,BUSINESS_SOCIAL_QUERIES} from './source-catalog.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
@@ -143,6 +144,7 @@ function renderPosts(rows) {
           node("small", `Впервые найдено: ${stamp(post.firstFoundAt)}`),
           node("small", post.reason),
           renderEvidence(post),
+          exclusionControl(post,'social'),
         );
         return article;
       }),
@@ -279,6 +281,7 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   try {
+    await refreshExclusions();
     monitor = await api("monitor");
     const id = monitor.activeJobId || monitor.latestJobId;
     if (id) job = await api(`jobs/${id}`);
@@ -359,12 +362,14 @@ $("#social-export").addEventListener("click", () => {
 
 async function init() {
   try {
+    await mountExclusions(async()=>{render();await refresh();});
     const defaults = await api('defaults');
     sourceOptions=defaults.sources;
     sourcePreset=defaults.preset;
     for(const source of sourceOptions) {
       const label=node('label','');label.title=(source.domains??[]).join(', '); const input=document.createElement('input');input.type='checkbox';input.id=`source-${source.id}`;input.value=source.id;label.append(input,document.createTextNode(` ${source.name}`));$('#source-options').append(label);
     }
+    await refreshExclusions();
     monitor = await api("monitor");
     applyFilters(monitor.schedule.filters);
     $('#profile').addEventListener('change',()=>{const business=$('#profile').value==='business';$('#strict-controls').hidden=business;$('#strict-banking').checked=!business;$('#institution-type').value=business?'bank_or_emi':'bank';});

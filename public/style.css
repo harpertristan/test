@@ -1089,3 +1089,23 @@ summary {
 #watch-results, #company-groups, #watch-diagnostics { overflow-wrap:anywhere; min-width:0; }
 #company-groups details { padding:10px 0; border-bottom:1px solid #e4eae6; }
 #watch-status { overflow-wrap:anywhere; }
+
+.finding-actions { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 4px; white-space:normal; }
+.exclude-finding { display:inline-flex; align-items:center; min-height:40px; border:1px solid #bb564c; color:#943b31; background:#fff5f3; border-radius:7px; padding:9px 14px; font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+.exclude-finding:hover { background:#ffe7e1; }
+.exclude-finding:focus-visible { outline:3px solid #bf7062; outline-offset:3px; }
+.exclude-finding:disabled { opacity:.6; cursor:wait; }
+.manual-exclusions { padding:14px 20px; margin:16px 0; overflow-wrap:anywhere; }
+.manual-exclusions summary { cursor:pointer; font-size:14px; font-weight:600; }
+.manual-exclusions p { font-size:13px; line-height:1.5; }
+.exclusion-entry { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #e4eae6; font-size:13px; }
+.exclusion-entry span { min-width:0; overflow-wrap:anywhere; }
+.exclusion-entry button { flex-shrink:0; }
+.exclusion-feedback { display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#edf4e9; color:#28533e; padding:12px 18px; border-radius:8px; margin:10px 0; font-size:14px; }
+.exclusion-feedback:empty { display:none; }
+#web-results,#web-diagnostics,#web-status { min-width:0; overflow-wrap:anywhere; }
+#web-results article>a { font-weight:600; font-size:17px; }
+#web-results article>strong { display:block; margin-top:12px; }
+@media(max-width:680px){.exclusion-entry{align-items:flex-start;flex-direction:column;}.manual-exclusions{padding:14px;}}
+
+.exclusion-feedback { position:sticky; top:10px; z-index:20; box-shadow:0 3px 14px #193c2220; }
