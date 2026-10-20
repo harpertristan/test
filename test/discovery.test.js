@@ -9,6 +9,7 @@ import {validateConfig,createJob,runSearch,COUNTRIES,playFilters} from '../lib/s
 import {memoryStore,openStore,initialState} from '../lib/store.js';
 import {createMonitor} from '../lib/monitor.js';
 import {createApp} from '../server.js';
+import {LAUNCH_QUERIES} from '../lib/source-catalog.js';
 import {SOCIAL_QUERIES,BUSINESS_SOCIAL_QUERIES,validateSocialConfig} from '../lib/social-search.js';
 const now=new Date('2026-10-19T12:00:00Z');
 const fixtures=JSON.parse(await readFile(new URL('./fixtures/play-examples.json',import.meta.url),'utf8')).apps;
@@ -65,10 +66,10 @@ test('extra Play IDs from Brave are source-restricted and do not replace Google 
 test('migration switches legacy search to the examples profile while preserving history, countries and custom exclusions',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'profile-migrate-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'state.json');
  const old=initialState(now);old.schedule.filters={keywords:['старый запрос'],countries:['DE','LT'],minInstalls:100,limit:100,excludeTerms:['My exclusion'],excludeAppIds:['ignore.app'],excludeDomains:['bad.example']};old.findings=[{appId:'saved.old',title:'Saved'}];
- assert.deepEqual(old.social.schedule.filters.queries,BUSINESS_SOCIAL_QUERIES);delete old.social.schedule.filters.profile;old.social.schedule.filters.queries=SOCIAL_QUERIES;
+ assert.deepEqual(old.social.schedule.filters.queries,LAUNCH_QUERIES);delete old.social.schedule.filters.profile;delete old.social.schedule.filters.eventMode;old.social.schedule.filters.queries=SOCIAL_QUERIES;
  await writeFile(file,JSON.stringify(old));const store=await openStore(file,now),filters=store.state.schedule.filters;
  assert.equal(filters.profile,'business');assert.equal(filters.releaseMonths,12);assert.equal(filters.minInstalls,0);assert.equal(filters.strictBanking,false);assert.deepEqual(filters.countries,['DE','LT']);assert.deepEqual(filters.excludeTerms,['My exclusion']);assert.deepEqual(filters.excludeAppIds,['ignore.app']);assert.equal(store.state.findings[0].appId,'saved.old');
- assert.deepEqual(store.state.social.schedule.filters.queries,BUSINESS_SOCIAL_QUERIES);assert.deepEqual(validateSocialConfig({profile:'business',queries:['my custom query']},now).queries,['my custom query']);
+ assert.deepEqual(store.state.social.schedule.filters.queries,LAUNCH_QUERIES);assert.deepEqual(validateSocialConfig({profile:'business',queries:['my custom query']},now).queries,['my custom query']);
  const again=await openStore(file,now);assert.deepEqual(again.state.schedule.filters,filters);
 });
 test('daily business schedule preserves a 12-month window and deduplicates apps across runs',async()=>{

@@ -18,14 +18,14 @@
   <main>
     <header class="topbar"><a href="/">Google Play</a><a href="/social">Сайты и публикации</a><a href="/watch">Изменения и компании</a><span class="top-tag">НОВОСТИ · САЙТЫ · ПРИЛОЖЕНИЯ</span></header>
     <div class="page">
-      <div class="page-heading"><div><div class="eyebrow">МОНИТОРИНГ РЫНКА</div><h1>Мониторинг банков с бизнес-счётом и EU IBAN</h1><p>Публикации, новости, приложения App Store и выбранные вами сайты — через поисковый индекс.</p></div></div>
+      <div class="page-heading"><div><div class="eyebrow">МОНИТОРИНГ РЫНКА</div><h1>Анонсы запуска бизнес-счетов</h1><p>Публикации, новости, приложения App Store и выбранные вами сайты — через поисковый индекс.</p></div></div>
       <div id="social-connection" class="notice connection-notice" role="status">Проверяем подключение…</div>
       <div class="layout">
         <section class="panel filter-panel" aria-labelledby="social-filters-title">
           <div class="panel-heading"><h2 id="social-filters-title">Поиск публикаций</h2><span class="small-badge">Европа</span></div>
           <form id="social-form">
             <fieldset id="social-filters"><legend class="sr-only">Фильтры публикаций</legend>
-              <label for="profile">Профиль поиска</label><select id="profile"><option value="business">Как ваши примеры · бизнес-счета, EMI, платёжные сервисы</option><option value="strict">Строго · бизнес-счёт, EU IBAN и лицензия</option></select><p class="hint">В основном режиме собственная банковская лицензия не обязательна. IBAN, EU IBAN и обслуживание бизнеса показываются отдельно: неизвестное не выдаётся за подтверждённое.</p>
+              <label for="event-mode">Что искать</label><select id="event-mode"><option value="launches">Конкретные анонсы запуска бизнес-счетов</option><option value="signals">Все сигналы · форумы, реестры и каталоги</option></select><p class="hint">В анонсах нужны название сервиса и сообщение о запуске продукта. Обзоры, рассуждения, планы и сборы инвестиций отсеиваются. Форумы и реестры доступны во втором режиме.</p><label for="profile">Профиль поиска</label><select id="profile"><option value="business">Как ваши примеры · бизнес-счета, EMI, платёжные сервисы</option><option value="strict">Строго · бизнес-счёт, EU IBAN и лицензия</option></select><p class="hint">В основном режиме собственная банковская лицензия не обязательна. IBAN, EU IBAN и обслуживание бизнеса показываются отдельно: неизвестное не выдаётся за подтверждённое.</p>
               <button id="social-preset" type="button" class="outline-button">Добавить все рекомендованные источники</button><p class="hint">Профильные СМИ, партнёры, рассылки, форумы, реестры и каталоги. Реестр не доказывает запуск продукта; форум не подтверждает условия счёта.</p><span class="field-label">Источники</span>
               <div class="social-source-options" id="source-options"></div>
               <label for="watch-domains">Мои сайты · домены по одному на строку</label><textarea id="watch-domains" rows="4" placeholder="examplebank.eu"></textarea><p class="hint">До 10 доменов без https и пути. Включите источник «Мои сайты». Проверяется индекс Brave, не все страницы сайта. Изменения по прежнему URL отдельной находкой не считаются.</p>
@@ -60,7 +60,7 @@
           </section>
           <section class="summary-grid"><div class="stat"><span>Новых за поиск</span><strong id="social-new-count">—</strong><small>Повторные ссылки исключены</small></div><div class="stat"><span>Просмотрено результатов</span><strong id="social-scanned">—</strong><small>Отбор по теме и региону</small></div><div class="stat"><span>Всего сигналов</span><strong id="social-total">0</strong><small>Сохраняются после перезапуска</small></div></section>
           <section class="panel results-panel">
-            <div class="panel-heading results-heading"><div><h2>Сигналы по вашим критериям</h2><p id="social-caption">Ожидаем первого поиска</p></div><button id="social-export" class="outline-button" disabled>↓ Экспорт CSV</button></div>
+            <div class="panel-heading results-heading"><div><h2>Анонсы по вашим критериям</h2><p id="social-caption">Ожидаем первого поиска</p></div><button id="social-export" class="outline-button" disabled>↓ Экспорт CSV</button></div>
             <div class="result-tabs" role="group" aria-label="Результаты публикаций"><button id="social-latest" class="selected" aria-pressed="true">Новые за последний поиск</button><button id="social-history" aria-pressed="false">Все сигналы</button></div>
             <label class="archive-toggle"><input type="checkbox" id="show-archive"> Показать архив и результаты без подтверждения критериев</label>
             <div id="social-progress" class="social-progress" hidden><p id="social-progress-text"></p><progress id="social-progress-bar" max="1" value="0"></progress><p id="social-current" class="hint"></p></div>

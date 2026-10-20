@@ -2,7 +2,7 @@ import {pageProvider} from './lib/page-provider.js';
 import {watchCSV,DEFAULT_WATCH_URLS} from './lib/watch.js';
 import {companyGroups} from './lib/companies.js';
 import {socialPreset,SOURCE_CATALOG_VERSION,RECOMMENDED_SOURCES} from './lib/source-catalog.js';
-import { discoveryPreset, DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
+import { discoveryPreset, cataloguePreset,DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from "./lib/qualification.js";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -63,6 +63,7 @@ export function createApp({
     "/": ["index.html", "text/html"],
     "/watch": ["watch.html", "text/html"],
     "/watch.js": ["watch.js", "text/javascript"],
+    "/launches.js": ["../lib/launches.js", "text/javascript"],
     "/source-catalog.js": ["../lib/source-catalog.js", "text/javascript"],
     "/criteria.js": ["criteria.js", "text/javascript"],
     "/discovery.js": ["../lib/discovery.js", "text/javascript"],
@@ -151,6 +152,7 @@ export function createApp({
           keywords: DISCOVERY_KEYWORDS,
           version:APP_VERSION,
           preset:discoveryPreset(COUNTRIES.map(c=>c.code)),
+          cataloguePreset:cataloguePreset(COUNTRIES.map(c=>c.code)),
           excludeTerms: DEFAULT_EXCLUDE_TERMS,
           ...calendarWindow(new Date(),12),
         });
@@ -177,6 +179,11 @@ export function createApp({
         req.headers["sec-fetch-site"] === "cross-site"
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
+      if(req.method==='POST' && url.pathname==='/api/backlog/continue'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        try{return send(202,await monitor.startJob({...store.state.pendingCheckConfig,continuePending:true}));}
+        catch(error){return send(error.status??400,{error:error.message});}
+      }
       if(req.method==='POST' && url.pathname==='/api/monitoring/enable'){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         const now=clock?clock():new Date();
@@ -248,7 +255,7 @@ export function createApp({
         if (req.method === "GET" && match[2] === "/export.csv") {
           if (job.status === "running")
             return send(409, { error: "Дождитесь завершения поиска." });
-          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? job.results : job.results.filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
+          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? [...job.results,...(job.existingResults??[])] : [...job.results,...(job.existingResults??[])].filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${social ? "social-signals" : "play-finance"}.csv"`,
           });
         }

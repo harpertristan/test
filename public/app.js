@@ -35,6 +35,7 @@ const readConfig = () => ({
   seedApps:$('#seed-apps').value.split('\n').map(x=>x.trim()).filter(Boolean),
   hideEstablished:$('#hide-established').checked,
   related:$('#related-source').checked,
+  developerExpansion:$('#developer-source').checked,
   useWebIndex:$('#use-web-index').checked,
   maxDetails:Number($('#max-details').value),
   keywords: $("#keywords")
@@ -57,10 +58,11 @@ function applyConfig(config, rolling = false) {
   $('#release-months').value=config.releaseMonths ?? 1;
   $('#search-plan').value=config.plan ?? 'full';
   $('#phone-country').value=config.phoneCountry ?? '';
-  $('#seed-apps').value=(config.seedApps ?? []).join('\n');
+  $('#seed-apps').value=(config.seedApps ?? []).map(id=>config.seedCountries?.[id]?`https://play.google.com/store/apps/details?id=${id}&gl=${config.seedCountries[id]}`:id).join('\n');
   $('#reference-domains').value=(config.referenceDomains ?? []).join('\n');
   $('#hide-established').checked=config.hideEstablished ?? false;
-  $('#related-source').checked=config.related ?? false;
+  $('#related-source').checked=config.related ?? true;
+  $('#developer-source').checked=config.developerExpansion ?? true;
   $('#use-web-index').checked=config.useWebIndex ?? false;
   $('#max-details').value=config.maxDetails ?? 10000;
   $("#keywords").value = config.keywords.join("\n");
@@ -101,7 +103,7 @@ function cell(text, className) {
 }
 
 function currentRows() {
-  return view === 'candidates' ? filterCandidates(candidateRows) : filterRows(view === 'history' ? historyRows : (job?.results ?? []));
+  return view === 'candidates' ? filterCandidates(candidateRows) : filterRows(view === 'history' ? historyRows : [...(job?.results ?? []),...(job?.existingResults ?? [])]);
 }
 function syncDateMode() {
   for (const id of ['#from','#to']) $(id).disabled=$('#ignore-release-date').checked;
@@ -137,6 +139,9 @@ function renderRows() {
       name.append(avatar, title, developer, id);
       if(app.isReference)name.append(Object.assign(document.createElement('small'),{textContent:'Ваш образец · прямая проверка'}));
       if(app.discoverySources?.includes('query'))name.append(Object.assign(document.createElement('small'),{textContent:'Найдено поиском Google Play'}));
+      if(app.fromHistory)name.append(Object.assign(document.createElement('small'),{textContent:'Из истории · повторно не добавлено; описание сохранено ранее'}));
+      if(app.discoverySources?.includes('related'))name.append(Object.assign(document.createElement('small'),{textContent:`Рекомендации Google Play: ${(app.recommendationParents??[]).join(', ')}`}));
+      if(app.discoverySources?.includes('developer'))name.append(Object.assign(document.createElement('small'),{textContent:'Другие приложения разработчика'}));
       name.append(renderEvidence(app));
       const exclude = Object.assign(document.createElement('button'),{type:'button',className:'text-button',textContent:'Исключить это приложение'});
       exclude.addEventListener('click',()=>{
@@ -194,7 +199,7 @@ function renderView() {
   $("#view-candidates").setAttribute("aria-pressed",String(review));
   $("#results-title").textContent = review ? "Кандидаты: данных для подтверждения не хватает" : history
     ? "Все уникальные находки"
-    : "Новые приложения";
+    : "Результаты поиска";
   const rows = currentRows();
   if (job) $("#result-count").textContent = format(filterRows(job.results).length);
   $("#table-wrap").hidden = !rows.length;
@@ -230,7 +235,7 @@ function renderView() {
         ? "Новых приложений пока нет"
         : "Пока нет новых подтверждённых совпадений";
     $("#empty-state p").textContent =
-      "Ранее найденные приложения исключены. Сохранённый список доступен во вкладке «Все находки».";
+      "Подходящие сохранённые приложения показываются здесь с пометкой «Из истории». Счётчик новых учитывает только первые находки.";
   }
   if (job && !job.config.strictBanking && readCriteria().strictBanking) $("#results-caption").textContent += " · старый поиск, требуется перепроверка";
   renderExplanation();
@@ -253,6 +258,10 @@ function renderExplanation() {
 
 function renderMonitor(data) {
   monitorData = data;
+  const pending=data.pendingChecks??0;
+  $("#continue-checks").hidden=!pending;
+  $("#continue-checks").disabled=!!data.activeJobId;
+  $("#pending-checks").textContent=pending?`Осталось непроверенных карточек: ${pending}. Очередь сохраняется после перезапуска.`:"";
   const schedule = data.schedule;
   if (!scheduleDirty) {
     $("#schedule-enabled").checked = schedule.enabled;
@@ -317,7 +326,7 @@ function renderJob(next) {
   $("#cancel").hidden = !running;
   $("#export").disabled = running || !job.results.length;
   $("#result-count").textContent = format(filterRows(job.results).length);
-  $("#checked-count").textContent = format(job.detailDone);
+  $("#checked-count").textContent = running && job.phase!=="details" ? "—" : format(job.detailDone);
   $("#geo-count").replaceChildren(
     document.createTextNode(`${job.config.countries.length} `),
     Object.assign(document.createElement("em"), { textContent: "стран" }),
@@ -392,6 +401,7 @@ function renderJob(next) {
   const lines = [
     `Успешных поисковых запросов: ${job.successfulSearches} из ${job.searchTotal}.`,
     `Карточек проверено: ${job.detailDone} из ${job.detailTotal}.`,
+    `Списков рекомендаций: ${job.recommendationChecks??0}; разработчиков: ${job.developerChecks??0}; в очереди: ${job.pendingCount??0}.`,
   ];
   for (const [key, value] of Object.entries(job.skipped))
     if (value) lines.push(`${reasons[key]}: ${value}.`);
@@ -632,3 +642,6 @@ async function init() {
   }
 }
 void init();
+
+$('#catalogue-preset').addEventListener('click',()=>{const current=readConfig();applyConfig({...defaults.cataloguePreset,excludeTerms:current.excludeTerms,excludeDomains:current.excludeDomains,excludeAppIds:current.excludeAppIds,seedApps:[...new Set([...defaults.cataloguePreset.seedApps,...current.seedApps])],from:defaults.from,to:defaults.to});$('#schedule-feedback').textContent='Каталог за всё время: все запросы по выбранным странам, рекомендации и разработчики. Сохраните расписание, если хотите использовать этот режим ежедневно.';});
+$('#continue-checks').addEventListener('click',async()=>{try{clearTimeout(pollTimer);view='latest';renderJob(await api('/api/backlog/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}));pollTimer=setTimeout(poll,700);}catch(error){$('#form-error').textContent=error.message;}});

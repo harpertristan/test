@@ -1,4 +1,4 @@
-import {socialPlan} from './source-catalog.js';
+import {socialPlan,activeSocialSources,LAUNCH_QUERIES,BUSINESS_SOCIAL_QUERIES} from './source-catalog.js';
 import { readCriteria, applyCriteria, renderEvidence, filterRows } from "./criteria.js";
 const $ = (selector) => document.querySelector(selector);
 let sourceOptions = [];
@@ -23,6 +23,7 @@ const labels = {
   failed: "Поиск не завершён",
 };
 const reasons = {
+  commentary:"Обзор или рассуждения", planned:"Планы / ожидание запуска", notLaunch:"Нет конкретного запуска продукта",
   banking: "Не хватает признаков бизнес-счёта, IBAN ЕС или лицензии",
   excludedTerm: "Исключено по слову или фразе",
   excludedDomain: "Исключено по домену",
@@ -70,6 +71,7 @@ function config() {
 
 function applyFilters(filters) {
   applyCriteria(filters);
+  $("#event-mode").value=filters.eventMode??"launches";
   $("#social-budget").value=filters.requestBudget??8;
   $("#watch-domains").value=(filters.watchDomains ?? []).join("\n");
   $("#social-queries").value = filters.queries.join("\n");
@@ -83,6 +85,8 @@ function applyFilters(filters) {
 function updateCost() {
   const filters = config(),
     plan=socialPlan(filters),requests=plan.requests.length;
+  const active=new Set(activeSocialSources(filters));
+  for(const source of sourceOptions){const input=$(`#source-${source.id}`);input.disabled=filters.eventMode==='launches'&&!active.has(source.id)&&['community','register','directory','app'].includes(source.category);input.parentElement.title=input.disabled?'Доступно в режиме «Все сигналы»':(source.domains??[]).join(', ');}
   $("#social-cost").textContent =
     `${requests} обращений Brave за запуск; около ${requests*30} за 30 ежедневных запусков. Всего пар «источник × запрос»: ${plan.total}; полный круг — ${plan.cycleDays} дн. Остальные пары переходят на следующие дни. Лимит Google Play считается отдельно. Ручной запуск тоже расходует квоту.`;
 }
@@ -112,7 +116,7 @@ function renderPosts(rows) {
           node("span", post.trust==='user_report'?'Сообщение пользователя · проверить':post.signalType==='register_lead'?'Реестр · продукт не подтверждён':'Требует проверки', "review-badge"),
         );
         const heading = node("h3", "");
-        const link = node("a", post.title || "Открыть публикацию");
+        const link = node("a", post.launch?.company ? `${post.launch.company} · ${post.launch.eventType==='provider_launch'?'Запуск сервиса':'Запуск бизнес-счёта'}` : post.title || "Открыть публикацию");
         link.href = post.url;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
@@ -120,7 +124,8 @@ function renderPosts(rows) {
         article.append(
           badges,
           heading,
-          node("p", post.snippet),
+          node("p", post.launch?.evidence || post.snippet),
+          node("small", post.title),
           node(
             "small",
             `Упомянуты регионы: ${post.mentionedRegions.join(", ")}`,
@@ -372,3 +377,5 @@ async function init() {
 }
 $('#social-preset').addEventListener('click',()=>{const current=config();applyFilters({...current,...sourcePreset,watchDomains:current.watchDomains,sources:[...new Set([...sourcePreset.sources,...(current.sources.includes('custom')?['custom']:[])])]});$('#social-saved').textContent='Добавлены все рекомендованные источники, лимит 8 Brave за запуск. Сохраните расписание.';});
 void init();
+
+$('#event-mode').addEventListener('change',()=>{const queries=$('#social-queries').value.split('\n').map(s=>s.trim()).filter(Boolean);if(JSON.stringify(queries)===JSON.stringify(LAUNCH_QUERIES)||JSON.stringify(queries)===JSON.stringify(BUSINESS_SOCIAL_QUERIES))$('#social-queries').value=($('#event-mode').value==='launches'?LAUNCH_QUERIES:BUSINESS_SOCIAL_QUERIES).join('\n');updateCost();render();});

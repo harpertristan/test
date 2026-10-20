@@ -20,7 +20,7 @@ const webpage=body=>({url:'https://example.eu/business',title:'Example business 
 async function historyFile(t){const dir=await mkdtemp(join(tmpdir(),'watch-scout-'));t.after(()=>rm(dir,{recursive:true,force:true}));return join(dir,'state.json');}
 
 test('bounded daily rotation covers every selected source/query pair and uses Kaliningrad day',()=>{
- const c=validateSocialConfig(socialPreset(),now),pairs=new Set();
+ const c=validateSocialConfig({...socialPreset(),eventMode:'signals'},now),pairs=new Set();
  const first=socialPlan(c,now);assert.equal(first.requests.length,8);assert.equal(first.total,34);assert.equal(first.cycleDays,5);
  for(let day=0;day<first.cycleDays;day++)for(const r of socialPlan(c,new Date(+now+day*86400000)).requests)pairs.add(`${r.source}|${r.query}`);
  assert.equal(pairs.size,first.total);
@@ -29,14 +29,14 @@ test('bounded daily rotation covers every selected source/query pair and uses Ka
  for(const entry of socialPlan({...c,requestBudget:64},now).requests){const def=SOCIAL_SOURCES.find(s=>s.id===entry.source);const q=`${def.restriction} ${entry.query}`;assert.ok(q.length<=400);assert.ok(q.split(/\s+/).length<=50);}
 });
 test('Brave runner enforces budget, reports source status and does not call a register a recent launch',async()=>{
- const c=validateSocialConfig({...socialPreset(),sources:['payments','regional','partners','registers'],requestBudget:3},now),job=createSocialJob('rotation',c,now);let calls=0;
+ const c=validateSocialConfig({...socialPreset(),eventMode:'signals',sources:['payments','regional','partners','registers'],requestBudget:3},now),job=createSocialJob('rotation',c,now);let calls=0;
  await runSocialSearch(job,{search:async()=>{calls++;return [];}},{delay:0,clock:()=>now});assert.equal(calls,3);assert.equal(job.searchTotal,3);assert.equal(job.sourceStatus.length,3);assert.equal(job.status,'complete');
  const reg=evaluatePost({url:'https://www.lb.lt/en/financial-market-participants',title:'Register of authorised electronic money institutions',description:'Payment institutions authorised in Lithuania.',page_age:'2020-01-01'},'registers',c,now).post;
  assert.ok(reg);assert.equal(reg.signalType,'register_lead');assert.equal(reg.dateReported,null);assert.equal(reg.discovery.euIban,'unknown');assert.ok(eligibleFinding(reg,c));
  const noRegion=evaluatePost({url:'https://www.lb.lt/en/register',title:'Register of authorised institutions',description:'Licensed payment institution.'},'registers',c,now).post;assert.deepEqual(noRegion.mentionedRegions,['Регион обслуживания не подтверждён']);
 });
 test('forum URLs are source-scoped, canonical and clearly user reports',()=>{
- const c=validateSocialConfig(socialPreset(),now),entry={title:'Which business account with IBAN?',description:text,url:'https://old.reddit.com/r/fintech/comments/abc123/my-bank/?utm_source=test'};
+ const c=validateSocialConfig({...socialPreset(),eventMode:'signals'},now),entry={title:'Which business account with IBAN?',description:text,url:'https://old.reddit.com/r/fintech/comments/abc123/my-bank/?utm_source=test'};
  const first=evaluatePost(entry,'reddit',c,now).post,alias=evaluatePost({...entry,url:'https://www.reddit.com/r/fintech/comments/abc123/another-title/'},'reddit',c,now).post;
  assert.equal(first.id,alias.id);assert.equal(first.trust,'user_report');assert.equal(first.discovery.euIban,'unknown');
  assert.equal(evaluatePost({...entry,url:'https://reddit.com/r/unrelated/comments/abc123/topic'},'reddit',c,now).reason,'notPost');
@@ -99,7 +99,7 @@ test('daily watch resumes and maintains a separate schedule and persisted baseli
  store=await openStore(file,now);clock=new Date(+now+86400000);current=text+' Business accounts now offer a German IBAN.';m=createMonitor({kind:'watch',store,autoSchedule:true,clock:()=>clock,delay:0,provider:{page:async()=>webpage(current)}});await m.tick();await m.idle();assert.equal(m.findings().length,1);assert.equal(store.state.findings.length,0);assert.equal(store.state.social.findings.length,0);await m.stop();
 });
 test('company grouping retains one app and marks name-based associations as unconfirmed',()=>{
- const s=initialState(now);s.schedule.filters.strictBanking=false;s.findings=[{appId:'com.stablecom.app',title:'Stable.com',developerWebsite:'https://stable.com',discovery:{version:1,status:'service_match'}}];s.social.findings=[{id:'post:1',title:'Stable.com launches business accounts',url:'https://finextra.com/article/1',discovery:{version:1,status:'service_match'}}];const groups=companyGroups(s);assert.equal(groups.length,1);assert.equal(groups[0].items.length,2);assert.equal(groups[0].unconfirmedAssociations,1);
+ const s=initialState(now);s.schedule.filters.strictBanking=false;s.findings=[{appId:'com.stablecom.app',title:'Stable.com',developerWebsite:'https://stable.com',discovery:{version:2,status:'service_match'}}];s.social.schedule.filters.eventMode='signals';s.social.findings=[{id:'post:1',title:'Stable.com launches business accounts',url:'https://finextra.com/article/1',discovery:{version:2,status:'service_match'}}];const groups=companyGroups(s);assert.equal(groups.length,1);assert.equal(groups[0].items.length,2);assert.equal(groups[0].unconfirmedAssociations,1);
 });
 test('one action enables all three schedules; watch API, assets and CSV respect authentication',async t=>{
  const store=memoryStore(now);for(const s of [store.state,store.state.social,store.state.watch])s.schedule.enabled=false;

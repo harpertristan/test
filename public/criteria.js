@@ -2,7 +2,7 @@ import { DEFAULT_EXCLUDE_TERMS, eligibleFinding, reviewCandidate } from './quali
 const $ = s => document.querySelector(s);
 const lines = id => $(id).value.split('\n').map(s=>s.trim()).filter(Boolean);
 export function readCriteria() {
-  return {hideEstablished:$('#hide-established')?.checked ?? false,euIbanMode:$('#eu-iban-mode')?.value ?? 'prefer',profile:$('#profile')?.value ?? 'strict',strictBanking:$('#strict-banking').checked,institutionType:$('#institution-type').value,excludeTerms:lines('#exclude-terms'),excludeAppIds:lines('#exclude-ids'),excludeDomains:lines('#exclude-domains')};
+  return {...($('#event-mode')?{eventMode:$('#event-mode').value}:{}),hideEstablished:$('#hide-established')?.checked ?? false,euIbanMode:$('#eu-iban-mode')?.value ?? 'prefer',profile:$('#profile')?.value ?? 'strict',strictBanking:$('#strict-banking').checked,institutionType:$('#institution-type').value,excludeTerms:lines('#exclude-terms'),excludeAppIds:lines('#exclude-ids'),excludeDomains:lines('#exclude-domains')};
 }
 export function applyCriteria(config) {
   if($('#profile'))$('#profile').value=config.profile ?? 'strict';
