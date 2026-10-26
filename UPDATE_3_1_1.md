@@ -26,7 +26,7 @@ lsof -tiTCP:3000 -sTCP:LISTEN | while read -r PLAY_SCOUT_PID; do kill -KILL "$PL
   PLAY_SCOUT_BACKUP="$HOME/Desktop/play-scout-backup-$(date +%Y%m%d-%H%M%S)"
   test -f package.json
   test -f data/state.json
-  node -e 'const p=require(process.argv[1]); if(p.name!=="play-finance-finder" || p.version!=="3.1.1") throw Error("Нужен архив Play Scout 3.1.1")' "$PLAY_SCOUT_FIX/package.json"
+  node -e 'const p=require(process.argv[1]); if(p.name!=="play-finance-finder" || p.version.localeCompare("3.1.1","en",{numeric:true})<0) throw Error("Нужен архив Play Scout 3.1.1 или новее")' "$PLAY_SCOUT_FIX/package.json"
   mkdir "$PLAY_SCOUT_BACKUP"
   ditto data "$PLAY_SCOUT_BACKUP/data"
   if [ -f .env ]; then cp -p .env "$PLAY_SCOUT_BACKUP/.env"; fi
@@ -38,7 +38,7 @@ lsof -tiTCP:3000 -sTCP:LISTEN | while read -r PLAY_SCOUT_PID; do kill -KILL "$PL
 )
 ```
 
-Ожидаемая версия в диагностике: **Play Scout 3.1.1**. Число приложений и кандидатов должно соответствовать вашей сохранённой истории. Ключи повторно вводить не нужно, если `.env` уже был в рабочей папке.
+Ожидаемая версия в диагностике: **Play Scout 3.1.1 или новее**. Число приложений и кандидатов должно соответствовать вашей сохранённой истории. Ключи повторно вводить не нужно, если `.env` уже был в рабочей папке.
 
 ## 3. Открыть CRM
 
@@ -50,4 +50,4 @@ lsof -tiTCP:3000 -sTCP:LISTEN | while read -r PLAY_SCOUT_PID; do kill -KILL "$PL
 curl --noproxy '*' --max-time 5 http://127.0.0.1:3000/api/health
 ```
 
-Ожидается JSON с `"status":"ok"` и `"version":"3.1.1"`.
+Ожидается JSON с `"status":"ok"` и версией `3.1.1` или новее.
