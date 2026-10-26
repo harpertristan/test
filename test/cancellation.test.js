@@ -22,7 +22,7 @@ test('recommendation and developer expansion can each be stopped without losing 
  const monitor=make(provider,{store});const job=await monitor.startJob({...filters,related:method==='related',developerExpansion:method==='developer'});await entered.promise;assert.equal(job.request.kind,method);await monitor.cancel(job.id);assert.equal(job.status,'cancelled');assert.deepEqual(job.errors,[]);assert.equal(store.state.pendingChecks.length,1);assert.equal(monitor.summary().busy,false);}
 });
 test('partial search discovery survives cancellation before detail checking',{timeout:2000},async()=>{
- const entered=deferred(),store=memoryStore(now);let calls=0;const monitor=make({search:()=>++calls===1?[bank]:(entered.resolve(),new Promise(()=>{}))},{store});
+ const entered=deferred(),store=memoryStore(now);let calls=0;const monitor=make({search:()=>++calls===1?[bank]:(setImmediate(()=>entered.resolve()),new Promise(()=>{})),app:()=>new Promise(()=>{})},{store});
  const job=await monitor.startJob({...filters,keywords:['business account','corporate account']});await entered.promise;await monitor.cancel(job.id);assert.equal(store.state.pendingChecks.length,1);assert.equal(store.state.pendingChecks[0].appId,bank.appId);assert.equal(job.detailDone,0);
 });
 test('cancel interrupts long throttle sleeps as well as network calls',{timeout:2000},async()=>{

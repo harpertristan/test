@@ -99,9 +99,9 @@ test("non-post pages, spoofed hosts and unsafe URLs are excluded", () => {
     assert.equal(canonicalPost(url), null);
 });
 
-test("query validation respects source restrictions and API limits; quota is bounded", () => {
+test("query validation respects source restrictions and API page sizes; application quotas are removed", () => {
   const defaults = validateSocialConfig({}, now);
-  assert.equal(defaults.requestBudget, 8);
+  assert.equal(defaults.requestBudget, 0);
   assert.ok(defaults.sources.includes("forums"));
   for (const bad of [
     { sources: [] },

@@ -79,7 +79,7 @@ function updateCost() {
   const active=new Set(activeSocialSources(filters));
   for(const source of sourceOptions){const input=$(`#source-${source.id}`);input.disabled=filters.eventMode==='launches'&&!active.has(source.id)&&['community','register','directory','app'].includes(source.category);input.parentElement.title=input.disabled?'Доступно в режиме «Все сигналы»':(source.domains??[]).join(', ');}
   $("#social-cost").textContent =
-    `${requests} обращений Brave за запуск; около ${requests*30} за 30 ежедневных запусков. Всего пар «источник × запрос»: ${plan.total}; полный круг — ${plan.cycleDays} дн. Остальные пары переходят на следующие дни. Лимит Google Play считается отдельно. Ручной запуск тоже расходует квоту.`;
+    `${requests} поисковых фраз × источник; все выполняются за запуск. Число реальных HTTP-запросов выше при пагинации. Программной квоты нет.`;
 }
 
 function node(tag, text, className) {

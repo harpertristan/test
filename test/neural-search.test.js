@@ -16,6 +16,7 @@ function setup(patch={}){
  store.state.watch.schedule.filters=validateWatchConfig({watchUrls:['https://acme.example.eu/'],watchApps:[],autoWatchFindings:false,autoWatchSites:false});
  let aiCalls=0;
  const server=createApp({store,clock:()=>now,delay:0,socialDelay:0,watchDelay:0,
+  appStoreProvider:{search:async()=>[]},
   provider:{search:async()=>[bank,tool],app:async({appId})=>[bank,tool].find(e=>e.appId===appId)},
   socialProvider:{configured:()=>true,search:async({q})=>q==='webfixture'?[{title:'AcmePay business account',url:'https://acme.example.eu/',description:text}]:q.includes('finextra.com')?[{title:'The future of AcmePay business accounts',url:'https://finextra.com/blogposting/123/acme',description:'An opinion article discusses AcmePay and possible business accounts in Europe.'}]:[]},
   watchProvider:{page:async url=>({url,title:'AcmePay',text,body:text})},aiPages:{page:async url=>({url,text:url.includes('checker')?utility:text,body:''})},
@@ -28,7 +29,7 @@ function setup(patch={}){
 
 test('all-source neural run retains rejected leads, merges product domains, analyzes and marks only genuinely new groups',{timeout:5000},async t=>{
  const f=setup();t.after(()=>f.server.neural.stop());await f.server.neural.start();await f.server.neural.idle();
- const job=f.server.neural.summary();assert.equal(job.sources.length,4);assert.ok(job.sources.every(s=>s.status==='complete'));assert.ok(f.store.state.ai.inbox.some(e=>e.source==='finextra'),'commentary reaches AI even if the deterministic feed rejects it');assert.ok(f.store.state.ai.inbox.some(e=>e.appId===tool.appId),'checker reaches the AI reject category');
+ const job=f.server.neural.summary();assert.equal(job.sources.length,5);assert.ok(job.sources.every(s=>s.status==='complete'));assert.ok(f.store.state.ai.inbox.some(e=>e.source==='finextra'),'commentary reaches AI even if the deterministic feed rejects it');assert.ok(f.store.state.ai.inbox.some(e=>e.appId===tool.appId),'checker reaches the AI reject category');
  const groups=groupedCandidates(f.store.state);const product=groups.find(e=>e.id==='company:acme.example.eu');assert.ok(product.sources.includes('play'));assert.ok(product.sources.includes('web'));assert.ok(product.sources.includes('watch'));assert.ok(product.targets.length>=3);assert.equal(f.server.aiReview.results().length,3);assert.ok(f.server.aiReview.results().some(e=>e.decision==='irrelevant'));assert.equal(job.newIds.length,3);const calls=f.aiCalls();
  await f.server.neural.start();await f.server.neural.idle();assert.deepEqual(f.server.neural.summary().newIds,[]);assert.equal(f.aiCalls(),calls,'unchanged data does not consume another AI call');
 });
@@ -43,10 +44,10 @@ test('cancelling collection cancels only owned workers and frees all slots',{tim
  await f.server.neural.start();await ready;await f.server.neural.cancel();assert.equal(f.server.neural.summary().status,'cancelled');assert.equal(f.server.monitor.summary().busy,false);assert.equal(f.server.watchMonitor.summary().busy,false);assert.equal(f.server.neural.summary().busy,false);
 });
 test('source deadlines bound an all-source run when every network source stops answering',{timeout:4000},async()=>{
- const never=()=>new Promise(()=>{}),f=setup({provider:{search:never},socialProvider:{configured:()=>true,search:never},watchProvider:{page:never},requestTimeoutMs:15});const started=Date.now();await f.server.neural.start();await f.server.neural.idle();assert.ok(Date.now()-started<2500);assert.equal(f.server.neural.summary().status,'partial');assert.ok(f.server.neural.summary().sources.every(s=>['failed','partial'].includes(s.status)));assert.equal(f.server.monitor.summary().busy,false);
+ const never=()=>new Promise(()=>{}),f=setup({appStoreProvider:{search:never},provider:{search:never},socialProvider:{configured:()=>true,search:never},watchProvider:{page:never},requestTimeoutMs:15});const started=Date.now();await f.server.neural.start();await f.server.neural.idle();assert.ok(Date.now()-started<2500);assert.equal(f.server.neural.summary().status,'partial');assert.ok(f.server.neural.summary().sources.every(s=>['failed','partial'].includes(s.status)));assert.equal(f.server.monitor.summary().busy,false);
 });
-test('raw inbox bound is explicit and existing history is never evicted',()=>{
- const s=memoryStore(now).state;for(let i=0;i<2000;i++)s.ai.inbox.push(inboxEntry({title:'Old '+i,url:`https://example.eu/item/${i}`,snippet:'business'},'social',now));const added=inboxEntry({title:'New',url:'https://example.eu/new',snippet:'business'},'social',now);assert.equal(storeInbox(s,[added]),1);assert.equal(s.ai.inbox.length,2000);assert.equal(s.ai.inbox[0].title,'Old 0');
+test('raw inbox retains new leads beyond the former count ceiling without evicting history',()=>{
+ const s=memoryStore(now).state;for(let i=0;i<2000;i++)s.ai.inbox.push(inboxEntry({title:'Old '+i,url:`https://example.eu/item/${i}`,snippet:'business'},'social',now));const added=inboxEntry({title:'New',url:'https://example.eu/new',snippet:'business'},'social',now);assert.equal(storeInbox(s,[added]),0);assert.equal(s.ai.inbox.length,2001);assert.equal(s.ai.inbox[0].title,'Old 0');
 });
 test('quoted waitlists remain early leads and never become live-account matches',()=>{
  const quote='AcmePay is opening its business account waitlist for a German IBAN.';const raw={business:fact('yes',quote,'s1'),account:fact('yes',quote,'s1'),euIban:fact('yes',quote,'s1'),utility:fact('unknown'),availability:{status:'waitlist',evidence:[{sourceId:'s1',quote}]},service:{name:'AcmePay',evidence:[{sourceId:'s1',quote}]},summaryRu:'Лист ожидания'};const result=validateAssessment(raw,[{id:'s1',url:'https://acme.example.eu/',text:quote,kind:'official_page'}]);assert.equal(result.decision,'review');assert.equal(result.availability.status,'waitlist');assert.equal(result.serviceName,'AcmePay');
@@ -81,7 +82,7 @@ test('an invented reference name without a matching citation cannot hide a new l
  await f.server.neural.start();await f.server.neural.idle();assert.ok(f.server.neural.summary().newIds.length>0);assert.ok(f.server.aiReview.results().every(r=>r.reference===null));
 });
 
-test('Brave has one persisted monthly gate across every consumer and cancelled queued calls do not send',{timeout:3000},async t=>{
+test('Brave records all consumers without enforcing the obsolete monthly environment quota',{timeout:3000},async t=>{
  const {braveProvider}=await import('../lib/brave-provider.js');const previous=process.env.BRAVE_MONTHLY_REQUEST_LIMIT;process.env.BRAVE_MONTHLY_REQUEST_LIMIT='1';t.after(()=>{if(previous===undefined)delete process.env.BRAVE_MONTHLY_REQUEST_LIMIT;else process.env.BRAVE_MONTHLY_REQUEST_LIMIT=previous;});let calls=0;
- const p=braveProvider({key:'fixture-budget-key',minInterval:0,request:async()=>{calls++;return{web:{results:[]}};}}),store=memoryStore(now);createApp({store,clock:()=>now,socialProvider:p});await p.search({q:'web source'});await assert.rejects(p.search({q:'another source'}),{code:'BRAVE_BUDGET'});assert.equal(calls,1);assert.equal(store.state.braveUsage['2026-10'],1);
+ const p=braveProvider({key:'fixture-budget-key',minInterval:0,request:async()=>{calls++;return{web:{results:[]}};}}),store=memoryStore(now);createApp({store,clock:()=>now,socialProvider:p});await p.search({q:'web source'});await p.search({q:'another source'});assert.equal(calls,2);assert.equal(store.state.braveUsage['2026-10'],2);
 });

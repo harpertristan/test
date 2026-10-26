@@ -19,18 +19,18 @@ const text='Open a business account with EUR IBAN and SEPA transfers. Accounts a
 const webpage=body=>({url:'https://example.eu/business',title:'Example business accounts',text:body,body,contentType:'text/html'});
 async function historyFile(t){const dir=await mkdtemp(join(tmpdir(),'watch-scout-'));t.after(()=>rm(dir,{recursive:true,force:true}));return join(dir,'state.json');}
 
-test('bounded daily rotation covers every selected source/query pair and uses Kaliningrad day',()=>{
+test('every selected source/query pair runs on the same day without rotation quotas',()=>{
  const c=validateSocialConfig({...socialPreset(),eventMode:'signals'},now),pairs=new Set();
- const first=socialPlan(c,now);assert.equal(first.requests.length,8);assert.equal(first.total,36);assert.equal(first.cycleDays,5);
+ const first=socialPlan(c,now);assert.equal(first.requests.length,first.total);assert.ok(first.total>36);assert.equal(first.cycleDays,1);
  for(let day=0;day<first.cycleDays;day++)for(const r of socialPlan(c,new Date(+now+day*86400000)).requests)pairs.add(`${r.source}|${r.query}`);
  assert.equal(pairs.size,first.total);
  assert.deepEqual(socialPlan(c,new Date('2026-10-19T22:01:00Z')),socialPlan(c,new Date('2026-10-20T20:00:00Z')));
- assert.notDeepEqual(socialPlan(c,new Date('2026-10-19T21:59:00Z')).requests,first.requests);
+ assert.deepEqual(socialPlan(c,new Date('2026-10-19T21:59:00Z')).requests,first.requests);
  for(const entry of socialPlan({...c,requestBudget:64},now).requests){const def=SOCIAL_SOURCES.find(s=>s.id===entry.source);const q=`${def.restriction} ${entry.query}`;assert.ok(q.length<=400);assert.ok(q.split(/\s+/).length<=50);}
 });
-test('Brave runner enforces budget, reports source status and does not call a register a recent launch',async()=>{
+test('Brave runner checks all pairs, reports source status and does not call a register a recent launch',async()=>{
  const c=validateSocialConfig({...socialPreset(),eventMode:'signals',sources:['payments','regional','partners','registers'],requestBudget:3},now),job=createSocialJob('rotation',c,now);let calls=0;
- await runSocialSearch(job,{search:async()=>{calls++;return [];}},{delay:0,clock:()=>now});assert.equal(calls,3);assert.equal(job.searchTotal,3);assert.equal(job.sourceStatus.length,3);assert.equal(job.status,'complete');
+ await runSocialSearch(job,{search:async()=>{calls++;return [];}},{delay:0,clock:()=>now});assert.equal(calls,socialPlan(c,now).total);assert.equal(job.searchTotal,calls);assert.equal(job.sourceStatus.length,calls);assert.equal(job.status,'complete');
  const reg=evaluatePost({url:'https://www.lb.lt/en/financial-market-participants',title:'Register of authorised electronic money institutions',description:'Payment institutions authorised in Lithuania.',page_age:'2020-01-01'},'registers',c,now).post;
  assert.ok(reg);assert.equal(reg.signalType,'register_lead');assert.equal(reg.dateReported,null);assert.equal(reg.discovery.euIban,'unknown');assert.ok(eligibleFinding(reg,c));
  const noRegion=evaluatePost({url:'https://www.lb.lt/en/register',title:'Register of authorised institutions',description:'Licensed payment institution.'},'registers',c,now).post;assert.deepEqual(noRegion.mentionedRegions,['Регион обслуживания не подтверждён']);
@@ -78,9 +78,9 @@ test('old apps are watched regardless of original release; version-only update i
  let version='1.0';const store=memoryStore(now),m=createMonitor({kind:'watch',store,delay:0,clock:()=>now,provider:{app:async()=>({title:'Business',genreId:'FINANCE',description:text,released:'Jan 1, 2020',version})}}),c=config({watchUrls:[],watchApps:['com.example.bank']});
  await m.startJob(c);await m.idle();version='1.1';await m.startJob(c);await m.idle();assert.equal(m.findings().length,1);assert.match(m.findings()[0].reason,/новые условия счёта не подтверждены/);assert.equal(m.findings()[0].previousVersion,'1.0');
 });
-test('watch rotation is bounded, excludes blocked targets and keeps direct samples',()=>{
+test('watch covers all targets, excludes blocked targets and keeps direct samples',()=>{
  const known=Array.from({length:60},(_,i)=>({appId:`com.example.app${i}`,developerWebsite:`https://bank${i}.example.eu/`})),c=config({watchApps:['com.reference.bank'],autoWatchFindings:true,autoWatchSites:true,excludeAppIds:['com.example.app0'],excludeDomains:['example.eu']});
- const a=watchPlan(c,known,now);assert.equal(a.filter(t=>t.kind==='app').length,30);assert.equal(a.filter(t=>t.kind==='page').length,0);assert.ok(a.some(t=>t.appId==='com.reference.bank'));assert.ok(!a.some(t=>t.appId==='com.example.app0'));assert.notDeepEqual(a,watchPlan(c,known,new Date(+now+86400000)));
+ const a=watchPlan(c,known,now);assert.equal(a.filter(t=>t.kind==='app').length,60);assert.equal(a.filter(t=>t.kind==='page').length,0);assert.ok(a.some(t=>t.appId==='com.reference.bank'));assert.ok(!a.some(t=>t.appId==='com.example.app0'));assert.deepEqual(a,watchPlan(c,known,new Date(+now+86400000)));
 });
 test('RSS records are persisted once across feeds and runs without consuming Brave requests',async()=>{
  const store=memoryStore(now),c=config({watchUrls:[],feedUrls:['https://example.eu/feed.xml']}),xml='<rss><channel><item><title>Business account launch</title><link>https://example.eu/new</link><description>'+text+'</description></item></channel></rss>';
@@ -89,7 +89,7 @@ test('RSS records are persisted once across feeds and runs without consuming Bra
 });
 test('upgrade adds sources and watch state while preserving history, exclusions and disabled schedules',async t=>{
  const file=await historyFile(t),old=initialState(now);delete old.watch;delete old.social.sourceCatalogVersion;old.social.schedule.enabled=false;old.social.schedule.filters.sources=['custom'];old.social.schedule.filters.watchDomains=['example.eu'];old.social.schedule.filters.queries=['my existing query'];old.findings=[{appId:'com.saved.bank',title:'Saved'}];
- await writeFile(file,JSON.stringify(old));let s=await openStore(file,now);assert.equal(s.state.social.schedule.enabled,false);assert.equal(s.state.findings.length,1);assert.ok(s.state.social.schedule.filters.sources.includes('forums'));assert.ok(s.state.social.schedule.filters.sources.includes('custom'));assert.deepEqual(s.state.social.schedule.filters.queries,['my existing query']);assert.equal(s.state.social.schedule.filters.requestBudget,8);assert.ok(s.state.watch);
+ await writeFile(file,JSON.stringify(old));let s=await openStore(file,now);assert.equal(s.state.social.schedule.enabled,false);assert.equal(s.state.findings.length,1);assert.ok(s.state.social.schedule.filters.sources.includes('forums'));assert.ok(s.state.social.schedule.filters.sources.includes('custom'));assert.deepEqual(s.state.social.schedule.filters.queries,['my existing query']);assert.equal(s.state.social.schedule.filters.requestBudget,0);assert.ok(s.state.watch);
  await s.update(d=>{d.watch.schedule.enabled=false;d.watch.snapshots.test={hash:'saved',text:'baseline'};});s=await openStore(file,now);assert.equal(s.state.watch.schedule.enabled,false);assert.equal(s.state.watch.snapshots.test.hash,'saved');
 });
 test('daily watch resumes and maintains a separate schedule and persisted baseline across restart',async t=>{

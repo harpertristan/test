@@ -33,6 +33,7 @@ const formatInstant = (value) =>
   }).format(new Date(value));
 const readConfig = () => ({
   ...readCriteria(),
+  categories:monitorData?.schedule.filters.categories??['FINANCE','BUSINESS','PRODUCTIVITY','TOOLS'],
   referenceDiscovery:$('#reference-discovery').checked,
   releaseMonths:Number($('#release-months').value),
   plan:$('#search-plan').value,
@@ -71,7 +72,7 @@ function applyConfig(config, rolling = false) {
   $('#related-source').checked=config.related ?? true;
   $('#developer-source').checked=config.developerExpansion ?? true;
   $('#use-web-index').checked=config.useWebIndex ?? false;
-  $('#max-details').value=config.maxDetails ?? 10000;
+  $('#max-details').value=0;
   $("#keywords").value = config.keywords.join("\n");
   $("#installs").value = config.minInstalls;
   $("#limit").value = config.limit;
@@ -403,6 +404,7 @@ function renderJob(next) {
     excludedDomain: "Исключено по домену",
     excludedId: "Исключено по ID приложения",
     category: "Другая категория",
+    excludedNigeria:"Нигерия / NGN / naira / .ng",
     paid: "Платная загрузка",
     date: "Вне периода выпуска",
     installs: "Порог установок не подтверждён",
@@ -510,7 +512,7 @@ $('#test-brave').addEventListener('click',async()=>{
   finally{$('#test-brave').disabled=false;}
 });
 function renderPlan() {
-  try{const config=readConfig();const calls=searchPlan(config).length+(config.referenceDiscovery?6:0);$('#plan-cost').textContent=`${calls} запросов к Google Play, до ${config.maxDetails} карточек. В сбалансированном плане все выбранные страны проверяются, но число запросов по странам различается.`;}catch{}
+  try{const config=readConfig();const calls=searchPlan(config).length+(config.referenceDiscovery?6:0);$('#plan-cost').textContent=`${calls} запросов к Google Play, все найденные карточки. Все заданные фразы проверяются во всех выбранных странах; дополнительные запросы используют местные языки.`;}catch{}
 }
 $('#search-form').addEventListener('input',renderPlan);
 $("#view-latest").addEventListener("click", () => {

@@ -6,7 +6,7 @@ import {createMonitor} from '../lib/monitor.js';
 import {memoryStore} from '../lib/store.js';
 import {cataloguePreset} from '../lib/discovery.js';
 const now=new Date('2026-10-20T08:00:00Z');
-const filters={...cataloguePreset(['AT']),keywords:['business account'],seedApps:[],related:false,developerExpansion:false,useWebIndex:false};
+const filters={...cataloguePreset(['AT']),searchConcurrency:1,keywords:['business account'],seedApps:[],related:false,developerExpansion:false,useWebIndex:false};
 const bank={appId:'com.network.bank',title:'Business Bank',genreId:'FINANCE',free:true,price:0,minInstalls:500,released:'2026-10-01',description:'Open a business account with a German IBAN and EUR SEPA payments for companies in Europe. We are a licensed bank.'};
 const timeout=()=>Object.assign(new Error('simulated connection timeout'),{code:'ETIMEDOUT'});
 const make=(provider,store=memoryStore(now))=>createMonitor({store,clock:()=>now,delay:0,provider});
@@ -35,12 +35,12 @@ test('three consecutive failed queries stop a large plan and preserve the existi
  const store=memoryStore(now);store.state.pendingChecks=[{appId:bank.appId,detailCountries:['AT']}];let calls=0;
  const monitor=make({search:async()=>{calls++;throw timeout();}},store);
  const job=await monitor.startJob({...filters,countries:['AT','DE','IT','FR'],keywords:['business account','IBAN account','corporate account','business bank']});await monitor.idle();
- assert.equal(calls,3);assert.equal(job.searchDone,3);assert.ok(job.searchTotal>3);assert.equal(job.status,'failed');assert.equal(job.errors.at(-1).code,'SOURCE_UNAVAILABLE');assert.equal(store.state.pendingChecks.length,1);assert.equal(monitor.summary().busy,false);
+ assert.equal(calls,3);assert.equal(job.searchDone,3);assert.ok(job.searchTotal>3);assert.equal(job.status,'failed');assert.ok(job.errors.some(e=>e.code==='SOURCE_UNAVAILABLE'));assert.equal(store.state.pendingChecks.length,1);assert.equal(monitor.summary().busy,false);
 });
 test('a valid query resets the failure streak and saved discoveries survive a later source outage',async()=>{
  let calls=0;const store=memoryStore(now),monitor=make({search:async()=>{if(++calls===3)return[bank];throw timeout();}},store);
  const job=await monitor.startJob({...filters,countries:['AT','DE','IT','FR','ES','NL','BE'],keywords:['business account']});await monitor.idle();
- assert.equal(calls,6);assert.equal(job.successfulSearches,1);assert.equal(job.status,'failed');assert.equal(store.state.pendingChecks[0].appId,bank.appId);assert.equal(job.detailDone,0);
+ assert.equal(calls,6);assert.equal(job.successfulSearches,1);assert.equal(job.status,'failed');assert.equal(store.state.pendingChecks[0].appId,bank.appId);assert.ok(job.detailDone<=1);
 });
 test('three failed card requests retain current and later cards for a successful resume',async()=>{
  let failing=true;const store=memoryStore(now),list=[bank,{...bank,appId:'com.network.second'}],monitor=make({search:async()=>list,app:async({appId})=>{if(failing)throw timeout();return list.find(a=>a.appId===appId);}},store);

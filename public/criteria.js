@@ -1,3 +1,4 @@
+import {nigeriaEvidence} from './geography.js';
 import{isManuallyHidden}from'./exclusions.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding, reviewCandidate } from './qualification.js';
 const $ = s => document.querySelector(s);
@@ -15,7 +16,7 @@ export function applyCriteria(config) {
   $('#exclude-domains').value=(config.excludeDomains ?? []).join('\n');
 }
 export function filterRows(rows) {
-  rows=rows.filter(row=>!isManuallyHidden(row));
+  rows=rows.filter(row=>!nigeriaEvidence(row)&&!isManuallyHidden(row));
   return $('#show-archive').checked ? rows : rows.filter(row=>eligibleFinding(row,readCriteria()));
 }
 export function filterCandidates(rows) { return rows.filter(row => !isManuallyHidden(row)&&reviewCandidate(row,readCriteria())); }

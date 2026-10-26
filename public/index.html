@@ -16,7 +16,7 @@
     <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Рынок Европейского союза<small>27 стран · единый поиск</small></div></div>
   </aside>
   <main>
-    <header class="topbar"><span>Инструменты <span class="slash">/</span> Поиск приложений</span><a href="/help">Инструкция с нуля</a><a href="/web">Веб-версии</a><a class="top-tag" href="/social">Сайты и публикации</a><a href="/watch">Изменения и компании</a></header>
+    <header class="topbar"><a href="/crm">Единая CRM</a><span>Инструменты <span class="slash">/</span> Поиск приложений</span><a href="/help">Инструкция с нуля</a><a href="/web">Веб-версии</a><a class="top-tag" href="/social">Сайты и публикации</a><a href="/watch">Изменения и компании</a></header>
     <div class="page">
       <div class="page-heading"><div><div class="eyebrow">ИССЛЕДОВАНИЕ РЫНКА</div><h1>Новые бизнес-счета и платёжные сервисы</h1><p>Google Play: сервисы вроде Stable.com и ваших примеров. EU IBAN проверяется отдельно.</p></div><div class="region-label">Цель: бизнес-счёт с EU IBAN</div></div>
       <div class="layout">
@@ -35,7 +35,7 @@
 бизнес счет</textarea>
               <button type="button" class="outline-button" id="early-preset" disabled>Раннее обнаружение · ваши примеры</button><button type="button" class="outline-button" id="apply-preset">Настроить под ваши примеры</button><button type="button" class="outline-button" id="catalogue-preset">Широкий каталог + рекомендации</button><button type="button" class="text-button" id="english">+ Добавить английские варианты</button>
               <div class="divider"></div>
-              <div class="field-row"><div><label for="category">Категория</label><select id="category"><option value="FINANCE">Финансы</option></select></div><div><label for="price">Стоимость</label><select id="price"><option>Бесплатные</option></select></div></div>
+              <div class="field-row"><div><label for="category">Категории проверяемых карточек</label><select id="category" disabled><option value="FINANCE">Финансы, Бизнес, Продуктивность, Инструменты</option></select><a href="/crm">Выбрать категории в CRM</a></div><div><label for="price">Стоимость</label><select id="price"><option>Бесплатные</option></select></div></div>
               <label for="installs">Установок более · 0 для самых новых</label><input id="installs" type="number" min="0" max="10000000000" step="1" value="100" required>
               <p class="hint">Минимум диапазона Google Play, по всему миру. При пороге 100 диапазон «100+» исключается.</p>
               <label for="release-months">Период ежедневного поиска</label><select id="release-months"><option value="1">Последний месяц</option><option value="3">Последние 3 месяца</option><option value="6">Последние 6 месяцев</option><option value="12" selected>Последние 12 месяцев · стартовое исследование</option><option value="24">Последние 24 месяца</option></select><div class="label-row"><span class="field-label">Дата первого выпуска</span><button id="last-month" type="button" class="text-button">Последний месяц</button></div>
@@ -55,9 +55,9 @@
               <label class="schedule-toggle"><input type="checkbox" id="reference-discovery"> Использовать библиотеку ваших сервисов</label><p class="hint">Ежедневно добавляет 6 названий из библиотеки по кругу. Известные сайты помогают находить карточки и рекомендации, но не подтверждают EU IBAN.</p><label for="reference-domains">Сайты образцов · поиск их карточек через Brave</label><textarea id="reference-domains" rows="3"></textarea><p class="hint">По одному домену на строку. Лимит Brave общий: до 20 обращений за запуск.</p><label class="schedule-toggle"><input type="checkbox" id="hide-established" checked> Скрывать известные крупные приложения</label>
               <p class="hint">Revolut, Wise, PayPal, Payoneer, bunq, N26, Monzo, Starling и Klarna. Новизна приложения не доказывает новизну компании.</p>
               <label class="schedule-toggle"><input type="checkbox" id="use-web-index" checked> Дополнять Google Play индексом Brave</label>
-              <details><summary>Дополнительные настройки</summary><label for="max-details">Максимум проверяемых карточек</label><select id="max-details"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option><option value="1000">1000</option><option value="10000">Без дополнительного лимита</option></select><label class="schedule-toggle"><input type="checkbox" id="related-source"> Обходить «Похожие приложения» Google Play</label><p class="hint">До двух переходов, до 20 списков рекомендаций за запуск. Каждая карточка проверяется по вашим критериям. Публичный список может отличаться от рекомендаций на телефоне.</p></details>
+              <details><summary>Дополнительные настройки</summary><input id="max-details" type="hidden" value="0"><p>Все найденные карточки проверяются без программной квоты.</p><label class="schedule-toggle"><input type="checkbox" id="related-source"> Обходить «Похожие приложения» Google Play</label><p class="hint">Рекомендации подходящих сервисов обходятся без квоты; повторные карточки не запрашиваются. Каждая карточка проверяется по вашим критериям. Публичный список может отличаться от рекомендаций на телефоне.</p></details>
               </details>
-              <label class="schedule-toggle"><input type="checkbox" id="developer-source"> Другие приложения того же разработчика</label><label for="limit">Глубина выдачи на запрос и страну</label><select id="limit"><option value="50">До 50 приложений</option><option value="100" selected>До 100 приложений</option><option value="250">До 250 приложений</option></select>
+              <label class="schedule-toggle"><input type="checkbox" id="developer-source"> Другие приложения того же разработчика</label><input id="limit" type="hidden" value="250"><p class="hint">Загружаются доступные страницы Google Play до окончания выдачи. Повторяющиеся токены пагинации останавливают запрос.</p>
               <p class="hint">Поисковая выдача Google Play не охватывает весь каталог. Полный проход может занять несколько минут.</p>
 
               <div class="divider"></div>
@@ -70,7 +70,7 @@
               <p class="hint">Каждая строка — отдельное исключение в названии, разработчике или описании. Без регулярных выражений. Удалите ненужные исключения стран.</p>
               <details><summary>Исключить приложения и сайты</summary><label for="exclude-ids">ID приложений Google Play</label><textarea id="exclude-ids" rows="3" placeholder="com.example.app"></textarea><label for="exclude-domains">Домены сайтов</label><textarea id="exclude-domains" rows="3" placeholder="example.com"></textarea></details>
               <p class="hint">Для ежедневного применения исключений нажмите «Сохранить расписание».</p>
-            <p id="evidence-connection" class="hint"></p><button id="test-brave" type="button" class="outline-button">Проверить ключ Brave · 1 запрос</button><p id="brave-feedback" class="hint" role="status"></p><p class="hint">При подключённом Brave: 2 запроса по карточкам Google Play и дополнительные проверки сайтов — всего до 20 обращений API за запуск. Без ключа — только описание Google Play.</p></fieldset>
+            <p id="evidence-connection" class="hint"></p><button id="test-brave" type="button" class="outline-button">Проверить ключ Brave · 1 запрос</button><p id="brave-feedback" class="hint" role="status"></p><p class="hint">При подключённом Brave: 2 запроса по карточкам Google Play и дополнительные проверки сайтов — без программной квоты на обращения API за запуск. Без ключа — только описание Google Play.</p></fieldset>
           </form>
         </section>
         <div class="results-column">

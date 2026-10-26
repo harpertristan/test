@@ -1,3 +1,6 @@
+import {LICENCE_REGISTERS,LICENCE_TYPES} from './lib/licences.js';
+import {crmRows,editCRM,excludeCRM,restoreCRM,crmExport,crmCSV,crmDOCX,chatPacket} from './lib/crm.js';
+import {appleProvider,appleCSV,APPLE_CATEGORIES,validateAppleConfig} from './lib/app-store.js';
 import {buildReport,reportHTML,reportDOCX,reportCSV,updateShortlist,REPORT_CSP} from './lib/report.js';
 import {createNeuralSearch} from './lib/neural-search.js';
 import {groupedCandidates} from './lib/neural-inbox.js';
@@ -41,6 +44,7 @@ export function createApp({
   socialProvider = braveProvider(),
   aiProvider = openaiProvider(),
   aiPages = pageProvider(),
+  appStoreProvider=appleProvider(),
   socialDelay = 1100,
   watchProvider = {...pageProvider(),app:provider.app},
   watchDelay = 1000,
@@ -52,11 +56,9 @@ export function createApp({
   requestTimeoutMs,
   password = process.env.APP_PASSWORD || "",
 } = {}) {
-  const configuredBraveLimit=Number(process.env.BRAVE_MONTHLY_REQUEST_LIMIT??1000);
-  const braveLimit=Number.isInteger(configuredBraveLimit)&&configuredBraveLimit>0?configuredBraveLimit:1000;
   const budgetMonth=()=>calendarWindow(clock?clock():new Date()).to.slice(0,7);
-  const braveBudget=()=>({limit:braveLimit,used:store.state.braveUsage?.[budgetMonth()]??0});
-  socialProvider.setBeforeRequest?.(async()=>store.update(d=>{d.braveUsage??={};const month=budgetMonth(),used=d.braveUsage[month]??0;if(used>=braveLimit)throw Object.assign(new Error('Monthly Brave request limit reached'),{code:'BRAVE_BUDGET',status:429});d.braveUsage[month]=used+1;}));
+  const braveBudget=()=>({limit:0,unlimited:true,used:store.state.braveUsage?.[budgetMonth()]??0});
+  socialProvider.setBeforeRequest?.(async()=>store.update(d=>{d.braveUsage??={};const month=budgetMonth();d.braveUsage[month]=(d.braveUsage[month]??0)+1;}));
   const monitor = createMonitor({
     provider: { ...provider, research: socialProvider },
     store,
@@ -78,10 +80,16 @@ export function createApp({
   });
   const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
-  const aiReview=createAIReview({store,provider:aiProvider,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor].some(source=>source.summary().busy),tickInterval});
-  const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor},clock});
+  const appleMonitor=createMonitor({provider:appStoreProvider,kind:'apple',store,delay:0,autoSchedule,clock,tickInterval,requestTimeoutMs});
+  const aiReview=createAIReview({store,provider:aiProvider,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.summary().busy),tickInterval});
+  const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor,apple:appleMonitor},clock});
   aiReview.setCollector(options=>neural.start(options));
+  const sourceSummary=control=>{const summary=control.summary(),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,successfulSearches:job.successfulSearches}:null};};
   const files = {
+    '/crm':['crm.html','text/html'],
+    '/crm.js':['crm.js','text/javascript'],
+    '/licence-queries.js':['../lib/licence-queries.js','text/javascript'],
+    '/geography.js':['../lib/geography.js','text/javascript'],
     "/review":["review.html","text/html"],
     "/review.js":["review.js","text/javascript"],
     '/web':['web.html','text/html'],
@@ -131,14 +139,15 @@ export function createApp({
     };
     try {
       const url = new URL(req.url, "http://localhost");
+      const apple=url.pathname.startsWith('/api/apple/');
       const web=url.pathname.startsWith('/api/web/');
       const social = url.pathname.startsWith("/api/social/");
       const watch = url.pathname.startsWith("/api/watch/");
-      const apiPath = web?url.pathname.replace('/api/web/','/api/'):watch ? url.pathname.replace("/api/watch/", "/api/") : social
+      const apiPath = apple?url.pathname.replace('/api/apple/','/api/'):web?url.pathname.replace('/api/web/','/api/'):watch ? url.pathname.replace("/api/watch/", "/api/") : social
         ? url.pathname.replace("/api/social/", "/api/")
         : url.pathname;
-      const control = web?webMonitor:watch ? watchMonitor : social ? socialMonitor : monitor;
-      const exportCSV = web?webCSV:watch ? watchCSV : social ? socialCSV : toCSV;
+      const control = apple?appleMonitor:web?webMonitor:watch ? watchMonitor : social ? socialMonitor : monitor;
+      const exportCSV = apple?appleCSV:web?webCSV:watch ? watchCSV : social ? socialCSV : toCSV;
       if (password && url.pathname !== "/api/health") {
         const header = req.headers.authorization || "";
         const supplied = /^Basic /i.test(header)
@@ -169,6 +178,17 @@ export function createApp({
           source: "Google Play",
           sourceCheck: "not-performed-by-health-endpoint",
         });
+      if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
+      if(req.method==='GET'&&url.pathname==='/api/crm'){
+        const rows=crmRows(store.state),aiStatus=aiReview.summary(),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{rows:rows.map(({documents,translations,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:monitor.summary(),apple:appleMonitor.summary(),social:socialMonitor.summary(),web:webMonitor.summary(),watch:watchMonitor.summary(),apple:appleMonitor.summary()},ai:{...aiStatus,job:aiJob?{status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,stage:aiJob.stage,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+      }
+      if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=crmRows(store.state).find(r=>r.id===url.searchParams.get('id'));return send(row?200:404,row??{error:'Запись не найдена.'});}
+      if(req.method==='GET'&&['/api/crm/export.csv','/api/crm/export.docx','/api/crm/chat.json'].includes(url.pathname)){
+        const rows=crmExport(store.state,{status:url.searchParams.get('status')??'active',q:url.searchParams.get('q')??'',licenceType:url.searchParams.get('licenceType')??'both'});
+        const type=url.pathname.endsWith('.csv')?'csv':url.pathname.endsWith('.docx')?'docx':'json';const body=type==='csv'?crmCSV(rows):type==='docx'?crmDOCX(rows):JSON.stringify(chatPacket(rows),null,2);
+        return send(200,body,type==='csv'?'text/csv; charset=utf-8':type==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/json; charset=utf-8',{'Content-Disposition':`attachment; filename="play-scout-crm.${type}"`});
+      }
+      if(req.method==='GET'&&apple&&apiPath==='/api/defaults')return send(200,{preset:validateAppleConfig(),categories:APPLE_CATEGORIES});
       if(req.method==='GET'&&url.pathname==='/api/references')return send(200,REFERENCE_LIBRARY);
       if(req.method==='GET'&&url.pathname==='/api/ai/inbox')return send(200,groupedCandidates(store.state).map(e=>({...e,documents:undefined,screeningText:undefined,snippet:undefined,isNew:store.state.ai.newIds.includes(e.id)})));
       if(req.method==='GET'&&url.pathname==='/api/neural/monitor')return send(200,neural.summary());
@@ -229,6 +249,20 @@ export function createApp({
         req.headers["sec-fetch-site"] === "cross-site"
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
+      if(req.method==='POST'&&['/api/crm/update','/api/crm/exclude','/api/crm/restore','/api/crm/settings','/api/crm/stop','/api/crm/daily'].includes(url.pathname)){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>65536)return send(413,{error:'Слишком большой запрос.'});}
+        try{const body=JSON.parse(raw||'{}'),now=clock?clock():new Date();
+          if(url.pathname.endsWith('/daily')){
+            const config={...store.state.ai.config,enabled:true,collectSources:true,sources:['play','apple','web','social','watch'],time:body.time??store.state.ai.config.time};
+            await aiReview.saveConfig(config);
+            await store.update(d=>{for(const section of [d,d.apple,d.web,d.social,d.watch]){section.schedule.enabled=false;section.schedule.nextRunAt=null;}});
+            void aiReview.tick();return send(200,{ok:true,time:config.time});
+          }
+          if(url.pathname.endsWith('/stop')){await neural.cancel();await Promise.all([monitor,socialMonitor,webMonitor,watchMonitor,appleMonitor].map(c=>c.active()?c.cancel(c.active().id):Promise.resolve()));await aiReview.cancel();return send(200,{ok:true});}
+          if(url.pathname.endsWith('/settings')){const presets={play:store.state.schedule,social:store.state.social.schedule,web:store.state.web.schedule,watch:store.state.watch.schedule,apple:store.state.apple.schedule};const c={play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor,apple:appleMonitor}[body.source];if(!c)throw new Error('Источник не найден.');return send(200,await c.saveSchedule({enabled:body.enabled??presets[body.source].enabled,time:body.time??presets[body.source].time,filters:{...presets[body.source].filters,...body.filters}}));}
+          return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
+        }catch(e){return send(e.code==='PERSISTENCE_ERROR'?500:400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
+      }
       if(req.method==='POST'&&['/api/neural/start','/api/neural/cancel'].includes(url.pathname)){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{return send(202,url.pathname.endsWith('/cancel')?await neural.cancel():await neural.start());}catch(error){return send(error.status??400,{error:error.message});}}
       if(req.method==='POST'&&url.pathname==='/api/ai/shortlist'){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
@@ -238,7 +272,7 @@ export function createApp({
       if(req.method==='POST'&&['/api/ai/start','/api/ai/cancel','/api/ai/config'].includes(url.pathname)){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
-        try{const body=JSON.parse(raw||'{}');if(url.pathname.endsWith('/config'))return send(200,await aiReview.saveConfig(body));if(url.pathname.endsWith('/cancel'))return send(200,await aiReview.cancel());return send(202,await aiReview.startJob());}catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:error.status??400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
+        try{const body=JSON.parse(raw||'{}');if(url.pathname.endsWith('/config'))return send(200,await aiReview.saveConfig(body));if(url.pathname.endsWith('/cancel'))return send(200,await aiReview.cancel());return send(202,await aiReview.startJob(body));}catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:error.status??400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
       }
       if(req.method==='POST'&&['/api/exclusions','/api/exclusions/remove'].includes(url.pathname)){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
@@ -246,14 +280,14 @@ export function createApp({
         try{
           const input=JSON.parse(raw);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Некорректное исключение.');
           if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);});return send(200,{exclusions:store.state.manualExclusions});}
-          const sections={company:{findings:groupedCandidates(store.state).filter(e=>e.id.startsWith('company:')),jobs:[]},inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
+          const sections={company:{findings:groupedCandidates(store.state).filter(e=>e.id.startsWith('company:')),jobs:[]},inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch,apple:store.state.apple};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
           if(!section||typeof input.id!=='string')throw new Error('Выберите запись из результатов.');
           const entries=[...section.findings,...(section.reviewCandidates??[]),...section.jobs.flatMap(j=>[...(j.results??[]),...(j.existingResults??[]),...(j.reviewCandidates??[])])];
           const entry=entries.find(e=>(e.id??e.appId)===input.id);if(!entry)return send(404,{error:'Находка не найдена. Обновите список.'});
           const kind=input.section==='company'?'domain':entry.appId?'app':input.section==='web'?'domain':'url',value=input.section==='company'?entry.id.slice('company:'.length):kind==='app'?entry.appId:kind==='domain'?new URL(entry.url).hostname.replace(/^www\./,''):canonicalFindingURL(entry.url);
           if(!value)throw new Error('Не удалось определить запись для исключения.');
           const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,title:entry.title,url:entry.url,createdAt:(clock?clock():new Date()).toISOString()};
-          await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){if(d.manualExclusions.length>=2000)throw new Error('Список исключений заполнен. Восстановите ненужные записи.');d.manualExclusions.push(rule);}d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,d.manualExclusions));});
+          await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){d.manualExclusions.push(rule);}d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,d.manualExclusions));});
           return send(200,{rule,exclusions:store.state.manualExclusions});
         }catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
       }
@@ -269,14 +303,14 @@ export function createApp({
           const social=draft.social.schedule.filters;
           draft.social.schedule.filters=socialFilters(validateSocialConfig({...social,sources:[...new Set([...social.sources,...RECOMMENDED_SOURCES])],requestBudget:social.requestBudget??8},now));
           draft.social.sourceCatalogVersion=SOURCE_CATALOG_VERSION;
-          for(const section of [draft,draft.social,draft.web,draft.watch]){
+          for(const section of [draft,draft.social,draft.web,draft.watch,draft.apple]){
             const schedule=section.schedule;
             const sameDay=schedule.lastRunAt&&calendarWindow(new Date(schedule.lastRunAt)).to===calendarWindow(now).to;
             Object.assign(schedule,{enabled:true,savedAt:now.toISOString(),nextRunAt:sameDay?nextDailyRun(now,schedule.time):dailySlot(now,schedule.time).toISOString()});
           }
         });
-        void monitor.tick();void socialMonitor.tick();void webMonitor.tick();void watchMonitor.tick();
-        return send(200,{play:monitor.summary(),social:socialMonitor.summary(),web:webMonitor.summary(),watch:watchMonitor.summary()});
+        void monitor.tick();void socialMonitor.tick();void webMonitor.tick();void watchMonitor.tick();void appleMonitor.tick();
+        return send(200,{play:monitor.summary(),social:socialMonitor.summary(),web:webMonitor.summary(),watch:watchMonitor.summary(),apple:appleMonitor.summary()});
       }
       if(req.method==='POST' && url.pathname==='/api/connections/brave/test') {
         if(!socialProvider.configured())return send(503,{error:'Ключ не задан. Выполните npm run configure и перезапустите программу.'});
@@ -346,6 +380,7 @@ export function createApp({
       else res.end();
     }
   });
+  server.appleMonitor=appleMonitor;
   server.monitor = monitor;
   server.socialMonitor = socialMonitor;
   server.watchMonitor=watchMonitor;
@@ -358,6 +393,7 @@ export function createApp({
     watchMonitor.start();
     webMonitor.start();
     aiReview.start();
+    appleMonitor.start();
   });
   server.on("close", () => {
     void neural.stop();
@@ -366,6 +402,7 @@ export function createApp({
     void socialMonitor.stop();
     void watchMonitor.stop();
     void webMonitor.stop();
+    void appleMonitor.stop();
   });
   return server;
 }
@@ -375,7 +412,7 @@ export async function shutdownApp(server){
   // browser connections, including clients that never finished a POST body.
   await server.neural.stop();
   const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
-  await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.aiReview.stop()]);
+  await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.appleMonitor.stop(),server.aiReview.stop()]);
   server.closeAllConnections();
   await closed;
 }

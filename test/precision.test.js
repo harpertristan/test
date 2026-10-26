@@ -42,17 +42,17 @@ test('recommendation parser follows only Similar apps cluster and real card anch
 test('recommendation traversal discovers new cards, prevents cycles, checks criteria and records parents',async()=>{
  const list=[business,{...business,appId:'com.chain.one'},{...business,appId:'com.chain.two'},apps.find(a=>a.appId==='co.randomiban')];let calls=[];
  const job=createJob('chain',cfg({related:true}));await runSearch(job,{...provider(list),search:async()=>[business],related:async({appId})=>{calls.push(appId);return appId===business.appId?[{appId:'com.chain.one'},{appId:'co.randomiban'}]:[{appId:business.appId},{appId:'com.chain.two'}];}},{delay:0});
- assert.deepEqual(job.results.map(a=>a.appId).sort(),[business.appId,'com.chain.one','com.chain.two'].sort());assert.equal(job.detailDone,4);assert.equal(calls.length,2);assert.equal(job.results.find(a=>a.appId==='com.chain.two').isReference,false);assert.deepEqual(job.results.find(a=>a.appId==='com.chain.two').recommendationParents,['com.chain.one']);
+ assert.deepEqual(job.results.map(a=>a.appId).sort(),[business.appId,'com.chain.one','com.chain.two'].sort());assert.equal(job.detailDone,4);assert.equal(calls.length,3);assert.equal(new Set(calls).size,3);assert.equal(job.results.find(a=>a.appId==='com.chain.two').isReference,false);assert.deepEqual(job.results.find(a=>a.appId==='com.chain.two').recommendationParents,['com.chain.one']);
 });
 test('developer expansion verifies app cards rather than trusting their developer',async()=>{
  const other={...business,appId:'com.developer.other'},utility=apps.find(a=>a.appId==='co.randomiban');const list=[business,other,utility],job=createJob('developer',cfg({related:false,developerExpansion:true}));
  await runSearch(job,{...provider(list),search:async()=>[business],developer:async()=>[other,utility]},{delay:0});assert.equal(job.developerChecks,1);assert.equal(job.results.length,2);assert.ok(job.results.some(a=>a.appId===other.appId&&a.discoverySources.includes('developer')));
 });
-test('card backlog resumes across a real store restart without repeating searches or dropping records',async t=>{
- const dir=await mkdtemp(join(tmpdir(),'precision-backlog-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'state.json');let searches=0;
- const list=Array.from({length:5},(_,i)=>({...business,appId:`com.queue.app${i}`})),p={...provider(list),search:async()=>{searches++;return list;}},filters=cfg({maxDetails:2,related:false});
- let store=await openStore(file,now),m=createMonitor({store,provider:p,clock:()=>now,delay:0});await m.startJob(filters);await m.idle();assert.equal(m.findings().length,2);assert.equal(m.summary().pendingChecks,3);const initialSearches=searches;await m.stop();
- store=await openStore(file,now);m=createMonitor({store,provider:p,clock:()=>now,delay:0});await m.startJob({...store.state.pendingCheckConfig,continuePending:true});await m.idle();assert.equal(m.summary().pendingChecks,1);assert.equal(searches,initialSearches);await m.startJob({...store.state.pendingCheckConfig,continuePending:true});await m.idle();assert.equal(m.findings().length,5);assert.equal(m.summary().pendingChecks,0);assert.equal(new Set(m.findings().map(a=>a.appId)).size,5);await m.stop();
+test('cancelled unlimited detail queue resumes across a real restart without repeating searches',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'precision-backlog-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'state.json');let searches=0,reads=0,entered;const ready=new Promise(r=>entered=r);
+ const list=Array.from({length:5},(_,i)=>({...business,appId:`com.queue.app${i}`})),p={...provider(list),search:async()=>{searches++;return list;},app:async({appId})=>{if(++reads===3){entered();return new Promise(()=>{});}return list.find(a=>a.appId===appId);}},filters=cfg({maxDetails:2,related:false});
+ let store=await openStore(file,now),m=createMonitor({store,provider:p,clock:()=>now,delay:0});const job=await m.startJob(filters);await ready;await m.cancel(job.id);assert.equal(m.findings().length,2);assert.equal(m.summary().pendingChecks,3);const initialSearches=searches;await m.stop();
+ store=await openStore(file,now);m=createMonitor({store,provider:p,clock:()=>now,delay:0});await m.startJob({...store.state.pendingCheckConfig,continuePending:true});await m.idle();assert.equal(searches,initialSearches);assert.equal(m.findings().length,5);assert.equal(m.summary().pendingChecks,0);assert.equal(new Set(m.findings().map(a=>a.appId)).size,5);await m.stop();
 });
 test('repeated run shows saved matching apps in latest results but never counts them as new',async()=>{
  const child={...business,appId:'com.saved.related'},store=memoryStore(now),m=createMonitor({store,provider:{...provider([business,child]),search:async()=>[business],related:async({appId})=>appId===business.appId?[child]:[]},clock:()=>now,delay:0}),c=cfg({related:true});
@@ -75,7 +75,7 @@ test('launch screening separates named product launches from commentary, plans, 
  assert.equal(assessLaunch({title:'Acme raises EUR 10m to build business accounts',description:desc}).kind,'not_launch');
 });
 test('launch feed uses announcement sources, rejects opinion articles and leaves forums accessible in signals mode',()=>{
- const c=validateSocialConfig(socialPreset(),now),plan=socialPlan(c,now);assert.equal(plan.total,24);assert.equal(plan.cycleDays,3);assert.equal(plan.requests.length,8);assert.ok(!plan.requests.some(r=>['registers','reddit','forums','appstore'].includes(r.source)));
+ const c=validateSocialConfig(socialPreset(),now),plan=socialPlan(c,now);assert.equal(plan.total,plan.requests.length);assert.equal(plan.cycleDays,1);assert.ok(plan.requests.length>24);assert.ok(!plan.requests.some(r=>['registers','reddit','forums','appstore'].includes(r.source)));
  const entry={url:'https://finextra.com/newsarticle/1/acme',title:'Acme launches business accounts in Europe',description:'Open business accounts with EUR IBAN and SEPA transfers for companies in Europe.',page_age:'2026-10-20'};
  assert.ok(evaluatePost(entry,'finextra',c,now).post);assert.equal(evaluatePost({...entry,title:'How business banking launches are changing Europe'},'finextra',c,now).reason,'commentary');assert.equal(evaluatePost({...entry,title:'Acme plans to launch business accounts'},'finextra',c,now).reason,'planned');
  assert.ok(socialPlan({...c,eventMode:'signals',requestBudget:64},now).requests.some(r=>r.source==='forums'));

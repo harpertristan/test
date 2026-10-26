@@ -23,7 +23,7 @@ function fixture(patch={}){const store=patch.store??memoryStore(now);store.state
 test('37 user examples retain supplied links and never invent URLs for name-only references',()=>{
  assert.equal(REFERENCE_LIBRARY.length,37);assert.equal(REFERENCE_LIBRARY.find(r=>r.name==='Unlimit').url,null);assert.equal(REFERENCE_LIBRARY.find(r=>r.name==='PhotonPay').domain,'photonpay.com');assert.ok(REFERENCE_LIBRARY.every(r=>r.evidenceStatus==='user_reference'));
  const config=validateConfig(earlyPreset(['AT']),now);assert.equal(exclusion({genreId:'FINANCE',free:true,price:0,minInstalls:0},config),null);
- const first=referenceQueries(config,now),next=referenceQueries(config,new Date(+now+86400000));assert.equal(first.length,6);assert.notDeepEqual(first,next);
+ const first=referenceQueries(config,now),next=referenceQueries(config,new Date(+now+86400000));assert.equal(first.length,REFERENCE_LIBRARY.filter(r=>!r.name.includes('название уточнить')).length);assert.deepEqual(first,next);
 });
 test('early mode stores a known example without claiming it as a new independent discovery',async()=>{
  const store=memoryStore(now),bank={...listing,appId:'com.stablecom.app',title:'Stable.com',developerWebsite:'https://stable.com',description:text,genreId:'FINANCE',price:0,free:true,minInstalls:0};
@@ -59,8 +59,8 @@ test('review results cache exact card inputs, refresh when changed and prioritiz
  const f=fixture();await f.monitor.startJob();await f.monitor.idle();assert.equal(f.monitor.results()[0].decision,'match');assert.equal(f.calls(),1);assert.equal(f.store.state.ai.usage['2026-10'].attempts,1);await assert.rejects(f.monitor.startJob(),/Новых находок/);assert.equal(f.calls(),1);
  f.store.state.findings[0].screeningText+=' New feature.';assert.equal(dueReviews(f.store.state,f.provider.model,now).length,1);await f.monitor.startJob();await f.monitor.idle();assert.equal(f.calls(),2);assert.equal(f.monitor.results().length,1);
 });
-test('monthly limit is reserved before errors and prevents subsequent paid attempts',async()=>{
- const f=fixture({provider:{assess:async()=>{throw Object.assign(new Error('fixture-secret upstream error'),{status:429});}}});await f.monitor.saveConfig({...reviewConfig(),monthlyLimit:1});await f.monitor.startJob();await f.monitor.idle();assert.equal(f.store.state.ai.usage['2026-10'].attempts,1);assert.equal(f.store.state.ai.jobs[0].status,'failed');assert.ok(!JSON.stringify(f.store.state.ai).includes('fixture-secret'));await assert.rejects(f.monitor.startJob(),/месячный лимит/);assert.equal(f.store.state.findings.length,1);
+test('usage counts API failures without imposing a monthly application quota',async()=>{
+ const f=fixture({provider:{assess:async()=>{throw Object.assign(new Error('fixture-secret upstream error'),{status:429});}}});await f.monitor.saveConfig({...reviewConfig(),monthlyLimit:1});await f.monitor.startJob();await f.monitor.idle();assert.equal(f.store.state.ai.usage['2026-10'].attempts,1);assert.equal(f.store.state.ai.jobs[0].status,'failed');assert.ok(!JSON.stringify(f.store.state.ai).includes('fixture-secret'));await f.monitor.startJob();await f.monitor.idle();assert.equal(f.store.state.ai.usage['2026-10'].attempts,2);assert.equal(f.store.state.findings.length,1);
 });
 test('cancelling a never-settling AI call releases the slot, retains usage and allows retry',{timeout:3000},async()=>{
  let entered;const ready=new Promise(r=>entered=r);const f=fixture({provider:{assess:()=>{entered();return new Promise(()=>{});}}});await f.monitor.startJob();await ready;await f.monitor.cancel();assert.equal(f.monitor.summary().busy,false);assert.equal(f.store.state.ai.jobs[0].status,'cancelled');assert.equal(f.store.state.ai.usage['2026-10'].attempts,1);assert.equal(f.store.state.findings.length,1);
@@ -77,7 +77,7 @@ test('upgrade and interrupted review recovery preserve history, quotas and disab
 test('AI and example APIs use existing authentication, cross-site and JSON guards',async t=>{
  const f=fixture();const server=createApp({store:f.store,aiProvider:f.provider,aiPages:page,password:'test-private'});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>shutdownApp(server));const base=`http://127.0.0.1:${server.address().port}`,headers={Authorization:'Basic '+Buffer.from('admin:test-private').toString('base64'),'Content-Type':'application/json'};
  assert.equal((await fetch(base+'/api/ai/results')).status,401);assert.equal((await fetch(base+'/review')).status,401);assert.equal((await(await fetch(base+'/api/references',{headers})).json()).length,37);
- assert.equal((await fetch(base+'/api/ai/start',{method:'POST',headers:{...headers,'Sec-Fetch-Site':'cross-site'},body:'{}'})).status,403);assert.equal((await fetch(base+'/api/ai/config',{method:'POST',headers,body:'{"monthlyLimit":0}'})).status,400);
+ assert.equal((await fetch(base+'/api/ai/start',{method:'POST',headers:{...headers,'Sec-Fetch-Site':'cross-site'},body:'{}'})).status,403);assert.equal((await fetch(base+'/api/ai/config',{method:'POST',headers,body:'{"monthlyLimit":0}'})).status,200);
  const response=await fetch(base+'/api/ai/start',{method:'POST',headers,body:'{}'});assert.equal(response.status,202);await server.aiReview.idle();assert.equal((await(await fetch(base+'/api/ai/results',{headers})).json())[0].decision,'match');
 });
 

@@ -36,12 +36,12 @@ test('planner searches every chosen EU country and includes local-language queri
  const c=config({countries:COUNTRIES.map(c=>c.code)}),plan=searchPlan(c);
  assert.equal(new Set(plan.map(x=>x.country)).size,27);assert.ok(plan.some(q=>q.lang==='de'));assert.ok(plan.some(q=>q.lang==='fr'));
  assert.ok(plan.filter(q=>q.country==='DE').length>plan.filter(q=>q.country==='AT').length);
- const full=searchPlan({...c,plan:'full'});assert.ok(full.length>plan.length);assert.equal(full.filter(q=>q.country==='AT').length,c.keywords.length);
+ const full=searchPlan({...c,plan:'full'});assert.equal(full.length,plan.length);assert.equal(full.filter(q=>q.country==='AT').length,c.keywords.length);
 });
 test('direct Play IDs are validated and cards cannot be imported from spoof or unrelated URLs',()=>{
  assert.equal(parsePlayId('https://play.google.com/store/apps/details?id=com.stablecom.app&hl=en'),'com.stablecom.app');
  for(const raw of ['https://play.google.com.attacker.test/store/apps/details?id=com.foo','javascript:alert(1)','https://evil.test/?id=com.foo','https://play.google.com/store/search?id=com.foo','https://u:p@play.google.com/store/apps/details?id=com.foo'])assert.equal(parsePlayId(raw),null);
- for(const patch of [{seedApps:['bad']},{releaseMonths:2},{maxDetails:0},{referenceDomains:['https://stable.com']},{profile:'anything'}])assert.throws(()=>config(patch));
+ for(const patch of [{seedApps:['bad']},{releaseMonths:2},{referenceDomains:['https://stable.com']},{profile:'anything'}])assert.throws(()=>config(patch));
  assert.deepEqual(relatedIds('/store/apps/details?id=com.own /store/apps/details?id=com.other /store/apps/details?id=com.other','com.own'),[{appId:'com.other'}]);
 });
 test('unseeded search finds Stable and retains Kleos as a candidate using real public descriptions',async()=>{
@@ -53,9 +53,9 @@ test('direct examples obey filters and are marked, never manufactured from unrel
  await runSearch(job,{search:async()=>[],app:async()=>stable},{delay:0});assert.equal(job.results.length,0);assert.equal(job.skipped.excludedId,1);
  const allowed=createJob('allowed',config({seedApps:[stable.appId]}));await runSearch(allowed,{search:async()=>[],app:async()=>stable},{delay:0});assert.equal(allowed.results[0].isReference,true);assert.ok(!allowed.results[0].discoverySources.includes('query'));assert.equal(allowed.results[0].countries.length,0);
 });
-test('card budget is explicit and a partial search, not a zero-result success',async()=>{
+test('legacy card quotas do not truncate the unlimited detail queue',async()=>{
  const stable=fixtures.find(a=>a.appId==='com.stablecom.app'),list=[stable,{...stable,appId:'new.other.app'}];const job=createJob('budget',config({maxDetails:1}));
- await runSearch(job,provider(list),{delay:0});assert.equal(job.status,'partial');assert.equal(job.detailDone,1);assert.equal(job.errors[0].code,'DETAIL_BUDGET');
+ await runSearch(job,provider(list),{delay:0});assert.equal(job.status,'complete');assert.equal(job.detailDone,2);assert.ok(!job.errors.some(e=>e.code==='DETAIL_BUDGET'));
 });
 test('extra Play IDs from Brave are source-restricted and do not replace Google Play card verification',async()=>{
  const stable=fixtures.find(a=>a.appId==='com.stablecom.app');let calls=0;

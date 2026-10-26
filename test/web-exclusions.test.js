@@ -19,10 +19,10 @@ test('web search rejects articles, publishers, directories, IBAN utilities, acco
  for(const [title,description]of [['IBAN Checker for Business',webResult.description],['Business bookkeeping','Connect your bank accounts to manage business accounts, payments and invoices in EUR with IBAN details.'],['New business account','We will offer business accounts with EU IBAN and web banking soon.']])assert.equal(evaluateWebService({...webResult,title,description},config(),now).post,undefined,title);
  assert.equal(evaluateWebService({...webResult,title:'Best business accounts with IBAN'},config(),now).reason,'notProduct');assert.equal(evaluateWebService({...webResult,title:'Acme launches business accounts in Europe',url:'https://unknown-publisher.eu/acme'},config(),now).reason,'notProduct');
 });
-test('web runner ignores page freshness, deduplicates host paths and observes request budget',async()=>{
+test('web runner ignores page freshness, deduplicates host paths and processes all queries despite legacy budgets',async()=>{
  const c=config({queries:['one','two','three'],requestBudget:2}),job=createWebJob('web',c,now);let calls=[];
  await runWebSearch(job,{search:async q=>{calls.push(q);return[webResult,{...webResult,url:'https://www.examplebank.eu/accounts'}];}},{delay:0,clock:()=>now});
- assert.equal(job.results.length,1);assert.equal(calls.length,2);assert.ok(calls.every(q=>q.freshness===undefined));assert.equal(job.rotationDays,2);assert.equal(job.status,'complete');assert.equal(job.skipped.duplicate,3);
+ assert.equal(job.results.length,1);assert.equal(calls.length,3);assert.ok(calls.every(q=>q.freshness===undefined));assert.equal(job.rotationDays,1);assert.equal(job.status,'complete');assert.equal(job.skipped.duplicate,5);
  const csv=webCSV(job);assert.match(csv,/Веб-кабинет/);assert.match(csv,/mentioned/);
 });
 test('web source rotation includes developer websites and excludes blocked domains',()=>{
