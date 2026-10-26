@@ -84,10 +84,10 @@ export function createApp({
   const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const appleMonitor=createMonitor({provider:appStoreProvider,kind:'apple',store,delay:0,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const selectedAI=reviewRouter({store,openai:aiProvider,ollama:localAIProvider});
-  const aiReview=createAIReview({store,provider:selectedAI,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.summary().busy),tickInterval});
+  const aiReview=createAIReview({store,provider:selectedAI,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.isBusy()),tickInterval});
   const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor,apple:appleMonitor},clock});
   aiReview.setCollector(options=>neural.start(options));
-  const sourceSummary=control=>{const summary=control.summary(),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,successfulSearches:job.successfulSearches}:null};};
+  const sourceSummary=(control,options)=>{const summary=control.summary(options),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,successfulSearches:job.successfulSearches}:null};};
   const files = {
     '/crm':['crm.html','text/html'],
     '/crm.js':['crm.js','text/javascript'],
@@ -183,7 +183,7 @@ export function createApp({
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
-        const rows=crmRows(store.state),aiStatus=aiReview.summary(),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{rows:rows.map(({documents,translations,sourceDocuments,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor),apple:sourceSummary(appleMonitor),social:sourceSummary(socialMonitor),web:sourceSummary(webMonitor),watch:sourceSummary(watchMonitor)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,stage:aiJob.stage,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{rows:rows.map(({documents,translations,sourceDocuments,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),apple:sourceSummary(appleMonitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,stage:aiJob.stage,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=crmRows(store.state).find(r=>r.id===url.searchParams.get('id'));return send(row?200:404,row??{error:'Запись не найдена.'});}
       if(req.method==='GET'&&['/api/crm/export.csv','/api/crm/export.docx','/api/crm/chat.json'].includes(url.pathname)){
@@ -291,7 +291,7 @@ export function createApp({
           const kind=input.section==='company'?'domain':entry.appId?'app':input.section==='web'?'domain':'url',value=input.section==='company'?entry.id.slice('company:'.length):kind==='app'?entry.appId:kind==='domain'?new URL(entry.url).hostname.replace(/^www\./,''):canonicalFindingURL(entry.url);
           if(!value)throw new Error('Не удалось определить запись для исключения.');
           const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,title:entry.title,url:entry.url,providerWebsite:entry.developerWebsite,createdAt:(clock?clock():new Date()).toISOString()};
-          await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){d.manualExclusions.push(rule);}d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,effectiveExclusions(d)));});
+          await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){d.manualExclusions.push(rule);}const rules=effectiveExclusions(d);d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,rules));});
           return send(200,{rule,exclusions:effectiveExclusions(store.state)});
         }catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
       }
@@ -372,7 +372,10 @@ export function createApp({
         if (req.method === "GET" && match[2] === "/export.csv") {
           if (["running","cancelling"].includes(job.status))
             return send(409, { error: "Дождитесь завершения поиска." });
-          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,effectiveExclusions(store.state))) : (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,effectiveExclusions(store.state))).filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
+          const rules=effectiveExclusions(store.state),schedule=control.summary({rules}).schedule,filters=Date.parse(schedule.savedAt??'')>Date.parse(job.createdAt)?schedule.filters:job.config;
+          let results=(url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,rules));
+          if(url.searchParams.get('all')!=='1')results=results.filter(entry=>eligibleFinding(entry,filters));
+          return send(200, exportCSV({...job,results}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${web?"web-services":watch?"changes":social ? "social-signals" : "play-finance"}.csv"`,
           });
         }
@@ -443,9 +446,10 @@ if (
     process.exit(1);
   }
   const server = createApp({ store, autoSchedule: true });
-  server.listen(port, process.env.HOST || "0.0.0.0", () =>
-    console.log(`Play Finance Finder: port ${port}`),
-  );
+  server.listen(port, process.env.HOST || "0.0.0.0", () => {
+    console.log(`Play Finance Finder: port ${port}`);
+    console.log(`CRM: http://127.0.0.1:${port}/crm`);
+  });
   let stopping;
   const stop=()=>stopping??=(async()=>{
     try{await shutdownApp(server);process.exit(0);}
