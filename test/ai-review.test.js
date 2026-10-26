@@ -32,7 +32,7 @@ test('early mode stores a known example without claiming it as a new independent
 test('site collection follows only real same-domain product links and avoids sign-in pages',async()=>{
  const urls=evidenceLinks('<a href="/faq">IBAN FAQ</a><a href="/registration">Business account</a><a href="https://evil.example/iban">IBAN</a><a href="/business">Business</a>','https://newbank.example.eu/');assert.deepEqual(urls,['https://newbank.example.eu/faq','https://newbank.example.eu/business']);
  const seen=[],controller=new AbortController();let indexCalls=0;
- const result=await collectEvidence({...listing,section:'play',developerWebsite:'https://newbank.example.eu/identity/register'},{signal:controller.signal,pages:{page:async url=>{seen.push(url);return{url,text,body:'<a href="/faq">FAQ</a>'};}},index:{configured:()=>true,search:async()=>{indexCalls++;return[];}}});assert.equal(seen[0],'https://newbank.example.eu/');assert.equal(indexCalls,0);assert.equal(result.documents.length,3);
+ const result=await collectEvidence({...listing,section:'play',developerWebsite:'https://newbank.example.eu/identity/register'},{mode:'full',signal:controller.signal,pages:{page:async url=>{seen.push(url);return{url,text,body:'<a href="/faq">FAQ</a>'};}},index:{configured:()=>true,search:async()=>{indexCalls++;return[];}}});assert.equal(seen[0],'https://newbank.example.eu/');assert.equal(indexCalls,0);assert.equal(result.documents.length,3);
 });
 test('missing reviews or an unavailable website preserve listing evidence and use at most one indexed lookup',async()=>{
  let calls=0;const result=await collectEvidence({...listing,section:'play'},{signal:new AbortController().signal,pages:{page:async()=>{throw new Error('blocked');}},index:{configured:()=>true,search:async()=>{calls++;return[{url:'https://newbank.example.eu/business',description:text},{url:'https://newbank.example.eu.evil.test/',description:text}];}}});assert.equal(calls,1);assert.equal(result.documents.length,2);assert.equal(result.documents[1].kind,'official_index');assert.equal(result.errors.length,1);
@@ -91,7 +91,7 @@ test('web root content replaces its weaker indexed snippet and remains a readabl
 });
 
 test('a reference name grounded in the listing is marked known and removed from the new category',async()=>{
- const f=fixture({provider:{assess:async({documents})=>({model:'fixture-model',usage:{inputTokens:10,outputTokens:10},assessment:{business:fact('unknown'),account:fact('unknown'),euIban:fact('unknown'),utility:fact('unknown'),service:{name:'Bankera',evidence:[{sourceId:documents[0].id,quote:'Bankera offers corporate accounts.'}]},summaryRu:'Известный образец'}})}});
+ const f=fixture({provider:{assess:async({documents})=>({model:'fixture-model',usage:{inputTokens:10,outputTokens:10},assessment:{business:fact('unknown'),account:fact('unknown'),euIban:fact('unknown'),utility:fact('unknown'),service:{name:'Bankera',evidence:[{sourceId:documents.find(d=>d.text.includes('Bankera offers')).id,quote:'Bankera offers corporate accounts.'}]},summaryRu:'Известный образец'}})}});
  f.store.state.findings[0].screeningText='Bankera offers corporate accounts.';f.store.state.ai.newIds=['company:newbank.example.eu'];await f.monitor.startJob();await f.monitor.idle();assert.equal(f.monitor.results()[0].reference,'Bankera');assert.deepEqual(f.store.state.ai.newIds,[]);assert.equal(dueReviews(f.store.state,f.provider.model,now).length,0);
 });
 

@@ -1,3 +1,4 @@
+import {ollamaProvider,reviewRouter} from './lib/ollama-provider.js';
 import {LICENCE_REGISTERS,LICENCE_TYPES} from './lib/licences.js';
 import {crmRows,editCRM,excludeCRM,restoreCRM,crmExport,crmCSV,crmDOCX,chatPacket} from './lib/crm.js';
 import {appleProvider,appleCSV,APPLE_CATEGORIES,validateAppleConfig} from './lib/app-store.js';
@@ -7,7 +8,7 @@ import {groupedCandidates} from './lib/neural-inbox.js';
 import {createAIReview} from './lib/ai-review.js';
 import {openaiProvider} from './lib/openai-provider.js';
 import {REFERENCE_LIBRARY} from './lib/references.js';
-import{manuallyExcluded,canonicalFindingURL}from'./lib/manual-exclusions.js';
+import{manuallyExcluded,canonicalFindingURL,effectiveExclusions}from'./lib/manual-exclusions.js';
 import{webFilters,webCSV}from'./lib/web-services.js';
 import {pageProvider} from './lib/page-provider.js';
 import {watchCSV,DEFAULT_WATCH_URLS} from './lib/watch.js';
@@ -44,6 +45,7 @@ export function createApp({
   socialProvider = braveProvider(),
   aiProvider = openaiProvider(),
   aiPages = pageProvider(),
+  localAIProvider=ollamaProvider(),
   appStoreProvider=appleProvider(),
   socialDelay = 1100,
   watchProvider = {...pageProvider(),app:provider.app},
@@ -81,7 +83,8 @@ export function createApp({
   const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const appleMonitor=createMonitor({provider:appStoreProvider,kind:'apple',store,delay:0,autoSchedule,clock,tickInterval,requestTimeoutMs});
-  const aiReview=createAIReview({store,provider:aiProvider,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.summary().busy),tickInterval});
+  const selectedAI=reviewRouter({store,openai:aiProvider,ollama:localAIProvider});
+  const aiReview=createAIReview({store,provider:selectedAI,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.summary().busy),tickInterval});
   const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor,apple:appleMonitor},clock});
   aiReview.setCollector(options=>neural.start(options));
   const sourceSummary=control=>{const summary=control.summary(),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,successfulSearches:job.successfulSearches}:null};};
@@ -180,7 +183,7 @@ export function createApp({
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
-        const rows=crmRows(store.state),aiStatus=aiReview.summary(),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{rows:rows.map(({documents,translations,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:monitor.summary(),apple:appleMonitor.summary(),social:socialMonitor.summary(),web:webMonitor.summary(),watch:watchMonitor.summary(),apple:appleMonitor.summary()},ai:{...aiStatus,job:aiJob?{status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,stage:aiJob.stage,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+        const rows=crmRows(store.state),aiStatus=aiReview.summary(),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{rows:rows.map(({documents,translations,sourceDocuments,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor),apple:sourceSummary(appleMonitor),social:sourceSummary(socialMonitor),web:sourceSummary(webMonitor),watch:sourceSummary(watchMonitor)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,stage:aiJob.stage,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=crmRows(store.state).find(r=>r.id===url.searchParams.get('id'));return send(row?200:404,row??{error:'Запись не найдена.'});}
       if(req.method==='GET'&&['/api/crm/export.csv','/api/crm/export.docx','/api/crm/chat.json'].includes(url.pathname)){
@@ -201,7 +204,7 @@ export function createApp({
       }
       if(req.method==='GET'&&url.pathname==='/api/ai/results')return send(200,aiReview.results());
       if(req.method==='GET'&&url.pathname.startsWith('/api/ai/jobs/')){const job=aiReview.job(url.pathname.split('/').at(-1));return send(job?200:404,job??{error:'Проверка не найдена.'});}
-      if(req.method==='GET'&&url.pathname==='/api/exclusions')return send(200,store.state.manualExclusions??[]);
+      if(req.method==='GET'&&url.pathname==='/api/exclusions')return send(200,effectiveExclusions(store.state));
       if(req.method==='GET'&&web&&apiPath==='/api/defaults')return send(200,{preset:webFilters(),version:APP_VERSION});
       if(req.method==="GET" && url.pathname==="/api/companies")return send(200,companyGroups(store.state));
       if(req.method==="GET" && watch && apiPath==="/api/defaults")return send(200,{watchUrls:DEFAULT_WATCH_URLS});
@@ -263,6 +266,7 @@ export function createApp({
           return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
         }catch(e){return send(e.code==='PERSISTENCE_ERROR'?500:400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
       }
+      if(req.method==='POST'&&url.pathname==='/api/ai/local/test'){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{const result=await (localAIProvider.forModel?.(store.state.ai.config.ollamaModel)??localAIProvider).status({signal:AbortSignal.timeout(5000)});return send(200,result);}catch{return send(503,{error:'Ollama не отвечает на этом компьютере (127.0.0.1:11434). Откройте Ollama и установите модель. OpenAI не вызывается.'});}}
       if(req.method==='POST'&&['/api/neural/start','/api/neural/cancel'].includes(url.pathname)){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{return send(202,url.pathname.endsWith('/cancel')?await neural.cancel():await neural.start());}catch(error){return send(error.status??400,{error:error.message});}}
       if(req.method==='POST'&&url.pathname==='/api/ai/shortlist'){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
@@ -279,16 +283,16 @@ export function createApp({
         let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
         try{
           const input=JSON.parse(raw);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Некорректное исключение.');
-          if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);});return send(200,{exclusions:store.state.manualExclusions});}
+          if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);if(input.key.startsWith('crm:')&&d.crm?.records?.[input.key.slice(4)])d.crm.records[input.key.slice(4)].status='review';});return send(200,{exclusions:effectiveExclusions(store.state)});}
           const sections={company:{findings:groupedCandidates(store.state).filter(e=>e.id.startsWith('company:')),jobs:[]},inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch,apple:store.state.apple};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
           if(!section||typeof input.id!=='string')throw new Error('Выберите запись из результатов.');
           const entries=[...section.findings,...(section.reviewCandidates??[]),...section.jobs.flatMap(j=>[...(j.results??[]),...(j.existingResults??[]),...(j.reviewCandidates??[])])];
           const entry=entries.find(e=>(e.id??e.appId)===input.id);if(!entry)return send(404,{error:'Находка не найдена. Обновите список.'});
           const kind=input.section==='company'?'domain':entry.appId?'app':input.section==='web'?'domain':'url',value=input.section==='company'?entry.id.slice('company:'.length):kind==='app'?entry.appId:kind==='domain'?new URL(entry.url).hostname.replace(/^www\./,''):canonicalFindingURL(entry.url);
           if(!value)throw new Error('Не удалось определить запись для исключения.');
-          const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,title:entry.title,url:entry.url,createdAt:(clock?clock():new Date()).toISOString()};
-          await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){d.manualExclusions.push(rule);}d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,d.manualExclusions));});
-          return send(200,{rule,exclusions:store.state.manualExclusions});
+          const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,title:entry.title,url:entry.url,providerWebsite:entry.developerWebsite,createdAt:(clock?clock():new Date()).toISOString()};
+          await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){d.manualExclusions.push(rule);}d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,effectiveExclusions(d)));});
+          return send(200,{rule,exclusions:effectiveExclusions(store.state)});
         }catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
       }
       if(req.method==='POST' && url.pathname==='/api/backlog/continue'){
@@ -368,7 +372,7 @@ export function createApp({
         if (req.method === "GET" && match[2] === "/export.csv") {
           if (["running","cancelling"].includes(job.status))
             return send(409, { error: "Дождитесь завершения поиска." });
-          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,store.state.manualExclusions)) : (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,store.state.manualExclusions)).filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
+          return send(200, exportCSV({...job, results: url.searchParams.get("all") === "1" ? (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,effectiveExclusions(store.state))) : (url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,effectiveExclusions(store.state))).filter(entry => eligibleFinding(entry,Date.parse(control.summary().schedule.savedAt ?? '') > Date.parse(job.createdAt) ? control.summary().schedule.filters : job.config))}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${web?"web-services":watch?"changes":social ? "social-signals" : "play-finance"}.csv"`,
           });
         }

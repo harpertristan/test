@@ -27,10 +27,10 @@ function setup(patch={}){
   }},...patch});return {store,server,aiCalls:()=>aiCalls};
 }
 
-test('all-source neural run retains rejected leads, merges product domains, analyzes and marks only genuinely new groups',{timeout:5000},async t=>{
+test('all-source neural run archives rejected leads without paid AI, merges product domains and marks only new relevant groups',{timeout:5000},async t=>{
  const f=setup();t.after(()=>f.server.neural.stop());await f.server.neural.start();await f.server.neural.idle();
  const job=f.server.neural.summary();assert.equal(job.sources.length,5);assert.ok(job.sources.every(s=>s.status==='complete'));assert.ok(f.store.state.ai.inbox.some(e=>e.source==='finextra'),'commentary reaches AI even if the deterministic feed rejects it');assert.ok(f.store.state.ai.inbox.some(e=>e.appId===tool.appId),'checker reaches the AI reject category');
- const groups=groupedCandidates(f.store.state);const product=groups.find(e=>e.id==='company:acme.example.eu');assert.ok(product.sources.includes('play'));assert.ok(product.sources.includes('web'));assert.ok(product.sources.includes('watch'));assert.ok(product.targets.length>=3);assert.equal(f.server.aiReview.results().length,3);assert.ok(f.server.aiReview.results().some(e=>e.decision==='irrelevant'));assert.equal(job.newIds.length,3);const calls=f.aiCalls();
+ const groups=groupedCandidates(f.store.state);const product=groups.find(e=>e.id==='company:acme.example.eu');assert.ok(product.sources.includes('play'));assert.ok(product.sources.includes('web'));assert.ok(product.sources.includes('watch'));assert.ok(product.targets.length>=3);assert.equal(f.server.aiReview.results().length,1);assert.ok(!f.server.aiReview.results().some(e=>e.title.includes('Utility')));assert.equal(job.newIds.length,1);const calls=f.aiCalls();
  await f.server.neural.start();await f.server.neural.idle();assert.deepEqual(f.server.neural.summary().newIds,[]);assert.equal(f.aiCalls(),calls,'unchanged data does not consume another AI call');
 });
 test('two articles from one publisher are never merged as one bank',()=>{
@@ -55,8 +55,8 @@ test('quoted waitlists remain early leads and never become live-account matches'
 });
 test('neural APIs, new-only CSV and inbox exclusions preserve authentication and history',{timeout:6000},async t=>{
  const f=setup({password:'neural-pass'});await new Promise(r=>f.server.listen(0,'127.0.0.1',r));t.after(()=>shutdownApp(f.server));const base=`http://127.0.0.1:${f.server.address().port}`,headers={Authorization:'Basic '+Buffer.from('admin:neural-pass').toString('base64'),'Content-Type':'application/json'},post=(path,body={})=>fetch(base+path,{method:'POST',headers,body:JSON.stringify(body)});
- assert.equal((await fetch(base+'/api/neural/monitor')).status,401);assert.equal((await fetch(base+'/api/neural/start',{method:'POST',headers:{...headers,'Sec-Fetch-Site':'cross-site'}})).status,403);assert.equal((await post('/api/neural/start')).status,202);await f.server.neural.idle();const inbox=await(await fetch(base+'/api/ai/inbox',{headers})).json();assert.ok(inbox.some(e=>e.isNew));const target=inbox.find(e=>e.sources.includes('finextra')).targets.find(t=>t.section==='inbox');assert.equal((await post('/api/exclusions',{section:'inbox',id:target.targetId})).status,200);assert.ok(f.store.state.ai.inbox.some(e=>e.id===target.targetId));assert.equal(f.store.state.manualExclusions.length,1);
- const job=[...f.server.monitor.jobs.values()].at(-1),response=await fetch(`${base}/api/jobs/${job.id}/export.csv?new=1`,{headers});assert.equal(response.status,200);assert.ok((await response.text()).includes('AcmePay'));
+ assert.equal((await fetch(base+'/api/neural/monitor')).status,401);assert.equal((await fetch(base+'/api/neural/start',{method:'POST',headers:{...headers,'Sec-Fetch-Site':'cross-site'}})).status,403);assert.equal((await post('/api/neural/start')).status,202);await f.server.neural.idle();const inbox=await(await fetch(base+'/api/ai/inbox',{headers})).json();assert.ok(inbox.some(e=>e.isNew));const target=inbox.find(e=>e.id==='company:acme.example.eu').targets.find(t=>t.section==='inbox');assert.equal((await post('/api/exclusions',{section:'inbox',id:target.targetId})).status,200);assert.ok(f.store.state.ai.inbox.some(e=>e.id===target.targetId));assert.equal(f.store.state.manualExclusions.length,1);
+ const job=[...f.server.monitor.jobs.values()].at(-1),response=await fetch(`${base}/api/jobs/${job.id}/export.csv?new=1`,{headers});assert.equal(response.status,200);assert.ok(!(await response.text()).includes('AcmePay'));
 });
 
 test('daily neural collection runs once and can gather even before OpenAI is connected',{timeout:5000},async()=>{

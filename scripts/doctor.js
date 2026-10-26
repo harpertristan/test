@@ -14,6 +14,7 @@ try{
   const state=JSON.parse(await readFile(`${process.env.DATA_DIR || './data'}/state.json`,'utf8'));
   if(state?.version!==1 || !Array.isArray(state.findings) || !Array.isArray(state.jobs) || !state.schedule)throw new Error('Invalid history shape');
   console.log(`История: ${state.findings?.length ?? 0} приложений, ${state.reviewCandidates?.length ?? 0} кандидатов`);
+  console.log(`ИИ: ${state.ai?.config?.engine==='ollama'?'Ollama (локально)':'OpenAI API'}; режим: ${state.ai?.config?.mode??'economy'}; модель Ollama: ${state.ai?.config?.ollamaModel??'qwen2.5:3b'}`);
   console.log(`Профиль: ${state.schedule?.filters?.profile ?? 'старая версия, требуется перезапуск'}`);
 }catch(error){if(error.code==='ENOENT')console.log('История: появится при первом запуске');else{console.log('История: ошибка чтения. Сохраните файл и проверьте резервную копию; не удаляйте data.');process.exitCode=1;}}
 if(process.argv.includes('--play')){
