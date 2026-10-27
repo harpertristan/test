@@ -2,7 +2,7 @@ import {readFile,writeFile,readdir,lstat,realpath,mkdir,copyFile,cp,chmod,rm} fr
 import {resolve,dirname,join,relative,sep,parse} from 'node:path';
 import {parseEnv,promisify} from 'node:util';
 import {execFile,spawn} from 'node:child_process';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath} from 'node:url';
 import net from 'node:net';
 import {randomUUID,createHash} from 'node:crypto';
 
@@ -76,7 +76,7 @@ export async function updateInPlace(source,target,{install=dir=>run(process.plat
  return {version:next.version,backup,target};
  }finally{await rm(lock,{recursive:true,force:true});}
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
+if(process.argv[1]&&await realpath(process.argv[1]).catch(()=>null)===await realpath(fileURLToPath(import.meta.url))){
  try{const result=await updateInPlace(process.argv[2],process.argv[3]);if(process.argv.includes('--start'))await run('bash',['2-Запустить.command'],result.target);}
  catch(error){console.error(error.message);process.exitCode=1;}
 }

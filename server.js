@@ -19,8 +19,8 @@ import {socialPreset,SOURCE_CATALOG_VERSION,RECOMMENDED_SOURCES} from './lib/sou
 import { discoveryPreset, cataloguePreset,earlyPreset,DISCOVERY_KEYWORDS, REFERENCE_APPS } from './lib/discovery.js';
 import { DEFAULT_EXCLUDE_TERMS, eligibleFinding } from "./lib/qualification.js";
 import http from "node:http";
-import { readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { readFile, realpath } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { createHash, timingSafeEqual } from "node:crypto";
 import {
@@ -462,7 +462,7 @@ export async function shutdownApp(server){
 
 if (
   process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
+  await realpath(process.argv[1]).catch(()=>null) === await realpath(fileURLToPath(import.meta.url))
 ) {
   try { process.loadEnvFile(resolve('.env')); }
   catch (error) { if (error.code !== 'ENOENT') { console.error('Не удалось прочитать .env. Проверьте формат файла.'); process.exit(1); } }

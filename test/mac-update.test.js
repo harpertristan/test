@@ -44,8 +44,15 @@ test('updater stops only the Node server from its own folder and waits for its c
  await stopOwnedServer(await import('node:fs/promises').then(fs=>fs.realpath(target)),port,{log:silent});assert.equal((await done)[0],0);assert.equal(await read(join(target,'saved.txt')),'checkpoint');
  const other=net.createServer();await new Promise(r=>other.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>other.close(r)));await assert.rejects(stopOwnedServer(target,other.address().port,{log:silent}),/другой экземпляр/);assert.ok(other.listening);
 });
-test('Mac bootstrap shell updates a folder with spaces without network, relocation or secret changes',async t=>{
+test('Mac bootstrap runs through a symlinked temporary directory without losing the update entry point',async t=>{
  const {root,source,target}=await setup(t),bin=join(root,'bin');await mkdir(bin);await writeFile(join(bin,'npm'),'#!/bin/bash\nprintf installed > install-fixture.txt\n',{mode:0o755});await copyFile(resolve('scripts/update-in-place.js'),join(source,'scripts/update-in-place.js'));
  const state=await read(join(target,'data/state.json')),env=await read(join(target,'.env'));
- const result=await execute('bash',[resolve('scripts/update-mac.sh'),target,'--source',source],{env:{...process.env,PATH:bin+':'+process.env.PATH},timeout:15000});assert.match(result.stdout,/Play Scout 4\.0\.1/);assert.equal(await read(join(target,'install-fixture.txt')),'installed');assert.equal(await read(join(target,'data/state.json')),state);assert.equal(await read(join(target,'.env')),env);
+ const alias=join(root,'TMPDIR alias');await symlink(source,alias,'dir');
+ const result=await execute('bash',[resolve('scripts/update-mac.sh'),target,'--source',alias],{env:{...process.env,PATH:bin+':'+process.env.PATH},timeout:15000});assert.match(result.stdout,/Play Scout 4\.0\.1/);assert.equal(await read(join(target,'install-fixture.txt')),'installed');assert.equal(await read(join(target,'data/state.json')),state);assert.equal(await read(join(target,'.env')),env);
+});
+test('direct updater and key CLI entry points execute when argv uses a Mac temporary-directory alias',async t=>{
+ const {root,source,target}=await setup(t),bin=join(root,'bin'),alias=join(root,'var alias');await mkdir(bin);await writeFile(join(bin,'npm'),'#!/bin/bash\nexit 0\n',{mode:0o755});
+ await copyFile(resolve('scripts/update-in-place.js'),join(source,'scripts/update-in-place.js'));await copyFile(resolve('scripts/configure-brave.js'),join(source,'scripts/configure-brave.js'));await symlink(source,alias,'dir');
+ const result=await execute(process.execPath,[join(alias,'scripts/update-in-place.js'),alias,target],{env:{...process.env,PATH:bin+':'+process.env.PATH},timeout:15000});assert.match(result.stdout,/Готово: Play Scout/);assert.equal(JSON.parse(await read(join(target,'package.json'))).version,'4.0.1');
+ await assert.rejects(execute(process.execPath,[join(alias,'scripts/configure-brave.js')]),e=>e.code===1&&/Запустите npm run configure/.test(e.stderr));
 });

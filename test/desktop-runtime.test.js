@@ -30,6 +30,10 @@ test('desktop launcher handles Unicode/spaces, repeat launch, authenticated grac
  const denied=run(root,'stop-desktop.js',{...env,APP_PASSWORD:'wrong-password'});children.push(denied.child);assert.equal((await denied.done).code,1);assert.ok(await health(port));
  const stop=run(root,'stop-desktop.js',env);children.push(stop.child);const result=await stop.done;assert.equal(result.code,0,result.output);assert.match(result.output,/очереди сохранены/);assert.equal((await start.done).code,0,start.output);assert.equal(await health(port),null);
  const saved=JSON.parse(await readFile(join(root,'data','state.json'),'utf8'));assert.equal(saved.findings[0].appId,'co.migration.demo');assert.equal(saved.manualExclusions[0].value,'old.example.eu');assert.equal(saved.crm.records.demo.notes,state.crm.records.demo.notes);assert.equal(await readFile(join(root,'.env'),'utf8'),"APP_PASSWORD='test desktop secret'\n");
+ // macOS /var and /private/var can refer to the same temporary folder.
+ const alias=root+' alias';await symlink(root,alias,process.platform==='win32'?'junction':'dir');t.after(()=>rm(alias,{force:true}));
+ const linked=spawn(process.execPath,[join(alias,'server.js')],{cwd:alias,env,stdio:['ignore','pipe','pipe']});children.push(linked);let linkedOutput='';linked.stderr.on('data',b=>linkedOutput+=b);const linkedDone=once(linked,'exit');
+ for(let n=0;n<80&&!(await health(port));n++)await pause(100);assert.equal((await health(port))?.version,version,linkedOutput);linked.kill('SIGTERM');assert.equal((await linkedDone)[0],0,linkedOutput);
  const again=run(root,'stop-desktop.js',env);children.push(again.child);assert.equal((await again.done).code,0);assert.match(again.output,/уже остановлена/);
  const second=run(root,'start-desktop.js',env);children.push(second.child);for(let n=0;n<80&&!(await health(port));n++)await pause(100);assert.ok(await health(port));second.child.kill('SIGTERM');assert.equal((await second.done).code,0,second.output);
 });

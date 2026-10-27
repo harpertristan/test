@@ -39,6 +39,8 @@ main() {
     printf 'В архиве нет модуля обновления. Рабочая папка не изменена.\n' >&2
     return 1
   fi
+  PLAY_SCOUT_SOURCE=$(cd -- "$PLAY_SCOUT_SOURCE" && pwd -P)
+  printf 'Архив распакован. Проверяем папку и устанавливаем обновление…\n'
   if [ -n "$PLAY_SCOUT_START" ]; then
     node "$PLAY_SCOUT_SOURCE/scripts/update-in-place.js" "$PLAY_SCOUT_SOURCE" "$PLAY_SCOUT_TARGET" --start
   else

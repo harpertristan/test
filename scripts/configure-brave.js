@@ -1,8 +1,8 @@
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
-import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
+import { readFile, writeFile, rename, unlink, realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 
 export async function saveKey(key, directory = process.cwd()) {return saveEnvKey('BRAVE_SEARCH_API_KEY',key,directory);}
@@ -23,7 +23,7 @@ export async function saveEnvKey(variable,key,directory=process.cwd()) {
   try { await writeFile(temp,content,{mode:0o600,flag:'wx'}); await rename(temp,file); }
   catch(error) { await unlink(temp).catch(()=>{}); throw error; }
 }
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+if (process.argv[1] && await realpath(process.argv[1]).catch(()=>null) === await realpath(fileURLToPath(import.meta.url))) {
   if(!process.stdin.isTTY) { console.error('Запустите npm run configure в Терминале.'); process.exitCode=1; }
   else {
     console.log('Получите ключ на https://brave.com/search/api/ . Проверьте тариф и лимиты.\nКлюч будет сохранён локально в .env. Не отправляйте этот файл другим.');
