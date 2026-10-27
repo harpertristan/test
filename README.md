@@ -1,8 +1,14 @@
-# Play Scout 4.0 — Windows CRM поиска бизнес-счетов и IBAN
+# Play Scout 4.0.1 — CRM для Mac и Windows
 
 **Банки и небанковские провайдеры бизнес-счетов / IBAN:** EMI/PI, агенты, BaaS/white-label, платёжные посредники и криптосервисы с фиатными EUR-реквизитами через банк или EMI-партнёр. Собственная банковская лицензия не обязательна. EUR / SEPA / наличие офиса в ЕС не доказывают выдачу компании IBAN страны ЕС.
 
-**[Подробная инструкция для Windows и NVIDIA](WINDOWS.md)** · **[Скачать ZIP](https://github.com/harpertristan/test/archive/refs/heads/main.zip)** · [LinkedIn, Facebook и реклама](SOCIAL_CONNECTIONS.md)
+**[Mac: обновление в той же папке](MAC.md)** · **[Windows и NVIDIA](WINDOWS.md)** · **[Скачать ZIP](https://github.com/harpertristan/test/archive/refs/heads/main.zip)** · [LinkedIn, Facebook и реклама](SOCIAL_CONNECTIONS.md)
+
+## Запуск на Mac
+
+Уже установленную версию обновляйте по **[готовому блоку команд](MAC.md#1-обновить-уже-установленный-play-scout-одной-командой)**. Переносить историю и ключи не требуется. После первого обновления доступны `4-Обновить.command` и `npm run update:mac -- --start`. Создаётся резервная копия, при ошибке установки прежний код восстанавливается.
+
+Запуск — `bash ./2-Запустить.command`, остановка — `npm run stop`. Для Apple Silicon 16 ГБ+ начните с Ollama `qwen2.5:3b` в экономном режиме или сравните уже установленную `qwen3.5:4b`.
 
 ## Запуск на Windows
 
@@ -21,7 +27,7 @@ npm ci
 npm run start:desktop
 ```
 
-Для Linux / Mac остаётся `npm start`. [Прежняя инструкция Mac](START_HERE.md).
+Для Linux остаётся `npm start`. [Полная инструкция Mac](MAC.md).
 
 ## Что изменилось
 

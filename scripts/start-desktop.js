@@ -21,6 +21,6 @@ else{
  let timer,stopping=false,opened=false;const started=Date.now();
  const stop=()=>{if(stopping)return;stopping=true;clearInterval(timer);if(child.connected)child.send({type:'shutdown'});const deadline=setTimeout(()=>child.kill(),10000);deadline.unref();};
  process.on('SIGINT',stop);process.on('SIGTERM',stop);
- timer=setInterval(async()=>{if(opened||stopping)return;const result=await health();if(result?.status==='ok'&&result.source==='Google Play'){opened=true;clearInterval(timer);open();console.log('Браузер открыт. Для завершения используйте Control+C или файл 3-Stop.cmd.');}else if(Date.now()-started>30000){clearInterval(timer);console.log('Запуск занимает больше времени. Проверьте сообщения выше. Адрес: '+url);}},300);
+ timer=setInterval(async()=>{if(opened||stopping)return;const result=await health();if(result?.status==='ok'&&result.source==='Google Play'){opened=true;clearInterval(timer);open();console.log('Программа готова. Для завершения используйте Control+C или '+(process.platform==='darwin'?'5-Остановить.command':'3-Stop.cmd')+'.');}else if(Date.now()-started>30000){clearInterval(timer);console.log('Запуск занимает больше времени. Проверьте сообщения выше. Адрес: '+url);}},300);
  child.on('exit',code=>{clearInterval(timer);process.exitCode=code??0;});
 }

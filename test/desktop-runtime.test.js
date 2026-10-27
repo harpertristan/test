@@ -9,6 +9,7 @@ import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {initialState} from '../lib/store.js';
 const source=fileURLToPath(new URL('..',import.meta.url));
+const version=JSON.parse(await readFile(join(source,'package.json'),'utf8')).version;
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function freePort(){const s=http.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;}
 function run(root,script,env){const child=spawn(process.execPath,[join(root,'scripts',script)],{cwd:tmpdir(),env,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>output+=b);const done=once(child,'exit').then(([code,signal])=>({code,signal,output}));return {child,done,get output(){return output;}};}
@@ -24,7 +25,7 @@ test('desktop launcher handles Unicode/spaces, repeat launch, authenticated grac
  const port=await freePort(),env={...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_DIR:join(root,'data'),PLAY_SCOUT_NO_BROWSER:'1',APP_PASSWORD:'test desktop secret',VIEW_PASSWORD:'',RENDER:'',BRAVE_SEARCH_API_KEY:'',OPENAI_API_KEY:'',GEMINI_API_KEY:''};
  const start=run(root,'start-desktop.js',env);children.push(start.child);
  let current;for(let n=0;n<80;n++){current=await health(port);if(current)break;assert.equal(start.child.exitCode,null,start.output);await pause(100);}
- assert.equal(current?.version,'4.0.0',start.output);assert.equal(current.status,'ok');
+ assert.equal(current?.version,version,start.output);assert.equal(current.status,'ok');
  const repeat=run(root,'start-desktop.js',env);children.push(repeat.child);assert.equal((await repeat.done).code,0);assert.match(repeat.output,/уже работает/);
  const denied=run(root,'stop-desktop.js',{...env,APP_PASSWORD:'wrong-password'});children.push(denied.child);assert.equal((await denied.done).code,1);assert.ok(await health(port));
  const stop=run(root,'stop-desktop.js',env);children.push(stop.child);const result=await stop.done;assert.equal(result.code,0,result.output);assert.match(result.output,/очереди сохранены/);assert.equal((await start.done).code,0,start.output);assert.equal(await health(port),null);
