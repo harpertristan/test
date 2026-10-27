@@ -1,0 +1,828 @@
+{
+  "note": "Short public-source excerpts retained from the user-provided export solely for regression tests; no private notes, keys or whole CRM database.",
+  "cases": [
+    {
+      "index": 0,
+      "name": "Calendly",
+      "id": "link:https://statrys.com/blog/top-neobanks",
+      "url": "https://statrys.com/blog/top-neobanks",
+      "website": null,
+      "documents": [
+        {
+          "url": "https://statrys.com/blog/top-neobanks",
+          "kind": "third_party",
+          "text": "bunq is a licensed Dutch bank supervised by De Nederlandsche Bank, serving customers across Europe. Accounts open in the app, and it offers multiple IBANs for individuals and businesses, which suits people who&#x27;ve just moved country.. For EU expats: bunq (multiple IBANs, accounts opened in the app). For business in Asia: most neobanks on this list are built for residents and businesses in the US or Europe and may not accept companies registered in Asia.. Who this suits: EU expats; EU freelancers and SMEs that want several IBANs. Who should look elsewhere: UK or US residents; savers looking for the highest rate in their country. Tip: check out our bunq review to learn more about its business account. Rates are variable and most top rates come with conditions. These are the headline rates as of October 2026; confirm them with each provider. Check that it operates where you live. Most neobanks here are limited to specific countries.. Most neobanks on this list serve individuals or businesses registered in the US or Europe.. bunq is a licensed Dutch bank supervised by De Nederlandsche Bank, serving customers across Europe. Accounts open in the app, and it offers multiple IBANs for individuals and businesses, which suits people who've just moved country."
+        },
+        {
+          "url": "https://calendly.com/blog/getting-started-guide",
+          "kind": "official_index",
+          "text": "How does Calendly work? (Everything you need to know to start scheduling) | Calendly. Connecting both work and personal calendars to your Calendly account means you’re never double-booked over professional meetings or personal obligations (or vacations!).. Talk to salesLog InGet startedGet started for freeMy Account ... Best practicesCompare CalendlyConsulting & professional servicesCustomer successEducation & nonprofitEngineeringEntrepreneurs & small businessHow to use CalendlyIntegrationsLarge businesses & enterprisesProduct updatesRecruitingSales & marketingTemplates. Connecting both work and personal calendars to your Calendly account means you’re never double-booked over professional meetings or personal obligations (or vacations!).. Already a Calendly user? Learn how to set up your Calendly account and booking page with the. free plan lets you connect one calendar to your account."
+        },
+        {
+          "url": "https://calendly.com/legal/privacy-notice",
+          "kind": "official_index",
+          "text": "Privacy Notice | Calendly. Talk to salesLog InGet startedGet started for freeMy Account ... This privacy notice (“Privacy Notice”) describes how Calendly, LLC (“Calendly”, “we”,“us”, “our”) collects, uses, and discloses your Personal Data in the course of our business.. For EEA Residents - you may also contact our EU Representative at eurep@calendly.com. Alternatively, they can be reached by post (DPO Centre Europe, BERLIN: Friedrichstrabe 88, Excellent Business Centre, Berlin, 10117, Germany or (+49 304 0817 3000).. We are not responsible for any lost, stolen, or compromised passwords or for any activity on your account via unauthorized password activity. We retain the Personal Data we collect for so long as is reasonably necessary to fulfill the purposes for which the data was collected, to perform our contractual and legal obligations (including any exemptions or exceptions contemplated by law), and for any applicable statute of limitations periods for the purposes of bringing and defending claims. If you are an individual located in the European Economic Area, the United Kingdom, Canada or another juri. Talk to salesLog InGet startedGet started for freeMy Account ... This privacy notice (“Privacy Notice”) describes how Calendly, LLC (“Calendly”, “we”,“us”, “our”) collects, uses, and discloses your Personal Data in the course of our business.. The right to lodge a complaint with the relevant data protection supervisory authority. Where applicable, EU residents can find contact information for the relevant data protection supervisory authority on the European Data Protection Board’s website,"
+        },
+        {
+          "url": "https://calendly.com/legal/participant-terms-conditions",
+          "kind": "official_index",
+          "text": "Participant Terms and Conditions | Calendly. As a Participant, you were provided with access to the Services authorized and controlled by a Calendly Customer (either an individual Customer or an Authorized User of an Entity, either, an “Authorized User”). This means that the Customer has separately agreed to either our Customer Terms or entered into a Master Services Agreement (either as applicable, the “Customer Agreement”) with us that permits the Authorized User to access and use the Services, including providing certain access to the Services to their Participants When you submit content or information to the Services, such as name, email or phone number, or when you access certain Output, such as Calendly Notetaker recaps, you acknowledge and agree that such data is Customer Data.. As a Participant, you were provided with access to the Services authorized and controlled by a Calendly Customer (either an individual Customer or an Authorized User of an Entity, either, an “Authorized User”). This means that the Customer has separately agreed to either our Customer Terms or entered into a Master Services Agreement (either as applicable, the “Customer Agreement”) with us that permits the Authorized User to access and use the Services, including providing certain access to the Services to their Participants When you submit content or information to the Services, such as name, email or phone number, or when you access certain Output, such as Calendly Notetaker recaps, you acknowledge and agree that such data is Customer Data.. We may assign these Participant Terms in their entirety (including all terms and conditions incorporated herein by reference), without your consent, to an Affiliate or in connection with a merger, acquisition, corporate reorganization, or sale of al"
+        },
+        {
+          "url": "https://calendly.com/blog/online-booking-system",
+          "kind": "official_index",
+          "text": "How to create an online booking system | Calendly. Salesforce account matching is only available on the Enterprise plan. Learn more about adding Calendly Routing to your website forms. Whether you want to streamline client scheduling, coordinate multi-location bookings, or just get organized, finding the right online booking system can be a game-changer for your business.. Talk to salesLog InGet startedGet started for freeMy Account ... Best practicesCompare CalendlyConsulting & professional servicesCustomer successEducation & nonprofitEngineeringEntrepreneurs & small businessHow to use CalendlyIntegrationsLarge businesses & enterprisesProduct updatesRecruitingSales & marketingTemplates. Salesforce account matching is only available on the Enterprise plan. Learn more about adding Calendly Routing to your website forms. Whether you want to streamline client scheduling, coordinate multi-location bookings, or just get organized, finding the right online booking system can be a game-changer for your business.. Between finding a time that works for you and your customer, sending reminders, and chasing down no-shows, manual appointment scheduling takes up valuable time and resources — especially for small businesses.. If your business tools don’t play well together, you’ll miss out on opportunities to keep info organized and get more done."
+        },
+        {
+          "url": "https://community.calendly.com/how-do-i-40/adding-a-second-user-to-book-meetings-separately-with-their-own-zoom-1344",
+          "kind": "official_index",
+          "text": "Adding a Second User to book meetings separately with their own Zoom. | Community. Adding a Second User to book meetings separately with their own Zoom. ... I see no way to add my new user and her Zoom, but I am still sifting through the Tips. Do I have to cancel this new user and create an entirely new account? If so, what’s the best way to toggle back and forth to check all events?. I see no way to add my new user and her Zoom, but I am still sifting through the Tips. Do I have to cancel this new user and create an entirely new account? If so, what’s the best way to toggle back and forth to check all events? Support team uses the individual user links to help schedule overlappi.... Adding a Second User to book meetings separately with their own Zoom. ... I see no way to add my new user and her Zoom, but I am still sifting through the Tips. Do I have to cancel this new user and create an entirely new account? If so, what’s the best way to toggle back and forth to check all events?. Once they’ve done this (which can be accomplished with either an existing Calendly account or by creating a new one on the user’s end - which is determined by the email address you sent the invite too - if the email address you sent the invite to is already associated with a Calendly account they will be prompted to join your organization with that account; if the email address you sent the invite to is not associated with a Calendly account they will be prompted to create a new account and then automatically join your organization) they will be able to set up their own account settings."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "yes",
+          "evidence": [
+            {
+              "quote": "As a Participant, you were provided with access to the Services authorized and controlled by a Calendly Customer (either an individual Customer or an Authorized User of an Entity, either, an “Authorized User”).",
+              "url": "https://calendly.com/legal/participant-terms-conditions",
+              "kind": "official_index",
+              "sourceId": "s4"
+            },
+            {
+              "quote": "This means that the Customer has separately agreed to either our Customer Terms or entered into a Master Services Agreement (either as applicable, the “Customer Agreement”) with us that permits the Authorized User to access and use the Services, including providing certain access to the Services to their Participants When you submit content or information to the Services, such as name, email or phone number, or when you access certain Output, such as Calendly Notetaker recaps, you acknowledge and agree that such data is Customer Data..",
+              "url": "https://calendly.com/legal/participant-terms-conditions",
+              "kind": "official_index",
+              "sourceId": "s4"
+            }
+          ]
+        }
+      },
+      "licences": [],
+      "summary": "Calendly - это инструмент для планирования встреч, который соединяет рабочие и личные календари."
+    },
+    {
+      "index": 1,
+      "name": "Cards & IBANs",
+      "id": "company:bcalikoglu.com",
+      "url": "https://play.google.com/store/apps/details?id=com.berkancalikoglu.finanskasasi&gl=AT",
+      "website": "https://bcalikoglu.com/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.berkancalikoglu.finanskasasi&gl=AT",
+          "kind": "listing",
+          "text": "Cards & IBANs is a private, on-device vault for quick access to your card and IBAN details. Your card numbers, expiry dates, cardholder details, bank names, and IBANs are stored in encrypted form on your own device. No account is required. The app does not connect to your bank or send your vault data to developer servers. Keep your cards and IBANs in one organized place, mark important items as favorites, securely view card details, and copy or share IBAN information when you need it. Key features: • Save bank cards, credit cards, and virtual cards. • Organize, copy, and share IBAN details. • Keep card numbers hidden and protect sensitive actions with an app lock or biometric authentication. • Recognize selected card networks and card types from card-number patterns. • Personalize cards with distinctive visual styles. • Reach frequently used cards and IBANs faster with favorites. • Use English or Turkish with light and dark themes. Cards & IBANs is not a bank, payment, or money-transfer app. It does not access bank accounts, start payments, transfer money, or request bank passwords. For your safety, the app does not support storing card PINs, online-banking passwords, CVV/CVC values, or verification codes. No ads. No in-app purchases. No mandatory account. Your cards and IBANs stay on your device."
+        },
+        {
+          "url": "https://apps.apple.com/at/app/id6806833878",
+          "kind": "listing",
+          "text": "Cards & IBANs is a private vault designed for fast, simple, and secure access to your card and IBAN details. Card numbers, expiry dates, cardholder names, bank names, and IBANs are stored encrypted on your own device. The app does not require an account, connect to your bank, or send your vault data to our servers. With Cards & IBANs, you can: • Organize bank cards, credit cards, and virtual cards in one place. • Save, copy, and share IBAN details with ease. • Mark important cards as favorites for quicker access. • Keep card numbers hidden by default and protect sensitive actions with an app lock or biometric authentication. • Recognize selected card networks from card-number patterns. • Choose distinctive card appearances and personalize your vault. • Use the app in English or Turkish, with light and dark themes. Cards & IBANs is not a banking, payment, or money-transfer app. It does not access bank accounts, initiate payments, transfer money, or request bank passwords. For your safety, Cards & IBANs does not support storing card PINs, online-banking passwords, CVV/CVC values, or verification codes. No ads. No in-app purchases. No mandatory account. Just a private card and IBAN vault that stays on your device."
+        },
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.berkancalikoglu.finanskasasi&gl=DE",
+          "kind": "third_party",
+          "text": "Cards & IBANs is a private, on-device vault for quick access to your card and IBAN details.\n\nYour card numbers, expiry dates, cardholder details, bank names, and IBANs are stored in encrypted form on your own device. No account is required. The app does not connect to your bank or send your vault data to developer servers.\n\nKeep your cards and IBANs in one organized place, mark important items as favorites, securely view card details, and copy or share IBAN information when you need it.\n\nKey features:\n\n• Save bank cards, credit cards, and virtual cards.\n• Organize, copy, and share IBAN details.\n• Keep card numbers hidden and protect sensitive actions with an app lock or biometric authentication.\n• Recognize selected card networks and card types from card-number patterns.\n• Personalize cards with distinctive visual styles.\n• Reach frequently used cards and IBANs faster with favorites.\n• Use English or Turkish with light and dark themes.\n\nCards & IBANs is not a bank, payment, or money-transfer app. It does not access bank accounts, start payments, transfer money, or request bank passwords.\n\nFor your safety, the app does not support storing card PINs, online-banking passwords, CVV/CVC values, or verification codes.\n\nNo ads. No in-app purchases. No mandatory account.\nYour cards and IBANs stay on your device."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "yes",
+          "evidence": [
+            {
+              "quote": "Cards & IBANs is a private, on-device vault for quick access to your card and IBAN details.",
+              "url": "https://play.google.com/store/apps/details?id=com.berkancalikoglu.finanskasasi&gl=AT",
+              "kind": "listing",
+              "sourceId": "s1"
+            },
+            {
+              "quote": "Your card numbers, expiry dates, cardholder details, bank names, and IBANs are stored in encrypted form on your own device.",
+              "url": "https://play.google.com/store/apps/details?id=com.berkancalikoglu.finanskasasi&gl=AT",
+              "kind": "listing",
+              "sourceId": "s1"
+            }
+          ]
+        }
+      },
+      "licences": [],
+      "summary": "Cards & IBANs - локальный шифрованный вault для быстрого доступа к карточным и IBAN-данным."
+    },
+    {
+      "index": 12,
+      "name": "BellMonie Business",
+      "id": "company:bellmfb.com",
+      "url": "https://play.google.com/store/apps/details?id=com.bellbank.business&gl=LV",
+      "website": "https://bellmfb.com/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.bellbank.business&gl=LV",
+          "kind": "listing",
+          "text": "BellMonie Business – Your Smart Way to Bank and Grow Your Business BellBank is a secure and easy-to-use digital banking app designed to help individuals and businesses manage money smarter, faster, and better — all from one place. Whether you’re sending money, receiving payments, or tracking your finances, BellBank gives you full control with just a few taps. Key Features: • Instant Transfers: Send and receive money seamlessly within seconds. • Wallet Management: Fund, withdraw, and manage multiple accounts with ease. • Transaction History: Keep track of every payment, withdrawal, and deposit in real time. • Secure Payments: Protected with bank-grade encryption and biometric login. • Business Tools: Designed for entrepreneurs — monitor sales, manage payouts, and handle customer payments securely. • Bills & Utilities: Pay for airtime, data, and utilities quickly — all in one app. BellBank isn’t just another wallet — it’s your financial partner. We combine speed, simplicity, and security to help you handle business and personal finances with confidence."
+        },
+        {
+          "url": "https://bellmfb.com/",
+          "kind": "official_page",
+          "text": "BellMonie - Banking Made Simple\nBank faster, better & smarter with BellMonie.\nExperience Banking at It&#x27;s Best, manage your finances with ease. From quick transactions to personalized solutions, analytics, support and more.\nBanking designed for personal and business growth\nProviding financial solutions that empowering both business and individuals to thrive and achieve remarkable growth milestones.\nPersonal account\nOpen a personal account with BellMonie to manage your finances with ease. Enjoy seamless transactions and personalized banking solutions.\nBill payments\nPersonal savings\nBusiness account\nTake your business to the next level with a business account from BellMonie. Access tools designed for growth and efficiency.\nBellMonie offers a range of loan options to help you achieve your goals. Whether you need a personal or business loan, we&#x27;ve got you covered.\nProviding financial solutions that empowering both business and individuals to thrive and achieve remarkable growth milestones.\nIf transfers aren&#x27;t your jam, we get it. Request a debit card and have it delivered to you within 48 hours. Activate it in minutes, and start using it right away.\nPersonal account\nManage all your banking needs from one powerful app. Transfer money, pay bills, and track your spending with ease.\nA fully integrated suite of financial and payments products\nSave engineering time with unified payments functionality. We obsess over the maze of gateways, payments rails, and financial institutions so you don&#x27;t have to.\nEverything you need to accept payments\nFrom POS terminals to online payment gateways, BellMonie provides all the tools businesses need to collect payments and grow.\nAccept card and transfer payments with our reliable POS terminals. Instant settlement, 99.9% uptime"
+        },
+        {
+          "url": "https://bellmfb.com/business",
+          "kind": "official_page",
+          "text": "BellMonie - Banking Made Simple\nSimple solutions to power your business\nCollect payments, access loans, get POS terminals and manage operations with a business banking solution that meets all your needs.\nBusiness Accounts\nAll the tools you need to run your business\nBellMonie provides comprehensive business solutions - from payment collection to loans and everything in between.\nBusiness Account\nOpen a free bank account in your business name, in minutes. Access round the clock support, with no hidden fees.\nAccept card and transfer payments with our reliable POS terminals. Enjoy instant settlement and easy dispute resolution.\nA secure card for your business expenses. Track spending and set limits for different needs.\nAccess flexible loans to help your business grow with business-friendly interest rates.\nBusiness Savings\nSave for your business goals and earn competitive interest rates on your deposits.\nPay your staff on time, every time. Schedule bulk salary payments and generate payroll reports in seconds.\nAdd team members to your business account with different roles and permission levels for safe delegation.\nAccept card and transfer payments seamlessly with our reliable point-of-sale terminal. Enjoy instant settlement, easy dispute resolution, and instant payments every time.\nPOS Transfers\nAccept transfers directly on your POS terminal, and print out customer receipts.\nCard Payments\nAccept reliable payments that go through every time, from all cards.\nInstantly receive payments in your account with no delay.\nBusiness Account\nA free bank account to power your business\nOpen a free bank account in your business name, in minutes. Access round the clock support, with no hidden fees and complete control over your account.\nZero account opening fees\nManage multiple businesses in "
+        },
+        {
+          "url": "https://bellmfb.com/support",
+          "kind": "official_page",
+          "text": "BellMonie - Banking Made Simple\nHelp Center\nHow do I open an account? How do I send money? I forgot my PIN How do I pay bills? How do I request a POS? How do I get a debit card? How do I update my details? My account is locked\nSend us a detailed message and our team will respond within 24 hours on business days.\nSpeak directly with a support agent for urgent issues or complex queries.\nAccount registration, login, and setup guides\nAccounts\nManage your account settings and information\nTransfers, receiving funds, and transaction history\nPIN management, biometrics, and account safety\nEmail response on business days\nGet an account that suits you.\nAt BellMonie, we understand that every individual and business is unique. That&#x27;s why we offer a range of accounts tailored to suit your specific needs. Whether you&#x27;re looking for a personal account, a business account, or something in between, we&#x27;ve got you covered.\nPersonal\nPersonal Banking\nBill Payments\nBusiness\nBusiness Banking\nCompany\n© 2026 BellMonie. BellMonie is a financial technology company. Banking and deposit services are provided by our licensed partner bank(s), regulated by the Central Bank of Nigeria (CBN). Deposits held with our partner bank(s) are insured by the Nigeria Deposit Insurance Corporation (NDIC)."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Банковские решения для личного и бизнес-развития."
+    },
+    {
+      "index": 26,
+      "name": "Entrepreneur - Company Manager",
+      "id": "company:ilyon.net",
+      "url": "https://play.google.com/store/apps/details?id=com.michael.business_domination&gl=AT",
+      "website": "https://www.ilyon.net/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.michael.business_domination&gl=AT",
+          "kind": "listing",
+          "text": "Invest, buy assets, manage, and expand your company in this modern economy entrepreneur manager game! Do you have what it takes to be a wealth builder and a tycoon company manager? Put your business strategy-making skills to the test in an intense, challenging real-time strategy game available online! The Entrepreneur - Company Manager game is a realistic company tycoon game where you raise and manage your own company. As an entrepreneur you start with a small company dealing with small retail stores and transportation services, building your way up to real estate purchase, stocks trading, productions lines and even space exploration. Compete against other Entrepreneur company managers around the world, make alliances, vote in national congress engage in wars and many more! This business simulation entrepreneur game is designed to give you realistic tycoon games challenges that you must complete to scale your business and grow. Try Entrepreneur - Company Manager game now! FEATURES of Entrepreneur - Company Manager: - Play and enjoy a realistic world map with other players’ companies, famous world sites, banks, mines, stock exchanges, and many more! - Enjoy premium resources: Buy gold coins, and use them to purchase a variety of upgrades like money, special units, hurry productions, etc - Trade daily in commodities like oil barrels. Buy concessions and unlock new financial markets - Buy business and transportation lines and trade resources - Buy investments like a soccer team and utilize them on the world map - Research new products, improve your company’s capabilities and growth - Use real-time strategy to acquire resources and become a trade tycoon - Participate in business challenges with real-world scenarios such as taking a loan from the bank, the viability of manuf"
+        },
+        {
+          "url": "https://apps.apple.com/hr/app/id1630754749",
+          "kind": "listing",
+          "text": "Manage your company and build a monopoly! Do you have what it takes to be a wealth builder and a tycoon business manager? Put your business strategy-making skills to the test in an intense, challenging real-time strategy game available online! The trade Tycoon Business Game is a realistic company tycoon game where you raise and manage your own company. Play this fun, relaxing game for free, manage your own company, and become the world's strongest empire! Are you ready to be the best business manager and wealth builder in the business simulation world? This business simulation entrepreneur game is designed to give you realistic tycoon game challenges that you must complete to scale your business and grow. Try Tycoon Business Game – Empire & Business Simulator now! FEATURES of Tycoon Business Game – Empire & Business Simulator: - Play and enjoy a realistic world map with other players’ companies, famous world sites, banks, mines, stock exchanges, and many more! - Enjoy premium resources: Buy gold coins, and use them to purchase a variety of upgrades like money, special units, hurry productions, etc - Trade daily in commodities like oil barrels. Buy concessions and unlock new financial markets - Buy business and transportation lines and trade resources - Buy investments like a soccer team and utilize them on the world map - Research new products, improve your company’s capabilities and growth - Use real-time strategy to acquire resources and become a trade tycoon - Participate in business challenges with real-world scenarios such as taking a loan from the bank, the viability of manufacturing products, etc. - Recruit an army that will defend your assets and attack your rivals! - Invest in startup companies in various fields from high-tech to Cyber and health - Trade stocks"
+        },
+        {
+          "url": "https://www.ilyon.net/",
+          "kind": "official_page",
+          "text": "Home - Ilyon Games\nMenu\nHome About Us Careers Contact Account-Deletion"
+        },
+        {
+          "url": "https://private.ilyon.net/terms-of-service",
+          "kind": "official_page",
+          "text": "Terms of service - Ilyon Games\nTERMS OF SERVICE\nThe following terms of service (&ldquo;Terms&rdquo;) constitute an agreement between you and Ilyon Dynamics Ltd., (together with all its affiliates, &ldquo;Ilyon,&rdquo; or &ldquo;we,&rdquo; &ldquo;us,&rdquo; &ldquo;our&rdquo;). These Terms govern your access, and/or use of all (A) software programs distributed, published or otherwise made available by Ilyon including, but not limited to (i) mobile Games (as defined below), (ii) downloadable/installable Games for personal computers, mobile devices, tablets, or any other device (iii) Games accessed by means of a browser or other online communication method, (iv) Games accessed by means of third-party platforms, websites and social media sites, including Facebook, (v) your use of Ilyon&rsquo;s website, (vi) all updates and upgrades to the foregoing (each a &ldquo;Game&rdquo; and collectively the &ldquo;Games&rdquo;); and (B) services made available by Ilyon, including but not limited to any services available on Ilyon&rsquo;s website and services accessed through or provided in relation to the Games (the &ldquo;Services&rdquo;). &ldquo;You&rdquo; means any adult user of the Games or any parent or guardian of any minor whom you allow to use the Games or the Services, and for whom you will be held strictly responsible. If you are a minor, you must obtain the permission of your parent or guardian prior to using the Games or Services. If you do not obtain such permission, please do not use the Games or Services.\n(A) SERVICES. You may use the Games and Services in accordance with the terms set forth herein. Ilyon may, in its sole discretion and at any time, discontinue providing any part of the Games and/or Services without notice. Access to and use of the Games and/or Services i"
+        },
+        {
+          "url": "https://www.ilyon.net/account-deletion/",
+          "kind": "official_page",
+          "text": "Account-Deletion - Ilyon Games\nMenu\nAccount-Deletion\nBy clicking the “Submit” button below, I acknowledge that once my account is deleted it cannot be restored.\nPlease note that there are third party advertising providers who do not take third party requests regarding account/personal information deletion. You must contact these providers directly. When you contact our support team to initiate your account deletion we will send you a confirmatory email with directions on how to contact these third party providers to ensure deletion of your account/personal information.\nThis form is only for account removal requests.For other issues,contact the Player Experience Team at support@ilyon.net or through the in-game settings\nHome About Us Careers Contact Account-Deletion"
+        },
+        {
+          "url": "https://private.ilyon.net/terms-and-conditions",
+          "kind": "official_index",
+          "text": "Terms of service - Ilyon Games. The following terms of service (“Terms”) constitute an agreement between you and Ilyon Dynamics Ltd., (together with all its affiliates, “Ilyon,” or “we,” “us,” “our”). These Terms govern your access, and/or use of all (A) software programs distributed, published or otherwise .... is more generally, not in compliance with the European Union’s (or any of its member states’) applicable legislation.. Access to the Services is provided by the downloading of a Game from an app store (such as the Apple App Store, the Google Play Store, and/or the Amazon Appstore). You may also access the Services by logging in through your Facebook account and/or other approved third-party logins.. We may change the access method at our discretion. By accessing the Services through Facebook and/or any other approved third-party login, you represent and warrant that the Facebook and/or other third-party login account is yours and you have full rights to provide us with the information in this account.. By accessing the Games and/or Services through Facebook and/or any other approved third-party login, you represent and warrant that the Facebook and/or other third-party login account is yours and you have full rights to provide us with the information in this account."
+        },
+        {
+          "url": "https://www.ilyon.net/content-and-conduct-policy/",
+          "kind": "official_index",
+          "text": "Content and Conduct Policy - Ilyon Games. Furthermore, if we detect any possible fraudulent or criminal activity on your account or in connection with your account, we will investigate such activity and may suspend or permanently disable your account.. This privacy policy was last modified on July _, 2024. When using or accessing Ilyon Games or Website, as further described in the Terms and Conditions referenced below, you may be accessing a variety of Iyon’s digital services, meaning any services for which online access and/or storage of information is necessary, or for which you. promotes and/or generates money for yourself and/or any third-party business activity; impersonates any person or entity or misrepresents your identity or affiliation with any person or entity; deletes any legal notices, disclaimers, or proprietary notices such as copyright or trademarks, or modify any logos that you do not own or have express permission to modify; does not generally pertain to the designated topic or theme of the Digital Services; or · is more generally, not in compliance with the European Union’s (or any of its member states’) applicable legislation.. For authorities or regulators based in European Union, please contact the Authority Point of Contact email legal@ilyon.net. Furthermore, if we detect any possible fraudulent or criminal activity on your account or in connection with your account, we will investigate such activity and may suspend or permanently disable your account."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Илон Геймс предоставляет услуги, связанные с играми, но не упоминает о предоставлении счетов компаниям."
+    },
+    {
+      "index": 31,
+      "name": "Business Card Game",
+      "id": "company:craftedgamestudio.com",
+      "url": "https://play.google.com/store/apps/details?id=business.card.game&gl=LV",
+      "website": "https://craftedgamestudio.com/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=business.card.game&gl=LV",
+          "kind": "listing",
+          "text": "The goal of the game is to become the initial player to gather 3 complete property sets of varying colors. Business Card Game accommodates 2 to 4 players across Online, Offline, and Play with Friends Modes, featuring a total of 108 Playing cards, comprising 2 Rules Cards, 28 Property Cards, 34 Action Cards, 13 Rent Cards, 20 Money Cards, and 11 Property wild cards. At the start of your turn, receive 2 cards. If you exhaust your hand later, draw 5 cards at the start of your turn. Lay up to 3 cards from your hand onto the table in front of you, and play proceeds clockwise. Place Money/Action cards into your personal Bank. Players have the option to levy charges such as rent and birthdays. Accumulate a 'Bank' pile in front of you using Money cards and/or Action cards. When an action card is added to your Bank, it transforms into a money card for the remainder of the game. Strive to gather as many properties as possible, but achieving 3 Full Sets of different Colors secures victory in the game. If your hand exceeds 7 cards at the conclusion of your turn, discard the excess to the bottom of the Draw Pile until you retain only 7. If you've depleted your hand, draw 5 cards at the onset of your next turn. During your turn, select cards and deploy Action cards to levy rent on players, pilfer their cards, or request Money for your Birthday. An outstanding entertainer for the entire family! Business Card Game is a game revolving around building, selling, and banking, among other things. So, let's engage and demonstrate your prowess as the wealthiest individual. Business Card Game guarantees endless entertainment! Enjoy it with your family or friends and bid farewell to boredom forever. Download for Free and have endless hours of fun!! ◆◆◆◆ Business Card Game Features ◆◆◆◆ ✔ 1,2, 3"
+        },
+        {
+          "url": "https://craftedgamestudio.com/",
+          "kind": "official_page",
+          "text": "Crafted Game Studios\nCrafted Game Studios"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Игра Business Card Game позволяет игрокам собирать и продавать имущество, а также накапливать деньги."
+    },
+    {
+      "index": 54,
+      "name": "Noelse",
+      "id": "app:com.afone.noelse",
+      "url": "https://play.google.com/store/apps/details?id=com.afone.noelse&gl=FR",
+      "website": null,
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.afone.noelse&gl=FR",
+          "kind": "listing",
+          "text": "Discover Noelse, the online account for individuals and professionals. Quick and easy registration. No commitment. Take back control of your money! Manage your budget, make mobile payments and transfer money instantly. -- FEATURES -- - Open an account in minutes directly from the application - Manage your accounts easily through a smart interface - Activate your digital card and order a physical card - Make transfers instantly - Use your French IBAN - Customise your services for a tailored experience - Organise your projects or savings with sub-accounts - Easily find your expenses with our unlimited history - Keep track of your accounts quickly with tallying and annotations - Monitor your spending with instant notifications - Add beneficiaries in a few clicks - Benefit from a customer service that listens to you ARE YOU A FREELANCER, CRAFTSMAN, TRADER OR ENTREPRENEUR? Noelse offers you the ideal solution to manage your finances independently. With our customizable account, you can choose the services that are useful for your business and build your own account. Our app accompanies you from the creation of your company to the collection of your customers, so you can : - Take advantage of our all-in-one solution including: pro account, business card and sub-accounts + free EFT - Monitor your transactions in real time and manage your budget on a daily basis - Pay your expenses by one-off or recurrent, scheduled or instantaneous transfers - Boost your business by taking advantage of the power of the Noelse Eftpos terminals - Easily manage your flows thanks to your dedicated TPE sub-account - Allocate your TPEs to each of your shops to view their performance - View your upcoming telecollections live - Benefit from automatic updates of your TPE Other features are coming soon and will be included in the application: account aggregation, payment initiation, deposit account, instant transfer, and accounting assistance. Want to take back control of your money? Then download the application! The Noelse application allows you to open an account and subscribe to our services. For more information, please visit our website https://noelse.com/faq or contact us at support@noelse.com. See you soon in the Noelse community!"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Noelse - это приложение для индивидуальных и профессиональных пользователей, которое позволяет легко управлять финансами."
+    },
+    {
+      "index": 59,
+      "name": "Finom • Business Account",
+      "id": "company:finom.co",
+      "url": "https://play.google.com/store/apps/details?id=tech.pnlfin.finom&gl=AT",
+      "website": "https://finom.co/",
+      "documents": [
+        {
+          "url": "https://apps.apple.com/at/app/id1483892148",
+          "kind": "listing",
+          "text": "Finom is a financial service where you can open a banking account, connect your other banks and manage your invoices.\nHere are just a few things that you'll find inside Finom app: - Open a banking account in 5 minutes; - Connect your other banks and manage them in one place; - Make a SEPA or Direct Debit payments; - Receive money from the whole of Europe; - Create sub-accounts (we call them wallets) and manage your cash flow.\nFinom Payments BV (Finom) is a licensed electronic money institution authorized by the Dutch Central Bank, De Nederlandsche Bank (DNB) under the relations number R180074."
+        },
+        {
+          "url": "https://play.google.com/store/apps/details?id=tech.pnlfin.finom&gl=AT",
+          "kind": "listing",
+          "text": "Finom is a financial service where you can open a banking account, connect your other banks and manage your invoices.\nHere are just a few things that you'll find inside Finom app: - Open a banking account in 5 minutes; - Connect your other banks and manage them in one place; - Make a SEPA or Direct Debit payments; - Receive money from the whole of Europe; - Create sub-accounts (we call them wallets) and manage your cash flow.\nFinom Payments BV (Finom) is a licensed electronic money institution authorized by the Dutch Central Bank, De Nederlandsche Bank (DNB) under the relations number R180074."
+        },
+        {
+          "url": "https://finom.co/",
+          "kind": "official_page",
+          "text": "Business Account, Invoicing & Accounting Integrations | Finom\nBusiness account with cashback & e-invoicing\nGerman IBAN\nFinom vs Qonto, quel service aux entreprises choisir en&nbsp;2026 ?\nIn order to offer financial services in Germany and Italy, Finom benefits from all the advantages of its partnership with Solaris Bank.\nIn order to provide financial services in France, Finom enjoys all of the benefits of its partnership with the French company Treezor, allowing clients to obtain a French IBAN.\nThis is primarily thanks to our strong and reliable partnership with SolarisBank (Germany and Italy) and Treezor (France), approved by regulators to operate as a bank (SolarisBank) and as an election money institution (Treezor).\nThis means that your business account with Finom is protected by deposit insurance (up to € 100,000) which is made available in accordance with applicable local rules and legislation.\nTo better manage your account and provide you with the highest level of security, we work with Treezor a French fintech company and Solaris a German fintech company in the financial services area to provide you with an IBAN and process your payments.\nFINOM is entering the market in France with the support of Treezor, while in Germany, FINOM can rely on Solaris Bank."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Finom • Business Account предоставляет счета для компаний, но детали о предоставлении счетов клиентам и наличии IBAN в ЕС не указаны."
+    },
+    {
+      "index": 94,
+      "name": "bunq",
+      "id": "company:bunq.com",
+      "url": "https://play.google.com/store/apps/details?id=com.bunq.android&gl=AT",
+      "website": "https://www.bunq.com/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.bunq.android&gl=AT",
+          "kind": "listing",
+          "text": "Earn up to 3.11% interest on your savings, paid weekly. Open a Savings Account and start growing your money with bunq today. Say hello to bunq – the mobile bank that's there for you at every chapter of your life! Whether exploring new countries, building your dream business, or managing family life, bunq helps you grow your wealth, spend, and budget effortlessly. Open your account in just 5 minutes and start your 30-day free trial today. Our Plans bunq Free - €0/month Get started with essential banking. • 3 Bank Accounts to get you started • 1 Digital Card with Google Pay support • Scheduled Payments and AutoAccept for requests • Earn 3.51% interest on USD/GBP savings • Invest in stocks with ease • Buy and sell cryptocurrencies in the EEA • Save up to 90% on roaming costs with an eSIM from bunq Business features: • Accept contactless payments with Tap to Pay • Integration with 50+ bookkeeping tools bunq Core - €3.99/month A bank account for everyday use. All bunq Free benefits, plus: • 5 Bank Accounts for your everyday needs • 1 physical card included • Personalize your physical card to make it uniquely yours • Shared account access • Add loyalty cards for quick access • Unlimited ZeroFX • 24/7 SOS Hotline for emergencies Business features: • Co-founder access • Shared account access • Bookkeeping integrations bunq Pro - €9.99/month The bank account that makes budgeting easy. All bunq Core benefits, plus: • 25 Bank Accounts for effortless budgeting • 3 physical cards and 25 Digital Cards included • Personalized budgeting insights and income organiser • 5 fee-free foreign currency payments/month • Secondary PIN for multiple accounts on one card • 20% Discount on stock trading fees • Student offer: pay €0/month Business features: • Add up to 3 employees • Company Cards (debit or credit) and Tap to Pay access • AutoVAT bunq Elite - €18.99/month The account for your international lifestyle. All bunq Pro benefits, plus: • Worldwide Travel Insurance • 10 fee-free foreign currency payments/month • 8GB worldwide data • 50% discount on stock trading fees Business features: • Add up to 10 employees • 500 fee-free transactions/year Your security = Our priority Boost your bank security with two-factor authentication and 100% control of cards. Your deposits = Fully protected Your money is insured up to €100,000 by the Deposit Guarantee Scheme (DGS). Invest in the bunq app through our partners. Investing involves risks, including potential loss. bunq does not provide trading advice. Manage your investments at your own risk. bunq is authorized by the DNB. Our US office resides at 401 Park Ave S. New York, NY 10016, USA."
+        },
+        {
+          "url": "https://apps.apple.com/at/app/id1021178150",
+          "kind": "listing",
+          "text": "Say hello to bunq — your mobile banking app. Open a current account, get multiple IBANs, send money instantly, and manage your finances smarter. Start your 30-day free trial today. bunq is the mobile bank designed for you, whether you're a freelancer, sole trader, student, or looking for expat banking or a modern business account. From online banking and multicurrency spending to instant money transfers, this is a banking experience built around your needs. Our Plans: bunq Free - €0/month Get started with free banking. • 3 Bank Accounts to get you started • Irish IBANs included — send money and spend like a local • 1 Digital Card with Apple Pay and Apple Wallet support • Send money instantly with instant transfers and scheduled payments • Pay by phone and make contactless payments • Earn 3.51% interest on USD/GBP savings • Invest and trade stocks, shares, and ETFs • Buy and sell crypto in your crypto wallet in the EEA • Save up to 90% on roaming costs with an eSIM from bunq Business features: • Accept contactless payments with Tap to Pay • Connect to 50+ bookkeeping tools • Built for freelancers, sole traders, and business owners bunq Core - €3.99/month The current account for everyday mobile banking and multicurrency spending. All bunq Free benefits, plus: • 5 Bank Accounts for your everyday needs • 1 Physical Card included • Personalise your physical bank card to make it uniquely yours • Get shared account access to split bills easily • Add loyalty cards for quick access in your wallet • Unlimited ZeroFX: no hidden bank fees on foreign currency payments, with transparent exchange rates • 24/7 SOS Hotline for emergencies Business features: • Co-founder access • Shared account access • Access bookkeeping integrations bunq Pro - €9.99/month The bank account that makes budgeting easy. All bunq Core benefits, plus: • 25 Bank Accounts, Savings Accounts, and Term Deposits for smarter budgeting • 3 Physical Cards and 25 Digital Cards included • Get personalised budgeting insights and an income organiser • 5 fee-free foreign currency payments per month • Secondary PIN for multiple accounts on one card • 20% discount on stock trading fees • Student offer: pay €0 per month with a bunq student account Business features: • Add up to 3 employees • Get Company Debit and Credit Cards, plus Tap to Pay access • AutoVAT bunq Elite - €18.99/month The account for your international lifestyle. All bunq Pro benefits, plus: • Worldwide travel insurance • 10 fee-free foreign currency payments per month • 8GB worldwide data • 50% discount on stock trading fees Business features: • Add up to 10 employees • 500 fee-free transactions per year Your security = Our priority Secure your account with two-factor authentication and 100% control of your cards. Your deposits = Fully protected Your money is insured up to €100,000 by the Deposit Guarantee Scheme (DGS). Invest in the bunq app through our partners. Investing involves risk, including potential loss of capital. bunq does"
+        },
+        {
+          "url": "https://www.bunq.com/",
+          "kind": "official_page",
+          "text": "bunq: Open a Bank Account in 5 Minutes\nbank of The Free\nA fully licensed European bank in one app. Open a Personal or Business Account in 5 minutes with no paperwork or branch visits.\nOpen a Bank Account\nA fully licensed European bank in one app. Open a Personal or Business Account in 5 minutes with no paperwork or branch visits.\nOpen a Bank Account\nA fully licensed European bank in one app. Open a Personal or Business Account in 5 minutes with no paperwork or branch visits.\nOpen a Bank Account\nOpen your Bank Account in 5 minutes\nOpen your Bank Account in 5 minutes\nOpen your Bank Account in 5 minutes\nBanking for you, or for your business\nEarn up to 3.11%* interest on your savings, paid weekly. Pay anywhere with your card and get a local Bank Account with an IBAN in 7 countries.\nOpen a personal account\nFor your business\nRun your business finances from one app, whether you freelance or run a team. Get Company Cards, connect your accounting software, and open up to 25 Bank Accounts.\nExplore business banking\nBanking for you, or for your business\nEarn up to 3.11%* interest on your savings, paid weekly. Pay anywhere with your card and get a local Bank Account with an IBAN in 7 countries.\nOpen a personal account\nFor your business\nRun your business finances from one app, whether you freelance or run a team. Get Company Cards, connect your accounting software, and open up to 25 Bank Accounts.\nExplore business banking\nBanking for you, or for your business\nEarn up to 3.11%* interest on your savings, paid weekly. Pay anywhere with your card and get a local Bank Account with an IBAN in 7 countries.\nOpen a personal account\nFor your business\nRun your business finances from one app, whether you freelance or run a team. Get Company Cards, connect your accounting software, and open up to 25 Bank Accounts.\nExplore business banking\nPersonal or business accounts that fit your lifestyle\nPersonal\nBusiness\nOpen your account in minutes · Start earning on your savings today\nThe bank account for everyday use.\nOrganize your money across 25 Bank Accounts · Pay 20% less on stock trades\nPremium banking for your international life.\nPersonal or business accounts that fit your lifestyle\nPersonal\nBusiness\nOpen your account in minutes · Start earning on your savings today\nThe bank account for everyday use.\nOrganize your money across 25 Bank Accounts · Pay 20% less on stock trades\nPremium banking for your international life.\nPersonal or business accounts that fit your lifestyle\nPersonal\nBusiness\nOpen your account in minutes · Start earning on your savings today\nThe bank account for everyday use.\nOrganize your money across 25 Bank Accounts · Pay 20% less on stock trades\nPremium banking for your international life.\nOpen a high-interest Savings Account in minutes. Your interest is paid every week, so it earns interest too. Withdraw any amount for free, up to 2 times a month.\nExplore Savings Accounts\nOpen a high-interest Savings Account in minutes. Your interest is paid every week, so i"
+        },
+        {
+          "url": "https://www.bunq.com/personal/features/joint-accounts",
+          "kind": "official_page",
+          "text": "Open a Joint Account with bunq | Share Finances Easily\nYour Joint Account, ready in 5 minutes\nManage money together with your partner, housemates, or friends, in one account you all own.\nOpen your Joint Account\nYour Joint Account, ready in 5 minutes\nManage money together with your partner, housemates, or friends, in one account you all own.\nOpen your Joint Account\nYour Joint Account, ready in 5 minutes\nManage money together with your partner, housemates, or friends, in one account you all own.\nOpen your Joint Account\nWhat is a joint account?\nA joint account is one bank account owned by two or more people. Everyone shares, spends, and sees the same balance, and you don’t need to be married or registered partners to open one.\nWhat is a joint account?\nA joint account is one bank account owned by two or more people. Everyone shares, spends, and sees the same balance, and you don’t need to be married or registered partners to open one.\nWhat is a joint account?\nA joint account is one bank account owned by two or more people. Everyone shares, spends, and sees the same balance, and you don’t need to be married or registered partners to open one.\nHow to open a Joint Account\nCreate your Joint Account\nChoose Joint Account in the app and send an invite to your co-owners.\nHow to open a Joint Account\nCreate your Joint Account\nChoose Joint Account in the app and send an invite to your co-owners.\nHow to open a Joint Account\nCreate your Joint Account\nChoose Joint Account in the app and send an invite to your co-owners.\nOpen a Joint Savings Account for a move, a trip, or a rainy day. Interest is paid out weekly.\nOpen a Joint Savings Account for a move, a trip, or a rainy day. Interest is paid out weekly.\nOpen a Joint Savings Account for a move, a trip, or a rainy day. Interest is paid out weekly.\nSet up Organize Your Income once, and a set share goes to your Joint Account every time you're paid.\nMove leftover money into your Joint Savings Account and earn interest every week.\nSet up Organize Your Income once, and a set share goes to your Joint Account every time you're paid.\nMove leftover money into your Joint Savings Account and earn interest every week.\nSet up Organize Your Income once, and a set share goes to your Joint Account every time you're paid.\nMove leftover money into your Joint Savings Account and earn interest every week.\nA Joint Account is included in each plan\nOpen one on bunq Core, bunq Pro, or bunq Elite at no extra cost. On bunq Free, you can join a Joint Account that someone else opens.\nPersonal\nBusiness\nOpen your account in minutes · Start earning on your savings today\nThe bank account for everyday use.\nOrganize your money across 25 Bank Accounts · Pay 20% less on stock trades\nPremium banking for your international life.\nA Joint Account is included in each plan\nOpen one on bunq Core, bunq Pro, or bunq Elite at no extra cost. On bunq Free, you can join a Joint Account that someone else opens.\nPersonal\nBusiness\nOpen your account in minutes · Star"
+        },
+        {
+          "url": "https://www.bunq.com/personal/features/savings-accounts",
+          "kind": "official_page",
+          "text": "High-interest savings accounts | bunq\nEarn up to 3.11%* interest, paid weekly\nOpen a Savings Account in 5 minutes and move money in and out when you need it.\nOpen a Savings Account\nOpen a Savings Account in 5 minutes and move money in and out when you need it.\nOpen a Savings Account\nOpen a Savings Account in 5 minutes and move money in and out when you need it.\nOpen a Savings Account\nCelebrate bunq Update 32 and win up to €10,000, every day between September 25 and October 31, 2026. Top up your Savings Account for a chance to double your deposit, while earning up to 3.11%* annual interest, paid weekly.\nCelebrate bunq Update 32 and win up to €10,000, every day between September 25 and October 31, 2026. Top up your Savings Account for a chance to double your deposit, while earning up to 3.11%* annual interest, paid weekly.\nCelebrate bunq Update 32 and win up to €10,000, every day between September 25 and October 31, 2026. Top up your Savings Account for a chance to double your deposit, while earning up to 3.11%* annual interest, paid weekly.\n** Promotion runs from 25 September 2026 at 00:01 until 31 October 2026 at 23:59 (Amsterdam time). Each eligible deposit into your personal bunq EUR savings account gives you a chance to have that deposit doubled, up to €10,000. One random winner is selected per day. The prize is a one-off bonus, credited to the savings account the winning deposit was made to or a tree in your bunq forest. Check your country's eligibility before participating. T&Cs apply. Learn more here .\n** Promotion runs from 25 September 2026 at 00:01 until 31 October 2026 at 23:59 (Amsterdam time). Each eligible deposit into your personal bunq EUR savings account gives you a chance to have that deposit doubled, up to €10,000. One random winner is selected per day. The prize is a one-off bonus, credited to the savings account the winning deposit was made to or a tree in your bunq forest. Check your country's eligibility before participating. T&Cs apply. Learn more here .\n** Promotion runs from 25 September 2026 at 00:01 until 31 October 2026 at 23:59 (Amsterdam time). Each eligible deposit into your personal bunq EUR savings account gives you a chance to have that deposit doubled, up to €10,000. One random winner is selected per day. The prize is a one-off bonus, credited to the savings account the winning deposit was made to or a tree in your bunq forest. Check your country's eligibility before participating. T&Cs apply. Learn more here .\nHow you earn up to 3.11%* on your Savings Account\nHow you earn up to 3.11%* on your Savings Account\nHow you earn up to 3.11%* on your Savings Account\nA Savings Account for every goal\nOpen a Joint Savings Account together. It earns the same rate as your own Savings Account.\nA Savings Account for every goal\nOpen a Joint Savings Account together. It earns the same rate as your own Savings Account.\nA Savings Account for every goal\nOpen a Joint Savings Account together. It earns the same rate as your own Savin"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Банковское приложение для личных и бизнес-счетов в Европе."
+    },
+    {
+      "index": 101,
+      "name": "Skrill - Pay & Transfer Money",
+      "id": "company:skrill.com",
+      "url": "https://play.google.com/store/apps/details?id=com.moneybookers.skrillpayments&gl=AT",
+      "website": "https://www.skrill.com/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.moneybookers.skrillpayments&gl=AT",
+          "kind": "listing",
+          "text": "Join millions around the world who use Skrill for fast, secure online payments and money transfers. With the Skrill digital wallet, you can pay at thousands of websites, send money abroad, and exchange currency. All without relying on your bank. Plus, you can earn points on your transactions and be rewarded with the Knect loyalty program. 🚀 Download the app today and start transacting in minutes SECURE & FAST ONLINE PAYMENTS ✔ Pay instantly on thousands of websites, including sports, gaming, and forex trading websites. There’s no need to share your bank or card details – all you need is your Skrill login. ✔ Quick withdrawals—get your money when you need it, hassle-free. ✔ Choose the payment option that suits you and fund your account by card, bank transfer, or a local payment methods. ✔ Stay in control with real-time notifications whenever you spend or send money. THE SKRILL PREPAID MASTERCARD®* ✔ Make your next prepaid card a Skrill Prepaid Mastercard. Use your card to instantly access your balance online, in stores, or as cash at ATMs. ✔ Pay securely with a card that’s not linked to your bank account. ✔ Add your card to the Google Wallet™ and make contactless payments with your phone. ✔ Freeze your prepaid card from within the app if it’s lost or stolen. INSTANT MONEY TRANSFERS ✔ Send money worldwide in seconds to anyone with a Skrill account. All you need is their phone number or email address. ✔ Low-cost international transfers to bank accounts in multiple countries. ✔ Request payments easily —even from non-Skrill users by sending them a link to pay you. EARN REWARDS & GET VIP BENEFITS ✔ Earn points on your payments with our loyalty program – Knect. Exchange your points for cash in your account. ✔ Become a VIP Skriller to enjoy lower fees, higher transaction limits, and exclusive perks. ✔ Take advantage of exclusive offers from our forex trading and gaming partners. SPORTS CORNER ✔ View advanced statistics, winning tips, expert facts and live scores on major football tournaments. ✔ Check the probability of events happening based on statistical / AI analysis. MULTI-CURRENCY SUPPORT & EXCHANGE ✔ Hold and manage multiple currencies in one account. ✔ Exchange between 40+ currencies with competitive rates. 24/7 CUSTOMER SUPPORT ✔ Enjoy fast and friendly support in your local language. * Some features may be limited by jurisdiction. Skrill Prepaid Mastercard® available only in select countries."
+        },
+        {
+          "url": "https://apps.apple.com/at/app/id718248239",
+          "kind": "listing",
+          "text": "Make your move and join millions already using Skrill to transfer money quickly and pay online securely – all from one easy-to-use wallet app. With the Skrill digital wallet you can pay at thousands of websites, send money locally or abroad, and exchange currency. All without relying on your bank. Plus, you can earn points on your transactions and be rewarded with the Knect loyalty program. Why make your move with the Skrill wallet app? Here are some of the reasons why our customers choose us.* SECURE ONLINE PAYMENTS · Pay effortlessly at sports, gaming, and trading websites. There’s no need to share your bank or card details – all you need is your Skrill login. · Say goodbye to slow withdrawals. Payouts with Skrill are quick and hassle-free when you’re ready to cash out. · Choose the payment option that suits you and fund your digital wallet by card, bank transfer, or a local payment option. · Manage your money on the go with real-time notifications whenever you spend or send money. THE SKRILL PREPAID MASTERCARD® · Make your next prepaid card a Skrill Mastercard. Use your card to instantly access your balance online, in stores, or as cash at ATMs. · Pay securely with a card that’s not linked to your bank account. · Add your card to Apple Pay® and make contactless payments with your phone. · Freeze your prepaid card from within the app if it’s lost or stolen. FAST MONEY TRANSFERS · Send money at lightning speed to anyone with a Skrill account. All you need is their phone number or email address. · Transfer money to a bank account overseas at great rates. Set up alerts to be the first to hear when the currency exchange rate hits your preferred amount. · Request payment from someone who doesn’t have a Skrill account by sending them a link to pay you. 30+ CRYPTOCURRENCIES Don’t invest unless you’re prepared to lose all the money you invest. This is a high-risk investment and you should not expect to be protected if something goes wrong. Take two minutes to learn more at www.skrill.com/cryptocurrency-risk-statement/. · Buy an interest in more than 30 cryptocurrencies from your Skrill app, including Bitcoin, Ethereum and Tether. · Schedule automatic purchases with recurring buys and limit orders. · Set up crypto price alerts to be notified when the market reaches a certain value. · Withdraw your funds to crypto by sending them directly to a cryptocurrency address. LOYALTY REWARDS · Earn points on your transactions with our loyalty program – Knect. Exchange your points for money in your account. · Become a VIP Skriller to enjoy lower fees, higher limits, and other benefits. · Take advantage of exclusive offers from our merchant partners. SPORTS CORNER · View advanced statistics, winning tips, and live scores on major sports tournaments. · Check the probability of events happening based on statistical analysis of historic data. · Insights available for football, basketball, and American football games. CURRENCY EXCHANGE · Easily transact in different cu"
+        },
+        {
+          "url": "https://www.skrill.com/en/",
+          "kind": "official_page",
+          "text": "Digital wallet for money transfers & online payments | Skrill EN Skip to main content Skrill Log in Register My Account\nMake your move\nMake payments without sharing your bank details.\nSend to a bank account or\nOpen a Skrill account\nCopyright © 2026 Skrill Limited. All rights reserved. Skrill ® is a registered trademark of Skrill Limited. Skrill Limited is incorporated in England (company number 04260907) with its registered office at 1st floor, 2 Gresham Street, London, EC2V 7AD, UK. Authorised and regulated by the Financial Conduct Authority under the Electronic Money Regulations 2011 (FRN: 900001) for the issuance of electronic money and payment instruments. The Skrill Prepaid Mastercard is issued by Paysafe Financial Services Limited pursuant to a licence from Mastercard International. Paysafe Financial Services Limited (FRN: 900015) is authorised by the Financial Conduct Authority under the Electronic Money Regulations 2011 for the issuance of electronic money and payment instruments. Mastercard ® is a registered trademark of Mastercard International. Skrill Limited is registered with the Financial Conduct Authority as a cryptoasset firm under the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017."
+        },
+        {
+          "url": "https://www.skrill.com/en/transfer-money/receive-money/",
+          "kind": "official_page",
+          "text": "Receive money online | Skrill EN Skip to main content Skrill Log in Register My Account\nReceive money online\nGet paid in a way that works for you. Receive money from anyone, anywhere directly into your bank account, mobile wallet or Skrill wallet.\nYour bank account\nReceive money transfers from abroad to a local bank account of your choice. You can also withdraw funds from your Skrill account and send them to your registered bank account.\nReceive funds using an email address, mobile number or bank account details\nCopyright © 2026 Skrill Limited. All rights reserved. Skrill ® is a registered trademark of Skrill Limited. Skrill Limited is incorporated in England (company number 04260907) with its registered office at 1st floor, 2 Gresham Street, London, EC2V 7AD, UK. Authorised and regulated by the Financial Conduct Authority under the Electronic Money Regulations 2011 (FRN: 900001) for the issuance of electronic money and payment instruments. The Skrill Prepaid Mastercard is issued by Paysafe Financial Services Limited pursuant to a licence from Mastercard International. Paysafe Financial Services Limited (FRN: 900015) is authorised by the Financial Conduct Authority under the Electronic Money Regulations 2011 for the issuance of electronic money and payment instruments. Mastercard ® is a registered trademark of Mastercard International. Skrill Limited is registered with the Financial Conduct Authority as a cryptoasset firm under the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017."
+        },
+        {
+          "url": "https://www.skrill.com/en/siteinformation/fees/",
+          "kind": "official_page",
+          "text": "Our Fees & Charges | Skrill EN Skip to main content Skrill Log in Register My Account\nDon’t invest in cryptocurrencies unless you’re prepared to lose all the money you invest. This is a high-risk investment and you should not expect to be protected if something goes wrong. Take two minutes to learn more .\nReceiving money to your Skrill account\nSending money to an international bank account with Skrill Money Transfer\nOpen an account\nAfghanistan Albania Algeria American Samoa Andorra Angola Anguilla Antigua and Barbuda Argentina Armenia Aruba Australia Austria Azerbaijan Bahrain Bangladesh Barbados Belarus Belgium Belize Benin Bermuda Bhutan Bolivia Bonaire, Sint Eustatius and Saba Bosnia and Herzegovina Botswana Bouvet Island Brazil British Indian Ocean Territory British Virgin Islands Brunei Bulgaria Burkina Faso Burundi Cambodia Cameroon Canada Cape Verde Cayman Islands Central African Republic Chad Chile China Christmas Island Cocos (Keeling) Islands Colombia Comoros Congo Congo-Brazzaville Cook Islands Costa Rica Croatia Cuba Curaçao Cyprus Czech Republic Côte d’Ivoire Denmark Djibouti Dominica Dominican Republic Ecuador Egypt El Salvador Equatorial Guinea Eritrea Estonia Eswatini Ethiopia Falkland Islands Faroes Fiji Finland France French Guiana French Polynesia French Southern Territories Gabon Gambia Georgia Germany Ghana Gibraltar Greece Greenland Grenada Guadeloupe Guam Guatemala Guernsey Guinea Guinea-Bissau Guyana Haiti Heard Island and McDonald Islands Honduras Hong Kong SAR of China Hungary Iceland India Indonesia Iran Iraq Ireland Isle of Man Israel Italy Jamaica Japan Jersey Jordan Kazakhstan Kenya Kiribati Kosovo Kuwait Kyrgyzstan Laos Latvia Lebanon Lesotho Liberia Libya Liechtenstein Lithuania Luxembourg Macao SAR of China Madagascar Malawi Malaysia Maldives Mali Malta Marshall Islands Martinique Mauritania Mauritius Mayotte Mexico Micronesia Moldova Monaco Mongolia Montenegro Montserrat Morocco Mozambique Myanmar Namibia Nauru Nepal Netherlands New Caledonia New Zealand Nicaragua Niger Nigeria Niue Norfolk Island North Korea North Macedonia Northern Marianas Norway Oman Pakistan Palau Palestine Panama Papua New Guinea Paraguay Peru Philippines Pitcairn Islands Poland Portugal Puerto Rico Qatar Reunion Romania Russia Rwanda Saint Barthélemy Saint Helena, Ascension and Tristan da Cunha Saint Kitts and Nevis Saint Lucia Saint Martin Saint Pierre and Miquelon Saint Vincent and the Grenadines Samoa San Marino Saudi Arabia Senegal Serbia Seychelles Sierra Leone Singapore Sint Maarten Slovakia Slovenia Solomon Islands Somalia South Africa South Georgia and the South Sandwich Islands South Korea South Sudan Spain Sri Lanka Sudan Suriname Svalbard Sweden Switzerland Syria São Tomé e Príncipe Taiwan Tajikistan Tanzania Thailand The Bahamas Timor-Leste Togo Tokelau Tonga Trinidad and Tobago Tunisia Turkey Turkmenistan Turks and Caicos Islands Tuvalu US Virgin Islands Uganda Ukraine United Arab Emirates United Kingdom United States United S"
+        },
+        {
+          "url": "https://www.skrill.com/en/support/question/67/",
+          "kind": "official_index",
+          "text": "Skrill Glossary | Skrill EN. It is used for domestic transfers in the US, or for international transfer to a US bank account. You can also find your routing number in the following places: your bank statement, your bank’s website or mobile app, through your bank’s phone customer service.. The PIN is usually sent separately from the card by the post or is provided upon the card’s activation. You can change your PIN on an ATM device. (in Skrill we also have our · PIN Authentication code, which is different from the one used for card transactions) Sort code – a 6-digits number used by British and Irish banks to identify and route the money transfers to the respective bank and account. The sort code of a bank is integrated and encoded in the IBAN number of the account but not in the BIC codes of the account.. It is used for domestic transfers in the US, or for international transfer to a US bank account. You can also find your routing number in the following places: your bank statement, your bank’s website or mobile app, through your bank’s phone customer service. SEPA (Single Euro Payments Area) - a system of transactions created by the European Union (EU) which aim is to make cross-border EUR transfers within this area equivalent to a domestic transfer.. EEA (European Economic Area) - consists of the Member States of the European Union (EU) and three countries of the European Free Trade Association (EFTA) (Iceland, Liechtenstein and Norway; excluding Switzerland). It operates as an internal (or single) market which allows free movement of goods, capital, services and people between member states. IBAN (International Bank Account Number) – an internationally agreed code that helps to identify bank accounts involved in cross border transactions.. SEPA covers the whole of the EU. It also applies to payments in euros in other European countries: Andorra, Iceland, Norway, Switzerland, Liechtenstein, Monaco, San Marino and Vatican City State."
+        },
+        {
+          "url": "https://www.skrill.com/fileadmin/content/pdf/Integration_guide-Bank_Payouts.pdf",
+          "kind": "official_index",
+          "text": "Public Page 1 Integration Guide Payout Solutions. SEPA · bank accounts (Success): 200 OK · Content · - Type: application/json · { &quot;sessionId&quot;: &quot;641580f284b29ac98836524d5d2e443a&quot; } Example Preparation Response · (Error): 400 Bad Request · Content · - Type: application/json · { &quot;code&quot;: &quot;MISSING_PARAMETER&quot;, &quot;parameter&quot;: &quot;iban&quot;, &quot;message&quot;: &quot;Missing iban parameter.&quot;. SEPA · bank accounts (Success): 200 OK · Content · - Type: application/json · { \"sessionId\": \"641580f284b29ac98836524d5d2e443a\" } Example Preparation Response · (Error): 400 Bad Request · Content · - Type: application/json · { \"code\": \"MISSING_PARAMETER\", \"parameter\": \"iban\", \"message\": \"Missing iban parameter.\". Adding VoP (Verification of Payee) for SEPA.. The account is restricted.. Account not found."
+        },
+        {
+          "url": "https://www.skrill.com/en-us/skrill-news/product-updates/how-to-get-paid-as-a-freelancer-overseas/",
+          "kind": "official_index",
+          "text": "How to get paid securely as a freelancer in 2026 | Skrill EN - US. You may also need an IBAN to accept payments. Skrill payment links: Skrill allows you to generate a unique payment link that can be sent along with your invoice. With the Skrill Digital Wallet, you can also hold multiple currencies. Learn more about how Skrill money transfers work. SEPA transfers: SEPA transfers are used for sending and receiving money within the Eurozone.. You may also need an IBAN to accept payments. Skrill payment links: Skrill allows you to generate a unique payment link that can be sent along with your invoice. With the Skrill Digital Wallet, you can also hold multiple currencies. Learn more about how Skrill money transfers work. SEPA transfers: SEPA transfers are used for sending and receiving money within the Eurozone.. SWIFT bank transfers: SWIFT transfers allow you to receive payments from overseas clients straight into your bank account. While secure and convenient, SWIFT transfers can attract significant fees and may take several business days to complete. You’ll need an international bank account number (IBAN) to get started.. Some methods (like SEPA and ACH above) may not be available in your region. Transaction limits: Some payment providers impose limits on how much money you can receive per period (weekly, monthly, etc.). Check these limits if you’re expecting any large payments. Most businesses are used to freelancers having unique payment needs, so don’t be afraid to suggest your preferred international payment method.. Freelancers can accept payments via SWIFT (high fees, slow), marketplace platforms (Upwork/Fiverr with fees), Skrill Wallet (allows users to hold multiple currencies, fast transfers), SEPA (EU-only), or ACH (US-only)."
+        },
+        {
+          "url": "https://www.skrill.com/en/support/question/100/",
+          "kind": "official_index",
+          "text": "How do I deposit with bank transfer? | Skrill EN. The deposit is always processed in your primary account currency. This may result in currency conversion, and an additional conversion fee if the currency of our bank account is different from your primary account currency. Deposits from third-party or business accounts are not accepted.. However, if the chosen deposit currency is different from your account currency, you will be charged a currency conversion fee. If depending on your country of residence, the bank wire deposit is international, your bank may charge you a higher fee. When making a bank transfer, choose a SEPA transfer if possible.. The deposit is always processed in your primary account currency. This may result in currency conversion, and an additional conversion fee if the currency of our bank account is different from your primary account currency. Deposits from third-party or business accounts are not accepted.. The bank details (our Bank Account Number, Bank name, etc.) you need to complete the transfer will be displayed onscreen, along with your Reference number (which may be your Skrill Customer ID or a unique reference number).. Bank transfer deposits are available in certain countries only. For the deposit options available for you check the Add section of your account."
+        },
+        {
+          "url": "https://www.skrill.com/en/support/question/254/do-i-have-an-iban/",
+          "kind": "official_index",
+          "text": "Do I have an IBAN? | Skrill EN. No. Skrill is not a bank but a digital wallet provider, which means your Skrill account does not function as a traditional bank account and therefore does not have an IBAN. Instead, it offers an online payment solution that allows you to store funds, make transfers, and complete transactions without the need for standard banking identifiers.. No. Skrill is not a bank but a digital wallet provider, which means your Skrill account does not function as a traditional bank account and therefore does not have an IBAN. Instead, it offers an online payment solution that allows you to store funds, make transfers, and complete transactions without the need for standard banking identifiers."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Skrill - цифровой кошелек для перевода и онлайн-оплаты."
+    },
+    {
+      "index": 102,
+      "name": "Wise - Global Money",
+      "id": "company:wise.com",
+      "url": "https://play.google.com/store/apps/details?id=com.transferwise.android&gl=AT",
+      "website": "https://wise.com/",
+      "documents": [
+        {
+          "url": "https://apps.apple.com/at/app/id612261027",
+          "kind": "listing",
+          "text": "Products available depend on where you live. Check wise.com or download the app to see what’s available for you. Check wise.com/compare to see how our rates compare to banks. — International money transfers — • Send money to 70+ countries, fast • Get the mid-market exchange rate, like on Google, for every money transfer • On average, 64% of transfers arrive in under 20 seconds, and 95% arrive within 24 hours • Secure your transfers with two-factor authentication, encryption and biometrics — The debit card that’s always got the right currency — • Spend or withdraw cash in more than 160+ countries • If you don’t have the local currency, we’ll auto-convert what you have with the lowest possible price • Freeze and unfreeze your card — Get paid like a local — • Get your own UK account number and sort code, European IBAN, Australian account details and more, as if you had local bank accounts around the world • Use these account details to get paid in multiple currencies for free, and for direct debits • Keep up-to-date with instant push notifications for every transaction — Hold 40 currencies and convert between them instantly — • No monthly fee and no maintenance fee to keep money in your account, in most cases • Convert between currencies instantly, at the real exchange rate, for a super-low fee • Auto-convert currencies at specific rates, and keep up to date with exchange rates with Rate Alerts — Put your money to work with Assets — • Try Interest or Stocks in a few taps. Available in the UK, Singapore and multiple EEA countries, for now • Capital at risk, growth not guaranteed — A better business account for going global — • Pay invoices and bills faster, at a better exchange rate • Use account details to get paid by clients and customers around the world • Connect to supported platforms like Amazon, Stripe, Xero, and more Wise is regulated by local authorities around the world. Send from: GBP (British pound), EUR (Euro), USD (US dollar), AUD (Australian dollar), BGN (Bulgarian lev), BRL (Brazilian real), CAD (Canadian dollar), CHF (Swiss franc), CZK (Czech koruna), DKK (Danish krone), HKD (Hong Kong dollar), HUF (Hungarian forint), JPY (Japanese yen), MYR (Malaysian ringgit), NOK (Norwegian krone), NZD (New Zealand dollar), PLN (Polish zloty), RON (New Romanian leu), SEK (Swedish krona), SGD (Singapore dollar) Send to: EUR (Euro), USD (US dollar), GBP (British pound), AED (UAE dirham), ARS (Argentine peso), AUD (Australian dollar), BDT (Bangladeshi taka), BGN (Bulgarian lev), BRL (Brazilian real), CAD (Canadian dollar), CHF (Swiss franc), CLP (Chilean peso), CNY (Chinese yuan), CRC (Costa Rican colón), CZK (Czech koruna), DKK (Danish krone), EGP (Egyptian pound), GHS (Ghanaian cedi), GEL (Georgian lari), HKD (Hong Kong dollar), HUF (Hungarian forint), IDR (Indonesian rupiah), ILS (Israeli shekel), INR (Indian rupee), JPY (Japanese yen), KES (Kenyan shilling), KRW (South Korean won), LKR (Sri Lankan rupee), MAD (Moroccan dirham), MXN (Mexican peso)"
+        },
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.transferwise.android&gl=AT",
+          "kind": "listing",
+          "text": "16 million+ customers send, receive, spend and grow their money internationally with Wise. It’s the fast, simple way to move money in 145+countries and 45+ currencies. Products available depend on where you live. Check wise.com or download the app to see what’s available for you. — International money transfers — • Send money to 70+ countries, fast • Get the mid-market exchange rate, for every money transfer • Over 65% of transfers are instant, arriving in under 20 seconds (transaction speed claimed depends on individual circumstances and may not be available for all transactions) • Secure your transfers with two-factor authentication, encryption and biometrics — The Multi-Currency Card that’s always got the right currency — • Spend or withdraw cash in more than 160 countries • If you don’t have the local currency, we’ll auto-convert what you have with the lowest possible price • Freeze and unfreeze your card, and update your digital card details — Get paid like a local — • Get your own UK account number and sort code, European IBAN, Australian account details and more, as if you had local bank accounts around the world • Use these account details to get paid in multiple currencies for free, and for direct debits • Keep up-to-date with instant push notifications for every transaction — Hold 40 currencies and convert between them instantly — • No monthly fee and no maintenance fee to keep money in your account, in most cases • Convert between currencies instantly, at the mid-market exchange rate, for a super-low fee • Auto-convert currencies at specific rates, and keep up to date with exchange rates with Rate Alerts — A better business account for going global — • Pay invoices and bills faster, at a better exchange rate • Use account details to get paid by clients and customers around the world • Connect to supported platforms like Amazon, Stripe, Xero, and more Wise is regulated by local authorities around the world. Wise is a Money Service Business (“MSB”“) registered with FinCen, not an FDIC-insured bank. It is authorized to operate as a MSB in most states. In other states, the MSB program is sponsored by Community Federal Savings Bank, to which we’re a service provider. The Wise Multi-Currency Card Program is issued by Wise’s sponsor Bank(s)*, member(s) FDIC. pursuant to licensing by Visa® U.S.A. Inc. The Wise Multi-Currency Card is available to eligible consumers and commercial entities. Not available in all countries. Fees vary based on type of transaction. T&C apply. Find more info at https://wise.com/us/ *Lead Bank and Community Federal Savings Bank. Capital at risk. Past performance does not guarantee future growth. Interest is an investment service, availability and provider vary by location. Please check Wise.com/interest for more information. Send to: EUR (Euro), USD (US dollar), GBP (British pound), AED (UAE dirham), ARS (Argentine peso), AUD (Australian dollar), BDT (Bangladeshi taka), BGN (Bulgarian lev), BRL (Brazilian real), CAD ("
+        },
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.wise.converter&gl=AT",
+          "kind": "listing",
+          "text": "Track live exchange rates. Compare the best providers. For free. Simple. See how rates have changed over the last day or the last 500. Add currencies you use often — or just want to keep an eye on — to your favourites for easy access. Pounds, dollars, pesos galore. Want to send money? Or convert for real? You’ll see how much it costs from top providers — both the exchange rate, and the fees. You’ll know exactly how much you’d send, and how much would arrive. Don’t lose out to sneaky fees and markups again. Currency Converter is an exchange rate information and news app only and not a currency trading platform. The information shown there does not constitute financial advice."
+        },
+        {
+          "url": "https://wise.com/",
+          "kind": "official_page",
+          "text": "Wise: The international account | Money without borders | Wise United Kingdom\nSkip to content\nThe current account for home and abroad\nOpen an account in minutes Send money now\nExpress international transfers\nTruly instant, low cost, global transfers. Over 70% arrive in under 20 seconds. 1\n1 GBP = 1.1957 EUR\nEUR EUR\nOpen a free account\nThe account that moves with you\nGlobal IBANs, sort codes, routing numbers and more to manage your money abroad just like you do at home.\nMake transfers unbelievably easy. Repeat payments, rate guarantees and more.\nExplore the account\nThe world&#x27;s banks and businesses run on Wise\nBusiness Platform\nThe world&#x27;s most international business account\nExplore Business\n18.9 million customers, businesses and banks use Wise every day. Here&#x27;s how we help protect every penny.\nYour money is held in a safeguarded, separate account. Learn more\n\"My Wise account is my proper current account, with my wages and direct debits all on it. Very user friendly, easy access, always working, quick and cheap and you can do so much more with your Wise account, than with a &#x27;normal&#x27; bank account.\"\n\"Everything goes quickly and smoothly. A cheap solution for exchanging, sending, and receiving money. I am closing my account with my current bank and I want my payment here!\"\n\"Wise choice for those people looking for a good rate for money transfers abroad, together with a great current account that allows you to keep control of your finances.\"\n\"A fabulous service, great exchange rates, good (or free) transaction costs, even interest on amounts in the account (unlike most if not all British current accounts). Use their card overseas all the time.\"\n\"Excellent company, far superior to a current account with a bank.\"\n\"Use daily as main account. I tap in every store in my country and abroad.\"\nAccount details\nSend money to Europe\nSend money to the United Arab Emirates\nSwift/BIC, IBAN, Bank code and Account number Get GBP account details\nEuro\nSwift/BIC and IBAN Get EUR account details\nGet USD account details\nUnited Arab Emirates dirham\nSwift/BIC and IBAN Get AED account details\nSwift/BIC, Account number and Bank code Get AUD account details\nSwift/BIC, Account number and Branch code Get CAD account details\nSwift/BIC and IBAN Get CHF account details\nSwift/BIC and IBAN Get CNY account details\nSwift/BIC and IBAN Get CZK account details\nSwift/BIC and IBAN Get DKK account details\nSwift/BIC, Account number, Bank code, Branch code and Bank name Get HKD account details\nSwift/BIC, IBAN and Account number Get HUF account details\nSwift/BIC and IBAN Get ILS account details\nSwift/BIC and IBAN Get JPY account details\nSwift/BIC and IBAN Get NOK account details\nSwift/BIC and Account number Get NZD account details\nBank name and Account number Get PHP account details\nSwift/BIC and IBAN Get PLN account details\nSwift/BIC and IBAN Get SEK account details\nSwift/BIC, Account number, Bank name and Bank code Get SGD account details\nSwift/BIC and IBAN Get UGX acc"
+        },
+        {
+          "url": "https://wise.com/gb/pricing/",
+          "kind": "official_page",
+          "text": "Wise Fees & Pricing: Only Pay for What You Use\nSign up\nSwitch to Wise Business\nMake low-cost global transfers with great rates, guaranteed\nRegister for a Wise account\nWithdrawing 250 GBP per month per account\nATM fees over 250 GBP per month per account\nApplies to transactions that include topping up e-wallets and other accounts in certain currencies, see FAQ .\nSpend funds in your account in the same currency online, in-store and abroad safely\nHolding money in your account\nHolding money in your account\nHave a stake in the world’s largest companies Capital at risk. Growth not guaranteed Learn more\nGetting account details to receive in 22 currencies\nReceiving domestic payments (non-Swift / non-wire)\nReceive AUD, CAD, EUR, GBP, HUF, NZD, PHP, SGD, USD\nReceiving USD wire and Swift payments\nReceiving GBP Swift payments\nReceiving EUR Swift payments\n2.39 EUR\nReceiving Swift payments in an additional 19 currencies\nBoth on Wise? It&#x27;s free to send or receive the same currency between contacts on Wise. If you need to send a different currency, sending straight to their Wise account is cheaper.\nCompany and team\nCompany and team\nFeature availability checker\nInternational money transfer\nWise account\nLarge amount transfer\nWise Business\nBusiness debit card\nMass payments\nAccept card payments\nIBAN codes\nIncorporate your company\nBusiness Calculators\n© Wise Payments Limited 2026\nWise is authorised by the Financial Conduct Authority under the Electronic Money Regulations 2011, Firm Reference 900507 , for the issuing of electronic money."
+        },
+        {
+          "url": "https://wise.com/gb/business/",
+          "kind": "official_page",
+          "text": "Wise Business: Grow with the international business account\nLearn how Wise can help your business. Register for webinar on 10 November\nThe business account for going global\nMake payments, get paid, spend and earn returns in different currencies. Save time, money and hassle with the all-in-one Wise Business account.\nOpen an account Contact sales\nOver 900,000 global businesses move and spend £12 billion monthly\nGet help from thousands of business specialists any time over email, phone or chat\nAccept payments — in USD, EUR, GBP and other major currencies with no hidden fees.\nOpen an account Learn about global payments\nFast global payments — 70% arrive in 20 seconds and 95% in under 24 hours.*\nSimple batch transfers — Pay up to 1,000 contacts in a single click.\nVolume discounts — On monthly transfers over 20,000 GBP or equivalent. Learn more about volume discounts.\n1 GBP = 1.1957 EUR\nEUR EUR\nYou&#x27;re sending a lot so we discounted our fee Savings on this transfer, and eligible transfers for the rest of the month.\nExplore more features to grow your business\nOpen a Wise account and invest in a fund that holds government-guaranteed assets. Spend any time, all while you grow. Capital at risk. Growth not guaranteed. 1\nGBP, EUR and USD\nGet physical and digital cards for your team, separate your money and control your spending.\nExplore Wise Business cards\nSync to your accounting software\nIntegrate your Wise account with accounting software and get fast, accurate reporting for every currency.\nAccount controls for team spend\nManage your account controls by setting custom spending permissions and configuring team access.\nOpen an account Try a demo\nHear from businesses scaling with Wise\n\"Holding Euro account details allows us to get paid directly from our customers, without the need for exchange fees.\"\n\"I know if I’ve got a Wise account, and my customer has got a Wise account, it feels safe.\"\n\"Sending payments to all our clients used to take me close to a week, and with Wise&#x27;s batch payments feature, I can accomplish this in just a few minutes.\"\n\"Wise offers payments to local wallet schemes for certain currencies/countries such as Gcash in The Philippines or Mpesa in Kenya etc, this in turn gives our contractors and clients more choice.\"\n\"We have integrated payments with Wise from day one. It&#x27;s been an integral part of how we&#x27;ve been able to payout royalties and run our business.\"\nSolutions for every kind of business\nFor small businesses\nFor small businesses\nWise Business makes it easy for small businesses to pay and get paid, as well as controlling your team&#x27;s multi-currency expense cards. Do business without borders.\nWise Business lets you receive investor funding in local currencies while benefiting from our market-leading FX rate. Extend your runway with Wise and help your startup go global.\nWise Business is the quick and easy way to get paid by clients in different currencies - making payment admin painless.\nSee how our pricing works"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Wise: Международные переводы."
+    },
+    {
+      "index": 108,
+      "name": "VP Bank e-banking",
+      "id": "company:vpbank.com",
+      "url": "https://play.google.com/store/apps/details?id=com.vpbank.ebanking.mobile&gl=EE",
+      "website": "https://www.vpbank.com/",
+      "documents": [
+        {
+          "url": "https://play.google.com/store/apps/details?id=com.vpbank.ebanking.mobile&gl=EE",
+          "kind": "listing",
+          "text": "With the VP Bank app, you have every client portal application to hand on your smart phone or tablet at all times. Whether you want to quickly check your account balance, place a stock market order or scan and pay an invoice, the VP Bank app gives you access to all features of the client portal while you are on the move. Your benefits at a glance: • Enjoy instant access to a full overview of your accounts and securities accounts at any time • Set up payment and standing orders quickly and easily • Scan and pay multiple QR-bills at the same time • Record pseudonyms (aliases) for improved client recognition • Record stock market orders and query your securities account balance • Market data overview keeps you up to date with the latest financial market developments • Paperless bank statements and documents with e-Post • In-app messaging for enquiries sent to VP Bank • Available on your smart phone or tablet Requirements: • Valid VP Bank e-banking contract • Mobile phone with Android 8.0 Legal notice: We would like to explicitly remind you that when you download, install and/or use the application, and also as a result of the associated points of reference to third parties (e.g. Google Play, network operators, device manufacturers), you are making it known that you have a client relationship with VP Bank. This means that third parties, for example Google, can draw conclusions as to an existing, former or future business relationship between you and VP Bank. Bank-client confidentiality can no longer be guaranteed due to the possible disclosure of the banking relationship and bank-related information to third parties (e.g. if you lose your smart phone). Please note that by using the VP Bank app from abroad, you or the individual you authorise may in certain circumstances violate the applicable law in your country of domicile, such as import and export restrictions for encryption algorithms or other foreign law, and that the use of the VP Bank app may be prohibited. You are responsible for obtaining information on the relevant statutory provisions. The bank accepts no liability in this regard. This application is intended exclusively for VP Bank clients in Liechtenstein, Switzerland, Luxembourg, the BVI and Singapore. Downloading or using the app may give rise to costs that will be charged by your mobile provider."
+        },
+        {
+          "url": "https://www.vpbank.com/en",
+          "kind": "official_page",
+          "text": "Wealth management and investment consulting from Liechtenstein\nSkip to main content\nCorporate governance & remuneration\nCorporate Calendar\nEMIR\nClient portal\nClient portal\nCorporate Strategy\nSemi-annual report 2026\nSecure your financial future with strategic wealth planning that takes your values into account and supports your long-term goals."
+        },
+        {
+          "url": "https://www.vpbank.com/en/investor-relations/corporate-governance-remuneration",
+          "kind": "official_page",
+          "text": "VP Bank - corporate governance & remuneration\nSkip to main content\nCorporate governance & remuneration\nCorporate Calendar\nEMIR\nClient portal\nClient portal\nCorporate Strategy\nCorporate governance & remuneration\nCorporate governance & remuneration\nExemplary Corporate governance is an important factor for reputation and success in a competitive environment and helps to boost the company's value.\nCorporate governance means responsible management and control of the company. The Swiss Code of Best Practice for Corporate Governance defines corporate governance as encompassing \"the full range of principles directed towards shareholders’ interest seeking a good balance between direction and control and transparency at the top company level while maintaining decision-making capacity and efficiency\".\nGood corporate governance ensures transparent management geared to long-term success. It should not just serve the company and its shareholders but should also benefit external stakeholder groups. The scope and framework for corporate governance are largely defined by the lawmakers and the shareholders, whereas the form it takes in practice is the responsibility of the Board of Directors.\nCorporate Covernance Report 2025\nCorporate Governance Report 2025 - VP Bank (Switzerland) Ltd (German only)\nOrganisation and Business Regulations\nVP Bank Ltd, Vaduz, is constituted as a public limited company under Liechtenstein law. It is the parent company of VP Bank Group.\nRemuneration plays a vital role in personnel recruitment and retention. VP Bank operates a remuneration policy that takes due account of market conditions, the employee's performance and the requirements of his or her position.\n- Select - a private individual a representative of a company an external asset manager a fiduciary or solicitor a media representative a contact from some other source\n- Select - Investment consulting and asset management Financing or mortgage loan Payments and savings Financial and pension planning Fund solutions other services\n- Select - Afghanistan Albania Algeria American Samoa Andorra Angola Anguilla Antarctica Antigua & Barbuda Argentina Armenia Aruba Ascension Island Australia Austria Azerbaijan Bahamas Bahrain Bangladesh Barbados Belarus Belgium Belize Benin Bermuda Bhutan Bolivia Bosnia & Herzegovina Botswana Bouvet Island Brazil British Indian Ocean Territory British Virgin Islands Brunei Bulgaria Burkina Faso Burundi Cambodia Cameroon Canada Canary Islands Cape Verde Caribbean Netherlands Cayman Islands Central African Republic Ceuta & Melilla Chad Chile China Christmas Island Clipperton Island Cocos (Keeling) Islands Colombia Comoros Congo - Brazzaville Congo - Kinshasa Cook Islands Costa Rica Croatia Cuba Curaçao Cyprus Czechia Côte d’Ivoire Denmark Diego Garcia Djibouti Dominica Dominican Republic Ecuador Egypt El Salvador Equatorial Guinea Eritrea Estonia Eswatini Ethiopia Falkland Islands Faroe Islands Fiji Finland France French Guiana French Polynesia French South"
+        },
+        {
+          "url": "https://www.vpbank.com/en/investor-relations/faq",
+          "kind": "official_page",
+          "text": "Investor relations FAQ\nSkip to main content\nCorporate governance & remuneration\nCorporate Calendar\nEMIR\nClient portal\nClient portal\nCorporate Strategy\nCompany\nAs at 31 December 2025, VP Bank's share capital amounts to CHF 66,154,167 and is divided into 6,004,167 fully paid-in registered shares B each with a nominal value of CHF 1.00 and 6,015,000 registered shares A each with a nominal value of CHF 10.00. VP Bank has not issued any participation or dividend rights certificates.\nThe aim is to generate a steady stream of dividend payments. Between 40% and 60% of Group net income is to be paid out to the shareholders.\nVP Bank's practice is based on the Swiss market standard for dividend payments.\nVP Bank keeps the shareholders and the financial markets informed openly, comprehensively and promptly. Our information policy is based on the principle of equal treatment of all capital market participants. The shareholders and the markets are kept informed by means of detailed publications, such as our annual and semi-annual reports, and media releases.\nThe publication dates for the annual and semi-annual reports are published in the news and events in the \"Investor Relations\" section of the VP Bank website.\nWhat accounting standard does VP Bank apply?\nWhere can we find information on corporate governance?\nInformation on corporate governance can be found in the annual report and in the \" Corporate governance & remuneration \" section of the website.\nCompany\nVP Bank is characterised by its stable ownership structure, its strategic focus on private banking, financial intermediaries and asset servicing, as well as its international reach. VP Bank combines the stability of a first-class financial centre with a crisis-resilient business model. The investment is particularly characterised by its long-term shareholder structure, in which three charitable foundations, as anchor shareholders, hold over 45 per cent of the voting rights, thereby ensuring maximum independence and continuity. An excellent capital base, well above regulatory requirements, guarantees investors the highest level of financial resilience and soundness at all times.\nWhat is VP Bank’s corporate strategy?\nVP Bank’s founder, Guido Feger, was a successful entrepreneur and one of Liechtenstein’s most important trustees. Over the years, the bank has established itself as an experienced partner for financial intermediaries. We also make the expertise we have built up available to wealthy private clients on an international basis. The bank’s home market of Liechtenstein is complemented by a comprehensive retail banking and commercial banking business.\nVP Bank has a diversified business model in various markets with good growth prospects. With local market development plans, we aim to continue to grow in all markets.\nIn Liechtenstein, we offer a wide range of services for everyone as a distinguished bank: from a simple savings account, personal investment advice and financial planning to comprehensiv"
+        },
+        {
+          "url": "https://www.vpbank.com/en-li/business-clients/investing/business-packages",
+          "kind": "official_index",
+          "text": "Business Banking for Companies | VP Bank. Do you need to make international payments? This is included in both Business packages and is possible thanks to Swiss IBAN and SEPA. We also offer multi-currency accounts at transparent rates.. Do you need to make international payments? This is included in both Business packages and is possible thanks to Swiss IBAN and SEPA. We also offer multi-currency accounts at transparent rates.. We support businesses with international payments, multi-currency accounts and a Swiss IBAN. You will also benefit from our international network, with offices in Liechtenstein, Switzerland, Luxembourg, Singapore and the British Virgin Islands.. A company’s needs are constantly changing. What is an efficient business account today may be a source of finance, protection against currency risks or support with business succession tomorrow. With the VP Business Packages, you’re not just choosing a solution for your day-to-day banking.. Keep track of everything at all times Track account transactions and balances in real time via online banking and the app."
+        },
+        {
+          "url": "https://www.vpbank.com/en-lu/private-banking/e-services/instant-payment-and-verification-payee",
+          "kind": "official_index",
+          "text": "Instant Payment and verification of payee - —. The fees are the same as those charged for a regular, standard SEPA transfer. Receipt of a real-time transfer is also free of charge for private clients. Business clients, on the other hand, are billed according to the specific account model agreed upon. ... Real-time transfers are available for euro payments within the SEPA zone, provided that the payment is SEPA-compatible and the recipient bank participates in real-time processes.. The fees are the same as those charged for a regular, standard SEPA transfer. Receipt of a real-time transfer is also free of charge for private clients. Business clients, on the other hand, are billed according to the specific account model agreed upon. ... Real-time transfers are available for euro payments within the SEPA zone, provided that the payment is SEPA-compatible and the recipient bank participates in real-time processes.. The price of SEPA payments will not change - your payments will be more secure and faster, but not more expensive. With instant payment, euro transfers are executed in a matter of seconds at any time of day, including at weekends and on public holidays. The amount is immediately available to the recipient, which is particularly advantageous for urgent payments or in everyday business.. Automatic verification of name and IBAN for euro transfers ... As soon as you register a euro payment, VoP becomes active in the background. The function compares the name entered against the account name lodged with the recipient bank and informs you of the result before the payment is executed.. Moreover, VoP only works with SEPA-compatible payments that meet the technical and regulatory requirements applicable within the SEPA area. Since October 2025, it has applied primarily to banks in EU countries that have the euro as the national currency. Other EU and EEA banks will follow, starting in 2027."
+        },
+        {
+          "url": "https://www.vpbank.com/en/intermediaries/e-services/ebics",
+          "kind": "official_index",
+          "text": "Harmonisation of European Payment Transactions - EBICS. EBICS prevailed in SEPA countries as a multi-banking client-bank-communication standard.. EBICS prevailed in SEPA countries as a multi-banking client-bank-communication standard.. As a professional client of VP Bank, EBICS is free of charge for you. For account management and payment transactions, the prices and conditions of your package apply."
+        },
+        {
+          "url": "https://www.vpbank.com/en-ch/intermediaries/e-services/harmonisation-swiss-payment-transactions",
+          "kind": "official_index",
+          "text": "Harmonisation of Swiss payment transactions. Check your master data in accounts receivable and accounts payable management and consistently change the account number to the IBAN format today, also for your payroll transactions. Check your business documents for the exclusive use of the IBAN.. Damit die schweizerischen Zahlungssysteme den Anforderungen der Digitalisierung gerecht werden können, wurde die Initiative für die Harmonisierung des Schweizer Zahlungsverkehrs ergriffen. Wichtige Massnahmen sind die Einführung des ISO-20022-Standards sowie die Ablösung der roten und orangen Einzahlungsscheine.. Check your master data in accounts receivable and accounts payable management and consistently change the account number to the IBAN format today, also for your payroll transactions. Check your business documents for the exclusive use of the IBAN.. The Initiative for the Harmonisation of Swiss Payment Transactions was set up to enable Swiss payment systems to meet the challenges of digital processing, from the invoicing party through the payer to the account-managing payment institution. The Initiative is entering its implementation phase since 2018. By 1 July 2018 the old DTA-based delivery formats have been replaced by the new ISO 20022 standard. ISO 20022 is an international standard that plays an important and ever-expanding role in electronic data exchange within the financial sector throughout the world but most notably in Europe."
+        },
+        {
+          "url": "https://developer.vpbank.com/psd2/documentation/",
+          "kind": "official_index",
+          "text": "PSD2 Sandbox Documentation. {&quot;accounts&quot;:[ {&quot;iban&quot;:&quot;LI4408805500000000001&quot;,&quot;currency&quot;:&quot;EUR&quot;}, {&quot;iban&quot;:&quot;LI1708805500000000002&quot;,&quot;currency&quot;:&quot;EUR&quot;}, {&quot;iban&quot;:&quot;LI8708805500000000003&quot;,&quot;currency&quot;:&quot;EUR&quot;}, {&quot;iban&quot;:&quot;LI6008805500000000004&quot;,&quot;currency&quot;:&quot;EUR&quot;} ] }. Then, choose an IBAN number form the list transactions. Make also sure that the date range is in the past. We put the URL in quotes because it contains a & character which otherwise would disturb the command line interpreter: curl --include \\ \"https://developer.vpbank.com/psd2/berlin-group/v1/accounts/LI4408805500000000001/transactions?dateFrom=2020-03-25&dateTo=2020-04-20\" \\ --header \"accept: application/json\" \\ --header \"X-Request-ID: 99391c7e-ad88-49ec-a2ad-99ddcb1f7721\" \\ --header \"Content-Type: application/json\" \\ --header \"Consent-ID: 1abd3683-a7a3-491f-a623-79f374fef286\". {\"accounts\":[ {\"iban\":\"LI4408805500000000001\",\"currency\":\"EUR\"}, {\"iban\":\"LI1708805500000000002\",\"currency\":\"EUR\"}, {\"iban\":\"LI8708805500000000003\",\"currency\":\"EUR\"}, {\"iban\":\"LI6008805500000000004\",\"currency\":\"EUR\"} ] }. { \"booked\":[], \"pending\":[ { \"transactionAmount\":{ \"currency\":\"EUR\", \"amount\":\"2974.5\" }, \"bookingDate\":\"2019-01-22\", \"valueDate\":\"2019-01-23\", \"creditorName\":\"SampleAccount3\", \"creditorAccount\":{ \"iban\":\"LI4408805500000000001\" }, \"debtorName\":\"Anna Musterfrau10\", \"debtorAccount\":{ \"iban\":\"LI3308805500000000005\" } } ] }. Each access type is related to the same account the user is selecting when granting access."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [],
+      "summary": "Банк VP Bank занимается корпоративным управлением и стратегией."
+    },
+    {
+      "index": 213,
+      "name": "Crypto-Asset Service Provider (CASP) - Licensing application forms | AMF",
+      "id": "link:https://www.amf-france.org/en/forms-and-declarations/casp/licensing-application-forms",
+      "url": "https://www.amf-france.org/en/forms-and-declarations/casp/licensing-application-forms",
+      "website": null,
+      "documents": [
+        {
+          "url": "https://www.amf-france.org/en/forms-and-declarations/casp/licensing-application-forms",
+          "kind": "third_party",
+          "text": "To submit your licensing application, you should fill in the following three forms, which stipulate the required information and documents.. Form to be completed by CASP as part of the processing of a MiCA application for the provision of crypto-asset services in accordance with Article 62 of the MiCA Regulation ... This form should be completed by members of the management body (as applicable, in its management function or its supervisory function) of the entity which wish to be licensed as CASP by the Autorité des Marchés Financiers or by any person who is appointed as member of the management body of a CASP ... 14 October 2026 List of CSPs whose authorisation has been withdrawn by the AMF List of CSPs whose authorisation has been withdrawn by the AMF"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [
+        {
+          "type": "casp",
+          "organisation": "Autorité des Marchés Financiers",
+          "authority": "",
+          "status": "authorised",
+          "decisionDate": null,
+          "quote": "This form should be completed by members of the management body (as applicable, in its management function or its supervisory function) of the entity which wish to be licensed as CASP by the Autorité des Marchés Financiers or by any person who is appointed as member of the management body of a CASP ...",
+          "url": "https://www.amf-france.org/en/forms-and-declarations/casp/licensing-application-forms",
+          "country": "",
+          "notice": "Цитата официального источника; статус, объём разрешения и актуальность проверьте в реестре. Лицензия не подтверждает открытие бизнес-счёта или EU IBAN."
+        }
+      ],
+      "summary": "Формы для подачи заявки на лицензирование криптоактивного поставщика услуг."
+    },
+    {
+      "index": 319,
+      "name": "Latvijas Banka is issuing two licences to Trek Technologies SIA (Backpack EU) | Latvijas Banka",
+      "id": "link:https://www.bank.lv/en/news-and-events/news-and-articles/news/17691-latvijas-banka-is-issuing-two-licences-to-trek-technologies-sia-backpack-eu",
+      "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17691-latvijas-banka-is-issuing-two-licences-to-trek-technologies-sia-backpack-eu",
+      "website": null,
+      "documents": [
+        {
+          "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17691-latvijas-banka-is-issuing-two-licences-to-trek-technologies-sia-backpack-eu",
+          "kind": "third_party",
+          "text": "The MiCA Regulation entered into force in late 2024, introducing a unified legal framework for the crypto-asset sector within the EU, including the requirement for crypto-asset service providers to obtain authorisation.. On 27 May, the Supervision Committee of Latvijas Banka decided to issue to Trek Technologies SIA a licence for the provision of crypto-asset services and a licence to operate as a payment institution.. Trek Technologies SIA is the fifth company to hold a licence issued by Latvijas Banka in accordance with the requirements established in the Markets in Crypto-Assets Regulation (MiCA). The MiCA Regulation entered into force in late 2024, introducing a unified legal framework for the crypto-asset sector within the EU, including the requirement for crypto-asset service providers to obtain authorisation.. Businesses of the crypto-asset sector will also benefit from Latvijas Banka's overview of the classification of crypto-assets within the MiCA framework, along with guidance on which crypto-assets are covered by the MiCA Regulation and which are subject to other types of legal acts.. A licence for the provision of crypto-asset services enables the company to provide the following services:"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "yes",
+          "evidence": [
+            {
+              "quote": "On 27 May, the Supervision Committee of Latvijas Banka decided to issue to Trek Technologies SIA a licence for the provision of crypto-asset services and a licence to operate as a payment institution..",
+              "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17691-latvijas-banka-is-issuing-two-licences-to-trek-technologies-sia-backpack-eu",
+              "kind": "third_party",
+              "sourceId": "s1"
+            }
+          ]
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [
+        {
+          "type": "pi",
+          "organisation": "Trek Technologies SIA",
+          "authority": "Latvijas Banka",
+          "status": "needs_review",
+          "decisionDate": null,
+          "quote": "On 27 May, the Supervision Committee of Latvijas Banka decided to issue to Trek Technologies SIA a licence for the provision of crypto-asset services and a licence to operate as a payment institution..",
+          "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17691-latvijas-banka-is-issuing-two-licences-to-trek-technologies-sia-backpack-eu",
+          "country": "",
+          "notice": "Цитата официального источника; статус, объём разрешения и актуальность проверьте в реестре. Лицензия не подтверждает открытие бизнес-счёта или EU IBAN."
+        }
+      ],
+      "summary": "Латвийская Банк выдает лицензии компании Trek Technologies SIA для предоставления крипто-услуг и операций с платежами."
+    },
+    {
+      "index": 324,
+      "name": "Nodu Digital SIA",
+      "id": "link:https://www.bank.lv/en/news-and-events/news-and-articles/news/17744-latvijas-banka-is-issuing-two-licences-to-nodu-digital-sia",
+      "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17744-latvijas-banka-is-issuing-two-licences-to-nodu-digital-sia",
+      "website": null,
+      "documents": [
+        {
+          "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17744-latvijas-banka-is-issuing-two-licences-to-nodu-digital-sia",
+          "kind": "third_party",
+          "text": "The MiCA Regulation entered into force in late 2024, introducing a unified legal framework for the crypto-asset sector within the EU, including the requirement for crypto-asset service providers to obtain authorisation.. On 8 July, the Supervision Committee of Latvijas Banka decided to issue to Nodu Digital SIA a licence for the provision of crypto-asset services and a licence to operate as a payment institution.. Nodu Digital SIA is the tenth company to hold a licence issued by Latvijas Banka in accordance with the requirements established in the Markets in Crypto-Assets Regulation (MiCA). The MiCA Regulation entered into force in late 2024, introducing a unified legal framework for the crypto-asset sector within the EU, including the requirement for crypto-asset service providers to obtain authorisation.. Businesses of the crypto-asset sector will also benefit from Latvijas Banka's overview of the classification of crypto-assets within the MiCA framework, along with guidance on which crypto-assets are covered by the MiCA Regulation and which are subject to other types of legal acts.. A licence for the provision of crypto-asset services enables the company to provide the following services:"
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "yes",
+          "evidence": [
+            {
+              "quote": "On 8 July, the Supervision Committee of Latvijas Banka decided to issue to Nodu Digital SIA a licence for the provision of crypto-asset services and a licence to operate as a payment institution..",
+              "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17744-latvijas-banka-is-issuing-two-licences-to-nodu-digital-sia",
+              "kind": "third_party",
+              "sourceId": "s1"
+            }
+          ]
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [
+        {
+          "type": "pi",
+          "organisation": "Nodu Digital SIA",
+          "authority": "Latvijas Banka",
+          "status": "needs_review",
+          "decisionDate": null,
+          "quote": "On 8 July, the Supervision Committee of Latvijas Banka decided to issue to Nodu Digital SIA a licence for the provision of crypto-asset services and a licence to operate as a payment institution..",
+          "url": "https://www.bank.lv/en/news-and-events/news-and-articles/news/17744-latvijas-banka-is-issuing-two-licences-to-nodu-digital-sia",
+          "country": "",
+          "notice": "Цитата официального источника; статус, объём разрешения и актуальность проверьте в реестре. Лицензия не подтверждает открытие бизнес-счёта или EU IBAN."
+        }
+      ],
+      "summary": "Латвийский банк выдал Nodu Digital SIA лицензии на предоставление крипто-услуг и работу платежной институции."
+    },
+    {
+      "index": 501,
+      "name": "CASP",
+      "id": "link:https://www.esma.europa.eu/sites/default/files/2023-07/ESMA74-449133380-425_MiCA_Consultation_Paper_1st_package.pdf",
+      "url": "https://www.esma.europa.eu/sites/default/files/2023-07/ESMA74-449133380-425_MiCA_Consultation_Paper_1st_package.pdf",
+      "website": null,
+      "documents": [
+        {
+          "url": "https://www.esma.europa.eu/sites/default/files/2023-07/ESMA74-449133380-425_MiCA_Consultation_Paper_1st_package.pdf",
+          "kind": "third_party",
+          "text": "CASP. More particularly, Article 62(1) of MiCA obliges legal persons or other · undertakings that intend to provide crypto-asset services to submit their application for · an authorisation as a CASP to the NCA of their home Member State.. 8 For instance, the hedge fund Three Arrows Capital, the crypto-asset lending firm Celsius and FTX Trading Ltd filed for bankruptcy ... ESMA in accordance with the mandate set out in Article 62(5) of MiCA. ... CASP’s governance and risk management arrangements.. services for crypto-assets on behalf of clients (Article 3(1)(15) of MiCA). ... Article 71 of MiCA provides for complaints-handling requirements for CASPs. More · specifically, Article 71(1) of MiCA requires CASPs to establish and maintain effective · and transparent procedures for the prompt, fair and consistent handling of complaints · received from clients and to publish descriptions of those procedures. ... RTS. ESMA also considered Commission Delegated Regulation (EU) 2022/2117 of 13. In ESMA’s view, it is important to ensure that CASPs handle complaints appropriately. Consequently, the draft RTS proposes that CASPs dedicate adequate resources to the · handling and management of complaints. In line with the proportionality principle, to · determine what level of resources is adequate, CASPs should take into account the · scale, nature and range of crypto-asset services provided as well as other factors such. RTS on authorisation of crypto-asset service providers ..............................."
+        }
+      ],
+      "facts": {
+        "business": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "account": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "euIban": {
+          "status": "unknown",
+          "evidence": []
+        },
+        "utility": {
+          "status": "unknown",
+          "evidence": []
+        }
+      },
+      "licences": [
+        {
+          "type": "casp",
+          "organisation": "NCA",
+          "authority": "",
+          "status": "needs_review",
+          "decisionDate": null,
+          "quote": "More particularly, Article 62(1) of MiCA obliges legal persons or other · undertakings that intend to provide crypto-asset services to submit their application for · an authorisation as a CASP to the NCA of their home Member State..",
+          "url": "https://www.esma.europa.eu/sites/default/files/2023-07/ESMA74-449133380-425_MiCA_Consultation_Paper_1st_package.pdf",
+          "country": "",
+          "notice": "Цитата официального источника; статус, объём разрешения и актуальность проверьте в реестре. Лицензия не подтверждает открытие бизнес-счёта или EU IBAN."
+        }
+      ],
+      "summary": "Документ описывает требования к CASP (лицензированию крипто-активных услуг) в соответствии с MiCA."
+    }
+  ]
+}

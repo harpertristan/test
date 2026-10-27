@@ -1,3 +1,4 @@
+import {revalidateStoredAnalyses} from './lib/review-repair.js';
 import {geminiProvider} from './lib/gemini-provider.js';
 import {EXCLUSION_REASONS,projectNames} from './lib/identity-names.js';
 import {ollamaProvider,reviewRouter} from './lib/ollama-provider.js';
@@ -198,12 +199,12 @@ export function createApp({
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
-        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{access,exclusionReasons:EXCLUSION_REASONS,rows:rows.map(({documents,translations,sourceDocuments,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{access,exclusionReasons:EXCLUSION_REASONS,rows:rows.map(({documents,translations,sourceDocuments,sourceDocumentsOriginal,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=crmRows(store.state).find(r=>r.id===url.searchParams.get('id'));return send(row?200:404,row??{error:'Запись не найдена.'});}
       if(req.method==='GET'&&['/api/crm/export.csv','/api/crm/export.docx','/api/crm/chat.json'].includes(url.pathname)){
         const rows=crmExport(store.state,{status:url.searchParams.get('status')??'active',q:url.searchParams.get('q')??'',licenceType:url.searchParams.get('licenceType')??'both',reason:url.searchParams.get('reason')??'',sort:url.searchParams.get('sort')??'event_desc'});
-        const type=url.pathname.endsWith('.csv')?'csv':url.pathname.endsWith('.docx')?'docx':'json';const body=type==='csv'?crmCSV(rows):type==='docx'?crmDOCX(rows):JSON.stringify(chatPacket(rows),null,2);
+        const type=url.pathname.endsWith('.csv')?'csv':url.pathname.endsWith('.docx')?'docx':'json';const body=type==='csv'?crmCSV(rows):type==='docx'?crmDOCX(rows):JSON.stringify(chatPacket(rows,{appVersion:APP_VERSION,validationPolicyVersion:store.state.ai.validationPolicyVersion,filters:Object.fromEntries(url.searchParams),lastRepair:store.state.ai.lastRepair,manualExclusionCount:store.state.manualExclusions.length,ai:{engine:store.state.ai.config.engine,mode:store.state.ai.config.mode,ollamaModel:store.state.ai.config.ollamaModel,geminiModel:store.state.ai.config.geminiModel}}),null,2);
         return send(200,body,type==='csv'?'text/csv; charset=utf-8':type==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/json; charset=utf-8',{'Content-Disposition':`attachment; filename="play-scout-crm.${type}"`});
       }
       if(req.method==='GET'&&apple&&apiPath==='/api/defaults')return send(200,{preset:validateAppleConfig(),categories:APPLE_CATEGORIES});
@@ -286,6 +287,11 @@ export function createApp({
           if(url.pathname.endsWith('/settings')){const presets={play:store.state.schedule,social:store.state.social.schedule,web:store.state.web.schedule,watch:store.state.watch.schedule,apple:store.state.apple.schedule};const c={play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor,apple:appleMonitor}[body.source];if(!c)throw new Error('Источник не найден.');return send(200,await c.saveSchedule({enabled:body.enabled??presets[body.source].enabled,time:body.time??presets[body.source].time,filters:{...presets[body.source].filters,...body.filters}}));}
           return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now,body.reason??'other'):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
         }catch(e){return send(e.code==='PERSISTENCE_ERROR'?500:400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
+      }
+      if(req.method==='POST'&&url.pathname==='/api/crm/repair'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        if(aiReview.active()||neural.summary()?.busy)return send(409,{error:'Остановите текущие задания перед перепроверкой сохранённого.'});
+        return send(200,await store.update(d=>revalidateStoredAnalyses(d,clock?clock():new Date())));
       }
       if(req.method==='POST'&&url.pathname==='/api/crm/licences/start'){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
