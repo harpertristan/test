@@ -8,13 +8,14 @@ try{process.loadEnvFile('.env');console.log('Файл .env: прочитан');}
 catch(error){console.log(error.code==='ENOENT'?'Файл .env: отсутствует (Google Play может работать)':'Файл .env: ошибка чтения');}
 console.log(`Ключ Brave: ${process.env.BRAVE_SEARCH_API_KEY?'задан, проверьте кнопкой в приложении':'не задан'}`);
 console.log(`Ключ OpenAI: ${process.env.OPENAI_API_KEY?'задан, проверьте на вкладке «Нейронный поиск»':'не задан (необязателен)'}`);
+console.log(`Ключ Gemini: ${process.env.GEMINI_API_KEY?'задан, проверьте выбранный облачный ИИ в CRM':'не задан (необязателен)'}`);
 try{await access('node_modules/google-play-scraper');console.log('Зависимости: установлены');}
 catch{console.log('Зависимости: выполните npm ci');process.exitCode=1;}
 try{
   const state=JSON.parse(await readFile(`${process.env.DATA_DIR || './data'}/state.json`,'utf8'));
   if(state?.version!==1 || !Array.isArray(state.findings) || !Array.isArray(state.jobs) || !state.schedule)throw new Error('Invalid history shape');
   console.log(`История: ${state.findings?.length ?? 0} приложений, ${state.reviewCandidates?.length ?? 0} кандидатов`);
-  console.log(`ИИ: ${state.ai?.config?.engine==='ollama'?'Ollama (локально)':'OpenAI API'}; режим: ${state.ai?.config?.mode??'economy'}; модель Ollama: ${state.ai?.config?.ollamaModel??'qwen2.5:3b'}`);
+  console.log(`ИИ: ${state.ai?.config?.engine==='ollama'?'Ollama (локально)':state.ai?.config?.engine==='gemini'?'Gemini API':'OpenAI API'}; режим: ${state.ai?.config?.mode??'economy'}; модель Ollama: ${state.ai?.config?.ollamaModel??'qwen2.5:3b'}`);
   console.log(`Профиль: ${state.schedule?.filters?.profile ?? 'старая версия, требуется перезапуск'}`);
 }catch(error){if(error.code==='ENOENT')console.log('История: появится при первом запуске');else{console.log('История: ошибка чтения. Сохраните файл и проверьте резервную копию; не удаляйте data.');process.exitCode=1;}}
 if(process.argv.includes('--play')){

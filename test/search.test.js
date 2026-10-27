@@ -17,7 +17,7 @@ test('calendar month clamps month end and respects client timezone', () => {
   assert.deepEqual(calendarWindow(new Date('2026-01-10T12:00:00Z')), { from: '2025-12-10', to: '2026-01-10' });
 });
 test('validates countries, strict numeric threshold, dates and query bounds', () => {
-  for (const patch of [{ countries: [] }, { countries: ['GB'] }, { keywords: [] }, { keywords: Array(13).fill('bank') }, { minInstalls: '100' }, { minInstalls: -1 }, { from: '2026-02-30' }, { to: '2027-01-01' }, { from: '2026-10-20' }, { limit: 1000 }]) {
+  for (const patch of [{ countries: [] }, { countries: ['GB'] }, { keywords: [] }, { keywords: ['x'.repeat(101)] }, { minInstalls: '100' }, { minInstalls: -1 }, { from: '2026-02-30' }, { to: '2027-01-01' }, { from: '2026-10-20' }, { limit: 1000 }]) {
     assert.throws(() => config(patch));
   }
   assert.deepEqual(config({ keywords: [' bank ', 'bank'] }).keywords, ['bank']);

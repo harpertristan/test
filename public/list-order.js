@@ -1,0 +1,4 @@
+import {SORT_OPTIONS,sortFindings} from './finding-order.js';
+let selected='event_desc';try{selected=localStorage.getItem('listSort')??selected;}catch{}
+export const orderEntries=rows=>sortFindings(rows,selected);
+export function mountListOrder(render,target){const before=document.querySelector(target);if(!before)return;const label=document.createElement('label');label.className='list-sort';label.textContent='Сортировка по датам ';const select=document.createElement('select');select.setAttribute('aria-label','Сортировка по датам');for(const [value,text]of Object.entries(SORT_OPTIONS)){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}select.value=selected;select.onchange=()=>{selected=select.value;try{localStorage.setItem('listSort',selected);}catch{}render();};label.append(select);before.before(label);}

@@ -1,3 +1,4 @@
+import {orderEntries,mountListOrder} from './list-order.js';
 import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
 import{mountExclusions,refreshExclusions,exclusionControl}from'./exclusions.js';
@@ -91,10 +92,7 @@ function node(tag, text, className) {
 
 function renderPosts(rows) {
   $("#social-posts").replaceChildren(
-    ...[...rows]
-      .sort((a, b) =>
-        (b.firstFoundAt || "").localeCompare(a.firstFoundAt || ""),
-      )
+    ...orderEntries(rows)
       .map((post) => {
         const article = node("article", "", "social-post");
         const badges = node("div", "", "social-post-top");
@@ -378,3 +376,5 @@ $('#social-preset').addEventListener('click',()=>{const current=config();applyFi
 void init();
 
 $('#event-mode').addEventListener('change',()=>{const queries=$('#social-queries').value.split('\n').map(s=>s.trim()).filter(Boolean);if(JSON.stringify(queries)===JSON.stringify(LAUNCH_QUERIES)||JSON.stringify(queries)===JSON.stringify(BUSINESS_SOCIAL_QUERIES))$('#social-queries').value=($('#event-mode').value==='launches'?LAUNCH_QUERIES:BUSINESS_SOCIAL_QUERIES).join('\n');updateCost();render();});
+
+mountListOrder(render,'#social-posts');

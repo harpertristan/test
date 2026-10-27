@@ -1,6 +1,8 @@
+import {geminiProvider} from './lib/gemini-provider.js';
+import {EXCLUSION_REASONS,projectNames} from './lib/identity-names.js';
 import {ollamaProvider,reviewRouter} from './lib/ollama-provider.js';
 import {LICENCE_REGISTERS,LICENCE_TYPES} from './lib/licences.js';
-import {crmRows,editCRM,excludeCRM,restoreCRM,crmExport,crmCSV,crmDOCX,chatPacket} from './lib/crm.js';
+import {crmRows,bulkCRM,editCRM,excludeCRM,restoreCRM,crmExport,crmCSV,crmDOCX,chatPacket} from './lib/crm.js';
 import {appleProvider,appleCSV,APPLE_CATEGORIES,validateAppleConfig} from './lib/app-store.js';
 import {buildReport,reportHTML,reportDOCX,reportCSV,updateShortlist,REPORT_CSP} from './lib/report.js';
 import {createNeuralSearch} from './lib/neural-search.js';
@@ -46,6 +48,7 @@ export function createApp({
   aiProvider = openaiProvider(),
   aiPages = pageProvider(),
   localAIProvider=ollamaProvider(),
+  cloudGeminiProvider=geminiProvider(),
   appStoreProvider=appleProvider(),
   socialDelay = 1100,
   watchProvider = {...pageProvider(),app:provider.app},
@@ -57,6 +60,7 @@ export function createApp({
   tickInterval,
   requestTimeoutMs,
   password = process.env.APP_PASSWORD || "",
+  viewerPassword = process.env.VIEW_PASSWORD || "",
 } = {}) {
   const budgetMonth=()=>calendarWindow(clock?clock():new Date()).to.slice(0,7);
   const braveBudget=()=>({limit:0,unlimited:true,used:store.state.braveUsage?.[budgetMonth()]??0});
@@ -82,8 +86,8 @@ export function createApp({
   });
   const watchMonitor=createMonitor({provider:watchProvider,kind:"watch",store,delay:watchDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
-  const appleMonitor=createMonitor({provider:appStoreProvider,kind:'apple',store,delay:0,autoSchedule,clock,tickInterval,requestTimeoutMs});
-  const selectedAI=reviewRouter({store,openai:aiProvider,ollama:localAIProvider});
+  const appleMonitor=createMonitor({provider:appStoreProvider,kind:'apple',store,delay:0,autoSchedule:false,clock,tickInterval,requestTimeoutMs});
+  const selectedAI=reviewRouter({store,openai:aiProvider,ollama:localAIProvider,gemini:cloudGeminiProvider});
   const aiReview=createAIReview({store,provider:selectedAI,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.isBusy()),tickInterval});
   const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor,apple:appleMonitor},clock});
   aiReview.setCollector(options=>neural.start(options));
@@ -91,6 +95,10 @@ export function createApp({
   const files = {
     '/crm':['crm.html','text/html'],
     '/crm.js':['crm.js','text/javascript'],
+    '/identity-names.js':['../lib/identity-names.js','text/javascript'],
+    '/finding-order.js':['../lib/finding-order.js','text/javascript'],
+    '/theme.js':['theme.js','text/javascript'],
+    '/list-order.js':['list-order.js','text/javascript'],
     '/licence-queries.js':['../lib/licence-queries.js','text/javascript'],
     '/geography.js':['../lib/geography.js','text/javascript'],
     "/review":["review.html","text/html"],
@@ -151,13 +159,16 @@ export function createApp({
         : url.pathname;
       const control = apple?appleMonitor:web?webMonitor:watch ? watchMonitor : social ? socialMonitor : monitor;
       const exportCSV = apple?appleCSV:web?webCSV:watch ? watchCSV : social ? socialCSV : toCSV;
+      let access={role:'admin',canEdit:true};
       if (password && url.pathname !== "/api/health") {
         const header = req.headers.authorization || "";
         const supplied = /^Basic /i.test(header)
           ? Buffer.from(header.slice(6), "base64").toString("utf8")
           : "";
         const digest = (text) => createHash("sha256").update(text).digest();
-        if (!timingSafeEqual(digest(supplied), digest(`admin:${password}`))) {
+        const owner=timingSafeEqual(digest(supplied),digest(`admin:${password}`));
+        const viewer=Boolean(viewerPassword)&&timingSafeEqual(digest(supplied),digest(`viewer:${viewerPassword}`));
+        if (!owner&&!viewer) {
           return send(
             401,
             "Введите логин admin и пароль приложения.",
@@ -165,7 +176,11 @@ export function createApp({
             { "WWW-Authenticate": 'Basic realm="Play Scout", charset="UTF-8"' },
           );
         }
+        if(viewer&&!owner)access={role:'viewer',canEdit:false};
       }
+      if(req.method==='POST'&&!access.canEdit)return send(403,{error:'Эта ссылка открыта в режиме просмотра. Для изменений войдите как admin.'});
+      if(req.method==='GET'&&url.pathname==='/api/access')return send(200,access);
+      if(apple&&req.method==='POST')return send(410,{error:'App Store отключён. Сохранённые записи доступны в архиве CRM.'});
       if (req.method === "GET" && files[url.pathname]) {
         const [file, type] = files[url.pathname];
         return send(
@@ -183,11 +198,11 @@ export function createApp({
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
-        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{rows:rows.map(({documents,translations,sourceDocuments,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),apple:sourceSummary(appleMonitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{access,exclusionReasons:EXCLUSION_REASONS,rows:rows.map(({documents,translations,sourceDocuments,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=crmRows(store.state).find(r=>r.id===url.searchParams.get('id'));return send(row?200:404,row??{error:'Запись не найдена.'});}
       if(req.method==='GET'&&['/api/crm/export.csv','/api/crm/export.docx','/api/crm/chat.json'].includes(url.pathname)){
-        const rows=crmExport(store.state,{status:url.searchParams.get('status')??'active',q:url.searchParams.get('q')??'',licenceType:url.searchParams.get('licenceType')??'both'});
+        const rows=crmExport(store.state,{status:url.searchParams.get('status')??'active',q:url.searchParams.get('q')??'',licenceType:url.searchParams.get('licenceType')??'both',reason:url.searchParams.get('reason')??'',sort:url.searchParams.get('sort')??'event_desc'});
         const type=url.pathname.endsWith('.csv')?'csv':url.pathname.endsWith('.docx')?'docx':'json';const body=type==='csv'?crmCSV(rows):type==='docx'?crmDOCX(rows):JSON.stringify(chatPacket(rows),null,2);
         return send(200,body,type==='csv'?'text/csv; charset=utf-8':type==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/json; charset=utf-8',{'Content-Disposition':`attachment; filename="play-scout-crm.${type}"`});
       }
@@ -210,7 +225,7 @@ export function createApp({
       if(req.method==="GET" && watch && apiPath==="/api/defaults")return send(200,{watchUrls:DEFAULT_WATCH_URLS});
       if (req.method === "GET" && social && apiPath === "/api/defaults")
         return send(200, {
-          sources: SOCIAL_SOURCES.map(({ id, name,category,domains }) => ({ id, name,category,domains })),
+          sources: SOCIAL_SOURCES.filter(s=>!s.retired).map(({ id, name,category,domains }) => ({ id, name,category,domains })),
           preset:socialPreset(),
           sourceCatalogVersion:SOURCE_CATALOG_VERSION,
           queries: SOCIAL_QUERIES,
@@ -252,19 +267,39 @@ export function createApp({
         req.headers["sec-fetch-site"] === "cross-site"
       )
         return send(403, { error: "Запрос с другого сайта запрещён." });
-      if(req.method==='POST'&&['/api/crm/update','/api/crm/exclude','/api/crm/restore','/api/crm/settings','/api/crm/stop','/api/crm/daily'].includes(url.pathname)){
-        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>65536)return send(413,{error:'Слишком большой запрос.'});}
+      if(req.method==='POST'&&url.pathname==='/api/system/shutdown'){
+        const remote=req.socket.remoteAddress;if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote))return send(403,{error:'Остановка приложения доступна с этого компьютера.'});
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        send(202,{ok:true});setImmediate(()=>server.emit('shutdown-requested'));return;
+      }
+      if(req.method==='POST'&&['/api/crm/bulk','/api/crm/update','/api/crm/exclude','/api/crm/restore','/api/crm/settings','/api/crm/stop','/api/crm/daily'].includes(url.pathname)){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1048576)return send(413,{error:'Слишком большой запрос.'});}
         try{const body=JSON.parse(raw||'{}'),now=clock?clock():new Date();
+          if(url.pathname.endsWith('/bulk'))return send(200,await store.update(d=>bulkCRM(d,body,now)));
           if(url.pathname.endsWith('/daily')){
-            const config={...store.state.ai.config,enabled:true,collectSources:true,sources:['play','apple','web','social','watch'],time:body.time??store.state.ai.config.time};
+            const config={...store.state.ai.config,enabled:true,collectSources:true,sources:['play','web','social','watch'],time:body.time??store.state.ai.config.time};
             await aiReview.saveConfig(config);
             await store.update(d=>{for(const section of [d,d.apple,d.web,d.social,d.watch]){section.schedule.enabled=false;section.schedule.nextRunAt=null;}});
             void aiReview.tick();return send(200,{ok:true,time:config.time});
           }
           if(url.pathname.endsWith('/stop')){await neural.cancel();await Promise.all([monitor,socialMonitor,webMonitor,watchMonitor,appleMonitor].map(c=>c.active()?c.cancel(c.active().id):Promise.resolve()));await aiReview.cancel();return send(200,{ok:true});}
           if(url.pathname.endsWith('/settings')){const presets={play:store.state.schedule,social:store.state.social.schedule,web:store.state.web.schedule,watch:store.state.watch.schedule,apple:store.state.apple.schedule};const c={play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor,apple:appleMonitor}[body.source];if(!c)throw new Error('Источник не найден.');return send(200,await c.saveSchedule({enabled:body.enabled??presets[body.source].enabled,time:body.time??presets[body.source].time,filters:{...presets[body.source].filters,...body.filters}}));}
-          return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
+          return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now,body.reason??'other'):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
         }catch(e){return send(e.code==='PERSISTENCE_ERROR'?500:400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
+      }
+      if(req.method==='POST'&&url.pathname==='/api/crm/licences/start'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        if(!aiReview.summary().configured)return send(503,{error:'Подключите выбранный ИИ в настройках перед автоматическим разбором лицензий.'});
+        try{return send(202,await neural.start({licencesOnly:true}));}catch(e){return send(e.status??400,{error:e.message});}
+      }
+      if(req.method==='POST'&&url.pathname==='/api/ai/cloud/test'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        if(aiReview.active())return send(409,{error:'Остановите текущий разбор перед тестом.'});
+        const config=store.state.ai.config;if(config.engine==='ollama')return send(400,{error:'Выберите Gemini или OpenAI для облачной проверки.'});
+        const provider=selectedAI.forConfig(config);if(!provider.configured())return send(503,{error:'Ключ выбранного ИИ не задан. Добавьте его через 4-Keys.cmd и перезапустите программу.'});
+        const usageKey=config.engine==='gemini'?'geminiUsage':'usage',month=budgetMonth();
+        await store.update(d=>{d.ai[usageKey]??={};const u=d.ai[usageKey][month]??={attempts:0,inputTokens:0,outputTokens:0};u.attempts++;});
+        try{const result=await provider.assess({title:'Connection test',documents:[{id:'s1',url:'https://example.com/',kind:'third_party',text:'Connection test. No product or account facts are supplied.'}],translateRu:false,mode:'economy'},{signal:AbortSignal.timeout(35000)});await store.update(d=>{const u=d.ai[usageKey][month];u.inputTokens+=result.usage.inputTokens;u.outputTokens+=result.usage.outputTokens;});return send(200,{ok:true,model:result.model});}catch{return send(503,{error:'Выбранный облачный ИИ не вернул ответ. Проверьте ключ, доступность модели и квоту в кабинете провайдера.'});}
       }
       if(req.method==='POST'&&url.pathname==='/api/ai/local/test'){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{const result=await (localAIProvider.forModel?.(store.state.ai.config.ollamaModel)??localAIProvider).status({signal:AbortSignal.timeout(5000)});return send(200,result);}catch{return send(503,{error:'Ollama не отвечает на этом компьютере (127.0.0.1:11434). Откройте Ollama и установите модель. OpenAI не вызывается.'});}}
       if(req.method==='POST'&&['/api/neural/start','/api/neural/cancel'].includes(url.pathname)){if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});try{return send(202,url.pathname.endsWith('/cancel')?await neural.cancel():await neural.start());}catch(error){return send(error.status??400,{error:error.message});}}
@@ -290,7 +325,8 @@ export function createApp({
           const entry=entries.find(e=>(e.id??e.appId)===input.id);if(!entry)return send(404,{error:'Находка не найдена. Обновите список.'});
           const kind=input.section==='company'?'domain':entry.appId?'app':input.section==='web'?'domain':'url',value=input.section==='company'?entry.id.slice('company:'.length):kind==='app'?entry.appId:kind==='domain'?new URL(entry.url).hostname.replace(/^www\./,''):canonicalFindingURL(entry.url);
           if(!value)throw new Error('Не удалось определить запись для исключения.');
-          const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,title:entry.title,url:entry.url,providerWebsite:entry.developerWebsite,createdAt:(clock?clock():new Date()).toISOString()};
+          const reason=input.reason??'other';if(!Object.hasOwn(EXCLUSION_REASONS,reason))throw new Error('Выберите причину исключения.');
+          const key=createHash('sha256').update(`${kind}:${value}`).digest('hex'),rule={key,kind,value,reason,names:projectNames(entry),matchNames:kind==='app'||kind==='domain'||Boolean(entry.serviceName),title:entry.serviceName??entry.title,url:entry.url,providerWebsite:entry.developerWebsite,createdAt:(clock?clock():new Date()).toISOString()};
           await store.update(d=>{d.manualExclusions??=[];if(!d.manualExclusions.some(e=>e.key===key)){d.manualExclusions.push(rule);}const rules=effectiveExclusions(d);d.pendingChecks=d.pendingChecks.filter(e=>!manuallyExcluded(e,rules));});
           return send(200,{rule,exclusions:effectiveExclusions(store.state)});
         }catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
@@ -400,7 +436,7 @@ export function createApp({
     watchMonitor.start();
     webMonitor.start();
     aiReview.start();
-    appleMonitor.start();
+    // App Store is archived, not scheduled.
   });
   server.on("close", () => {
     void neural.stop();
@@ -446,7 +482,7 @@ if (
     process.exit(1);
   }
   const server = createApp({ store, autoSchedule: true });
-  server.listen(port, process.env.HOST || "0.0.0.0", () => {
+  server.listen(port, process.env.HOST || (process.env.APP_PASSWORD?"0.0.0.0":"127.0.0.1"), () => {
     console.log(`Play Finance Finder: port ${port}`);
     console.log(`CRM: http://127.0.0.1:${port}/crm`);
   });
@@ -455,6 +491,8 @@ if (
     try{await shutdownApp(server);process.exit(0);}
     catch{console.error('Не удалось корректно завершить программу. Сохраните папку data и проверьте историю перед следующим запуском.');process.exit(1);}
   })();
+  server.on("shutdown-requested",stop);
+  process.on("message",message=>{if(message?.type==='shutdown')void stop();});
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
 }

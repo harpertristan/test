@@ -7,16 +7,17 @@ import { randomUUID } from 'node:crypto';
 
 export async function saveKey(key, directory = process.cwd()) {return saveEnvKey('BRAVE_SEARCH_API_KEY',key,directory);}
 export async function saveEnvKey(variable,key,directory=process.cwd()) {
-  if(!['BRAVE_SEARCH_API_KEY','OPENAI_API_KEY'].includes(variable))throw new Error('Unknown key setting');
-  if (!/^[a-zA-Z0-9_.=+\/-]{10,512}$/.test(key)) throw new Error('Проверьте ключ: вставьте только значение API-ключа.');
+  if(!['BRAVE_SEARCH_API_KEY','OPENAI_API_KEY','GEMINI_API_KEY','APP_PASSWORD','VIEW_PASSWORD'].includes(variable))throw new Error('Unknown key setting');
+  const password=['APP_PASSWORD','VIEW_PASSWORD'].includes(variable);
+  if(password?(typeof key!=='string'||key.length<12||key.length>256||/[\r\n\x00']/.test(key)):!/^[a-zA-Z0-9_.=+\/-]{10,512}$/.test(key))throw new Error(password?'Пароль: от 12 до 256 символов, без апострофа и перевода строки.':'Проверьте ключ: вставьте только значение API-ключа.');
   const file = resolve(directory,'.env');
   let existing = '';
   try { existing = await readFile(file,'utf8'); } catch(error) { if(error.code !== 'ENOENT') throw error; }
-  const line = `${variable}=${key}`;
+  const line = `${variable}=${password?"'"+key+"'":key}`;
   const setting=new RegExp(`^\\s*(?:export\\s+)?${variable}\\s*=`,'m');
   const assignments=new RegExp(`^\\s*(?:export\\s+)?${variable}\\s*=.*$`,'gm');
   const content = setting.test(existing)
-    ? existing.replace(assignments,line)
+    ? existing.replace(assignments,()=>line)
     : `${existing}${existing && !existing.endsWith('\n') ? '\n' : ''}${line}\n`;
   const temp = `${file}.${randomUUID()}.tmp`;
   try { await writeFile(temp,content,{mode:0o600,flag:'wx'}); await rename(temp,file); }

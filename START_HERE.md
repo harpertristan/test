@@ -1,4 +1,6 @@
-# Play Scout 3.1 — запуск с нуля на Mac
+# Play Scout — запуск на Mac
+
+Для текущей установки на Windows и NVIDIA используйте [WINDOWS.md](WINDOWS.md).
 
 Основное рабочее место теперь находится по адресу **http://localhost:3000/crm**.
 

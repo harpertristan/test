@@ -1,3 +1,4 @@
+import {orderEntries,mountListOrder} from './list-order.js';
 import {assessWebPresence,webPresenceLabel} from './web-presence.js';
 import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
@@ -18,7 +19,7 @@ function render(){if(!monitor)return;const running=isBusyJob(job);$('#web-fields
  const labels={cancelling:'Останавливаем поиск…',running:'Поиск выполняется',complete:'Поиск завершён',partial:'Поиск с пропусками',failed:'Поиск не выполнен',cancelled:'Поиск остановлен'};
  $('#web-caption').textContent=view==='history'?`Сохранено сервисов: ${history.length}`:job?`${labels[job.status]} · новых: ${job.results.length}, из истории: ${job.existingResults?.length??0}`:'Первый поиск ещё не выполнялся';
  $('#web-status').textContent=job?`Запросов: ${job.searchDone}/${job.searchTotal}. Проверено результатов: ${job.scanned}. ${requestStatus(job)}`:'';
- const list=rows();$('#web-results').replaceChildren();if(!list.length)$('#web-results').append(node('p',running?'Ищем страницы продуктов…':'Подходящих веб-сервисов пока нет. Проверьте подключение и подробности отбора.'));
+ const list=orderEntries(rows());$('#web-results').replaceChildren();if(!list.length)$('#web-results').append(node('p',running?'Ищем страницы продуктов…':'Подходящих веб-сервисов пока нет. Проверьте подключение и подробности отбора.'));
  for(const entry of list){const article=node('article','');article.className='social-post';const a=node('a',entry.title);a.href=entry.url;a.target='_blank';a.rel='noopener noreferrer';const presence=assessWebPresence([{url:entry.url,text:entry.snippet,kind:'official_index'}],{productURL:entry.url}),service=node('strong','Веб-сервис: '+webPresenceLabel(presence.service)),access=node('strong','Веб-кабинет: '+webPresenceLabel(presence.cabinet));article.append(a,node('small',entry.domain),service,access,node('p',entry.snippet));for(const quote of entry.webAccess?.evidence??[])article.append(node('p',`Веб-доступ: ${quote}`));if(entry.fromHistory)article.append(node('small','Из истории · повторно не добавлено'));article.append(node('small',`Впервые найдено: ${stamp(entry.firstFoundAt)}`),renderEvidence(entry),exclusionControl(entry,'web'));$('#web-results').append(article);}
  const reasons={notProduct:'Статья, каталог или другой неподходящий сайт',banking:'Нет предложения бизнес-счёта нужного профиля',webAccess:'Не найдено упоминание веб-кабинета',euIban:'Нет заявления об IBAN страны ЕС',duplicate:'Повтор домена в поиске',previouslySeen:'Уже сохранено или исключено',excludedTerm:'Исключено по словам',excludedDomain:'Исключено по домену'};
  $('#web-diagnostics').replaceChildren(...Object.entries(job?.skipped??{}).filter(([,n])=>n).map(([k,n])=>node('p',`${reasons[k]??k}: ${n}`)),...(job?.errors??[]).map(e=>node('p',e.message)));
@@ -32,3 +33,5 @@ $('#web-latest').addEventListener('click',()=>{view='latest';render();});$('#web
 $('#web-export').addEventListener('click',()=>{location.assign(view==='history'?'/api/web/findings/export.csv':`/api/web/jobs/${job.id}/export.csv`);});
 for(const id of ['#web-enabled','#web-time'])$(id).addEventListener('input',()=>{dirty=true;});$('#web-form').addEventListener('input',render);
 try{await mountExclusions(refresh);const defaults=await api('defaults');$('#web-version').textContent=`Версия ${defaults.version}`;monitor=await api('monitor');apply(monitor.schedule.filters);await refresh();setInterval(refresh,3000);}catch(error){$('#web-error').textContent=error.message;}
+
+mountListOrder(render,'#web-results');

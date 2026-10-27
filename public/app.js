@@ -1,3 +1,4 @@
+import {orderEntries,mountListOrder} from './list-order.js';
 import {assessWebPresence,webPresenceLabel} from './web-presence.js';
 import {apiJSON} from './api.js';
 import{isBusyJob,requestStatus}from'./job-state.js';
@@ -15,7 +16,7 @@ let monitorData;
 let scheduleDirty = false;
 let refreshing = false;
 let cancellingId=null;
-let sortKey = "released";
+let sortKey = "date_order";
 let sortDirection = -1;
 const storageKey = "playscout-last-job";
 const countries = () =>
@@ -113,9 +114,7 @@ function syncDateMode() {
   for (const id of ['#from','#to']) $(id).disabled=$('#ignore-release-date').checked;
 }
 function renderRows() {
-  const rows = [
-    ...currentRows(),
-  ].sort((a, b) => {
+  const rows = sortKey==='date_order'?orderEntries(currentRows()):[...currentRows()].sort((a, b) => {
     const av = a[sortKey] ?? "",
       bv = b[sortKey] ?? "";
     return (
@@ -672,3 +671,5 @@ $('#continue-checks').addEventListener('click',async()=>{try{clearTimeout(pollTi
 $('#early-preset').addEventListener('click',()=>{const old=readConfig();applyConfig({...defaults.earlyPreset,excludeTerms:old.excludeTerms,excludeDomains:old.excludeDomains,excludeAppIds:old.excludeAppIds});$('#schedule-feedback').textContent=`Раннее обнаружение: библиотека ${defaults.referenceCount} известных сервисов, без ограничения даты и порога установок, рекомендации. Известные примеры помечаются; сохраните расписание.`;});
 
 $('#view-new').addEventListener('click',()=>{view='new';renderView();});
+
+mountListOrder(()=>{sortKey='date_order';renderRows();},'#table-wrap');
