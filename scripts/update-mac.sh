@@ -3,15 +3,31 @@
 main() {
   set -e
   export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/sbin:/sbin:$PATH"
-  PLAY_SCOUT_TARGET="${1:-$PWD}"
-  if [ "$#" -gt 0 ]; then shift; fi
+  PLAY_SCOUT_TARGET="$PWD"
+  PLAY_SCOUT_TARGET_SET=""
   PLAY_SCOUT_START=""
   PLAY_SCOUT_SOURCE=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --start) PLAY_SCOUT_START=--start; shift ;;
-      --source) PLAY_SCOUT_SOURCE="$2"; shift 2 ;;
-      *) printf 'Неизвестный параметр: %s\n' "$1" >&2; return 1 ;;
+      --source)
+        if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+          printf 'После --source укажите папку с новым кодом.\n' >&2; return 1
+        fi
+        case "$2" in --*) printf 'После --source укажите папку с новым кодом.\n' >&2; return 1 ;; esac
+        PLAY_SCOUT_SOURCE="$2"; shift 2 ;;
+      --)
+        shift
+        if [ "$#" -ne 1 ] || [ -n "$PLAY_SCOUT_TARGET_SET" ] || [ -z "$1" ]; then
+          printf 'Укажите только одну рабочую папку Play Scout.\n' >&2; return 1
+        fi
+        PLAY_SCOUT_TARGET="$1"; PLAY_SCOUT_TARGET_SET=1; shift ;;
+      -*) printf 'Неизвестный параметр: %s\n' "$1" >&2; return 1 ;;
+      *)
+        if [ -n "$PLAY_SCOUT_TARGET_SET" ] || [ -z "$1" ]; then
+          printf 'Укажите только одну рабочую папку Play Scout.\n' >&2; return 1
+        fi
+        PLAY_SCOUT_TARGET="$1"; PLAY_SCOUT_TARGET_SET=1; shift ;;
     esac
   done
   if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)'; then

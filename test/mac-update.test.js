@@ -50,6 +50,31 @@ test('Mac bootstrap runs through a symlinked temporary directory without losing 
  const alias=join(root,'TMPDIR alias');await symlink(source,alias,'dir');
  const result=await execute('bash',[resolve('scripts/update-mac.sh'),target,'--source',alias],{env:{...process.env,PATH:bin+':'+process.env.PATH},timeout:15000});assert.match(result.stdout,/Play Scout 4\.0\.1/);assert.equal(await read(join(target,'install-fixture.txt')),'installed');assert.equal(await read(join(target,'data/state.json')),state);assert.equal(await read(join(target,'.env')),env);
 });
+for(const mode of ['flags-only','no-target-no-start','target-first','flags-before-target','end-of-options']){
+ test(`Mac bootstrap parses ${mode} arguments, updates the intended folder and preserves the private profile`,async t=>{
+  const {root,source,target,file}=await setup(t),bin=join(root,'bin');await mkdir(bin);
+  await writeFile(join(bin,'npm'),'#!/bin/bash\nprintf installed > install-fixture.txt\n',{mode:0o755});
+  await copyFile(resolve('scripts/update-in-place.js'),join(source,'scripts/update-in-place.js'));
+  await file(source,'2-Запустить.command','#!/bin/bash\nprintf launched > start-fixture.txt\n');
+  await file(source,'package.json',JSON.stringify({name:'play-finance-finder',version:'4.1.4'}));
+  await file(target,'package.json',JSON.stringify({name:'play-finance-finder',version:'4.0.2'}));
+  const state=await read(join(target,'data/state.json')),env=await read(join(target,'.env'));
+  const args=mode==='flags-only'?['--start','--source',source]:mode==='no-target-no-start'?['--source',source]:mode==='target-first'?[target,'--start','--source',source]:mode==='flags-before-target'?['--source',source,'--start',target]:['--start','--source',source,'--',target];
+  const result=await execute('bash',[resolve('scripts/update-mac.sh'),...args],{cwd:target,env:{...process.env,PATH:bin+':'+process.env.PATH},timeout:15000});
+  assert.match(result.stdout,/Готово: Play Scout 4\.1\.4/);assert.equal(JSON.parse(await read(join(target,'package.json'))).version,'4.1.4');
+  assert.equal(await read(join(target,'install-fixture.txt')),'installed');
+  if(mode==='no-target-no-start')await assert.rejects(access(join(target,'start-fixture.txt')));else assert.equal(await read(join(target,'start-fixture.txt')),'launched');
+  assert.equal(await read(join(target,'data/state.json')),state);assert.equal(await read(join(target,'.env')),env);
+  const backup=result.stdout.match(/Резервная копия: (.+)/)?.[1];assert.ok(backup);assert.equal(await read(join(backup,'data/state.json')),state);assert.equal(await read(join(backup,'.env')),env);
+ });
+}
+test('Mac bootstrap rejects incomplete or ambiguous arguments before changing the working folder',async t=>{
+ const {source,target}=await setup(t),script=resolve('scripts/update-mac.sh'),state=await read(join(target,'data/state.json')),env=await read(join(target,'.env'));
+ for(const args of [['--start','--source'],['--source','--start'],['--source',''],['--unknown'],[target,source],[''],['--'],[target,'--',source]]){
+  await assert.rejects(execute('bash',[script,...args],{cwd:target,timeout:5000}),error=>error.code===1&&/После --source|Неизвестный параметр|Укажите только одну/.test(error.stderr));
+  assert.equal(await read(join(target,'server.js')),'old server');assert.equal(await read(join(target,'data/state.json')),state);assert.equal(await read(join(target,'.env')),env);await assert.rejects(access(join(target,'.cache')));
+ }
+});
 test('direct updater and key CLI entry points execute when argv uses a Mac temporary-directory alias',async t=>{
  const {root,source,target}=await setup(t),bin=join(root,'bin'),alias=join(root,'var alias');await mkdir(bin);await writeFile(join(bin,'npm'),'#!/bin/bash\nexit 0\n',{mode:0o755});
  await copyFile(resolve('scripts/update-in-place.js'),join(source,'scripts/update-in-place.js'));await copyFile(resolve('scripts/configure-brave.js'),join(source,'scripts/configure-brave.js'));await symlink(source,alias,'dir');
