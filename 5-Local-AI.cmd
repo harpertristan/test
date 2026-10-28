@@ -1,21 +1,24 @@
 @echo off
+setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul
-setlocal
-pushd "%~dp0"
+pushd "%~dp0" || exit /b 1
 where ollama >nul 2>nul
 if errorlevel 1 (
-  echo Установите Ollama для Windows, откройте приложение и запустите этот файл снова.
+  echo Install and open Ollama for Windows, then run this file again.
   start "" "https://ollama.com/download/windows"
   pause
   exit /b 1
 )
-echo Загружаем qwen3.5:4b для NVIDIA с видеопамятью 8 ГБ или больше.
+echo Downloading qwen3.5:4b for an NVIDIA GPU with at least 8 GB VRAM.
 ollama pull qwen3.5:4b
 if errorlevel 1 (
-  echo Проверьте, что приложение Ollama запущено и есть интернет.
-) else (
-  echo В CRM выберите Ollama, модель qwen3.5:4b и Экономный режим.
-  ollama list
+  echo Check that Ollama is running and the internet connection is available.
+  pause
+  exit /b 1
 )
+echo In CRM select Ollama, qwen3.5:4b and Economy mode.
+ollama list
+set "PLAY_SCOUT_EXIT=%ERRORLEVEL%"
 pause
 popd
+exit /b %PLAY_SCOUT_EXIT%

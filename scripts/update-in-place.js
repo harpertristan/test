@@ -8,7 +8,7 @@ import {randomUUID,createHash} from 'node:crypto';
 
 const execute=promisify(execFile),pause=ms=>new Promise(r=>setTimeout(r,ms));
 const codeDirs=new Set(['lib','public','scripts','test']);
-const rootFile=name=>/\.(?:md|command|cmd)$/.test(name)||['package.json','package-lock.json','server.js','Dockerfile','render.yaml','.gitignore','.dockerignore'].includes(name);
+const rootFile=name=>/\.(?:md|command|cmd)$/.test(name)||['package.json','package-lock.json','server.js','Dockerfile','render.yaml','.gitignore','.dockerignore','.gitattributes'].includes(name);
 const exists=async path=>{try{return await lstat(path);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
 const within=(child,parent)=>{const r=relative(parent,child);return !r||r!=='..'&&!r.startsWith('..'+sep)&&!r.startsWith(sep);};
 const portOpen=port=>new Promise(r=>{const s=net.connect({host:'127.0.0.1',port});let done=false;const finish=v=>{if(done)return;done=true;s.destroy();r(v);};s.once('connect',()=>finish(true));s.once('error',()=>finish(false));s.setTimeout(1000,()=>finish(true));});

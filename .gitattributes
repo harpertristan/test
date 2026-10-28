@@ -1,0 +1,5 @@
+# Keep literal CRLF bytes in Git blobs and downloadable ZIPs. Checkout-only
+# eol=crlf would leave git archive with LF-only batch scripts.
+*.cmd -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.command text eol=lf
+*.sh text eol=lf
