@@ -9,3 +9,7 @@ data
 test-results
 
 .env.*.tmp
+*.psbackup
+.profile-import-*
+PlayScout-before-import-*
+.profile-transfer-lock

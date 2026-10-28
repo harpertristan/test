@@ -22,6 +22,11 @@ if errorlevel 1 (
   exit /b 1
 )
 call npm.cmd run doctor
-echo Готово. Настройте ключи через 4-Keys.cmd и запускайте 2-Start.cmd.
+if errorlevel 1 (
+  echo Диагностика обнаружила ошибку. Не удаляйте data и .env; проверьте сообщения выше.
+  pause
+  exit /b 1
+)
+echo Готово. Если перенесли профиль с Mac, ключи уже подключены. Запускайте 2-Start.cmd.
 pause
 popd

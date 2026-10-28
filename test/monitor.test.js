@@ -202,6 +202,7 @@ test("crash recovery retains a checkpointed finding and retries the interrupted 
   const state = JSON.parse(await readFile(file, "utf8"));
   state.jobs[0].status = "running";
   state.jobs[0].source = "scheduled";
+  state.schedule.enabled = true;
   state.schedule.nextRunAt = "2026-10-20T07:00:00.000Z";
   await writeFile(file, JSON.stringify(state));
   const recovered = monitor(await openStore(file, now), { autoSchedule: true });

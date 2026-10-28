@@ -9,6 +9,11 @@ if errorlevel 1 (
   exit /b 1
 )
 if not exist node_modules call npm.cmd ci
+if errorlevel 1 (
+  echo Зависимости не установлены. Запустите 1-Install.cmd и проверьте ошибку.
+  pause
+  exit /b 1
+)
 node scripts\start-desktop.js
 if errorlevel 1 pause
 popd
