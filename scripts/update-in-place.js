@@ -37,7 +37,7 @@ export async function stopOwnedServer(target,port,{log=console.log,timeout=20000
  for(const id of ids)try{process.kill(Number(id),'SIGTERM');}catch(e){if(e.code!=='ESRCH')throw e;}
  const deadline=Date.now()+timeout;while(await portOpen(port)){if(Date.now()>deadline)throw Error('Программа не завершилась. Код ещё не менялся. Завершите её в прежнем Терминале или «Мониторинге системы», затем повторите обновление.');await pause(200);}
 }
-function run(command,args,cwd){return new Promise((accept,reject)=>{const p=spawn(command,args,{cwd,stdio:'inherit'});p.once('error',reject);p.once('exit',code=>code===0?accept():reject(Error(command+' завершился с ошибкой.')));});}
+function run(command,args,cwd){return new Promise((accept,reject)=>{const p=process.platform==='win32'&&command==='npm.cmd'?spawn(process.env.ComSpec||'cmd.exe',['/d','/c','npm.cmd',...args],{cwd,stdio:'inherit'}):spawn(command,args,{cwd,stdio:'inherit'});p.once('error',reject);p.once('exit',code=>code===0?accept():reject(Error(command+' завершился с ошибкой.')));});}
 export async function updateInPlace(source,target,{install=dir=>run(process.platform==='win32'?'npm.cmd':'npm',['ci'],dir),diagnose=dir=>run(process.execPath,['scripts/doctor.js'],dir),stop=stopOwnedServer,log=console.log}={}){
  source=await realpath(source);target=await realpath(target);
  if(within(source,target)||within(target,source))throw Error('Архив и рабочая папка должны находиться раздельно.');
@@ -77,6 +77,6 @@ export async function updateInPlace(source,target,{install=dir=>run(process.plat
  }finally{await rm(lock,{recursive:true,force:true});}
 }
 if(process.argv[1]&&await realpath(process.argv[1]).catch(()=>null)===await realpath(fileURLToPath(import.meta.url))){
- try{const result=await updateInPlace(process.argv[2],process.argv[3]);if(process.argv.includes('--start'))await run('bash',['2-Запустить.command'],result.target);}
+ try{const result=await updateInPlace(process.argv[2],process.argv[3]);if(process.argv.includes('--start'))await run(process.platform==='win32'?process.execPath:'bash',process.platform==='win32'?['scripts/start-desktop.js']:['2-Запустить.command'],result.target);}
  catch(error){console.error(error.message);process.exitCode=1;}
 }

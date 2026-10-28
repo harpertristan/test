@@ -8,7 +8,7 @@ import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('..',import.meta.url)),run=promisify(execFile);
 test('every distributed Windows launcher has literal CRLF, ASCII commands and no BOM',async()=>{
- const launchers=(await readdir(root)).filter(name=>name.endsWith('.cmd'));assert.equal(launchers.length,9);
+ const launchers=(await readdir(root)).filter(name=>name.endsWith('.cmd'));assert.equal(launchers.length,10);
  for(const name of launchers){const body=await readFile(join(root,name));assert.ok(body.length>0,name);assert.ok(body.every(byte=>byte<128),name+' must not depend on a CMD code page to parse');assert.equal(body[0],64,name+' must start with @echo, not a BOM');assert.ok(!/(?<!\r)\n|\r(?!\n)/.test(body.toString('ascii')),name+' must retain CRLF in the downloaded ZIP');assert.ok(body.toString('ascii').endsWith('\r\n'),name);}
 });
 test('Windows ZIP and Git blobs retain CRLF even with core.autocrlf enabled',async t=>{

@@ -1,6 +1,6 @@
 # Play Scout — запуск на Windows и Mac
 
-Актуальная версия **4.1.4**. Для чистого запуска на Windows без истории: **[WINDOWS.md](WINDOWS.md)**. Используйте файлы `.cmd`: импорт только ключей — `9-Import-keys-only.cmd`, установка — `1-Install.cmd`, запуск — `2-Start.cmd`.
+Актуальная версия **4.2.0**. Обновить через код: [Mac M5](RELEASE_4_2_MAC.md), [Windows](RELEASE_4_2_WINDOWS.md). [Локальный GPU-агент и ферма](GPU_AGENT.md). Для чистого запуска на Windows без истории: **[WINDOWS.md](WINDOWS.md)**. Используйте файлы `.cmd`: импорт только ключей — `9-Import-keys-only.cmd`, установка — `1-Install.cmd`, запуск — `2-Start.cmd`.
 
 Для Mac полная инструкция находится в **[MAC.md](MAC.md)**:
 
