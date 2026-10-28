@@ -6,7 +6,7 @@ const $=s=>document.querySelector(s),el=(tag,text)=>Object.assign(document.creat
 const labels={active:'Рабочий список',new:'Новые',review:'На проверку',confirmed:'Подходит',watch:'Наблюдать',selected:'Итоговый список',licences:'Лицензии',excluded:'Исключены вручную',rejected:'Не подходит',auto_excluded:'Автоисключения',reference:'Материалы источников',source_archive:'Архив источников',all:'Все'};
 const sources={play:'Google Play',apple:'Архив App Store',web:'Веб-сервисы',social:'Публикации / реестры',watch:'Изменения / RSS',registers:'Реестры',regulators:'Регуляторы',youtube:'YouTube',gemini:'Gemini'};
 const facts={business:'Счёт для бизнеса',account:'Сервис предоставляет счёт / IBAN',euIban:'IBAN страны ЕС',utility:'Утилита или неподходящий продукт'},factLabels={yes:'Есть цитата',no:'Отрицательная цитата',unknown:'Не подтверждено'};
-let data,mode='active',reasonFilter='',limit=50,selectedId,dirty=false,busy=false,settingsReady=false,detailRow,poll,actionBusy=false,loading=null,writeActive=false,flushTimer;
+let data,mode='active',reasonFilter='',limit=50,selectedId,dirty=false,busy=false,settingsReady=false,detailRow,poll,actionBusy=false,loading=null,writeActive=false,flushTimer,lastRefreshError=null;
 const selected=new Set(),pending=new Map(),queued=new Map(),settledMutations=new Set(),noteDrafts=new Map();
 const lines=id=>$(id).value.split('\n').map(x=>x.trim()).filter(Boolean),checked=selector=>[...document.querySelectorAll(selector+':checked')].map(e=>e.value);
 const time=v=>v&&Number.isFinite(Date.parse(v))?new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Kaliningrad',dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'не указано';
@@ -49,7 +49,7 @@ function render(){
 async function post(path,body={}){return apiJSON(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
 async function refresh(force=false){
  if(loading){if(!force)return loading;await loading;return refresh();}
- const current=(async()=>{try{data=await apiJSON('/api/crm');for(const id of settledMutations)pending.delete(id);settledMutations.clear();render();return true;}catch(e){$('#error').textContent=e.message;return false;}finally{if(loading===current)loading=null;clearTimeout(poll);poll=setTimeout(()=>refresh(),busy?1800:7000);}})();loading=current;return current;
+ const current=(async()=>{try{data=await apiJSON('/api/crm');if(lastRefreshError&&$('#error').textContent===lastRefreshError.message)$('#error').textContent='';lastRefreshError=null;for(const id of settledMutations)pending.delete(id);settledMutations.clear();render();return true;}catch(e){lastRefreshError=e;$('#error').textContent=e.message;return false;}finally{if(loading===current)loading=null;clearTimeout(poll);poll=setTimeout(()=>refresh(),busy?1800:7000);}})();loading=current;return current;
 }
 async function action(fn){if(actionBusy||!canEdit())return;actionBusy=true;render();$('#error').textContent='';try{await fn();await refresh(true);}catch(e){$('#error').textContent=e.message;}finally{actionBusy=false;render();}}
 function queueExclusions(ids,reason){if(!canEdit())return;if(!Object.hasOwn(EXCLUSION_REASONS,reason)){$('#error').textContent='Выберите причину исключения в панели списка или карточке.';return;}for(const id of ids){if(pending.has(id))continue;pending.set(id,reason);queued.set(id,reason);selected.delete(id);}render();clearTimeout(flushTimer);flushTimer=setTimeout(flushExclusions,100);}

@@ -11,7 +11,7 @@ export async function apiJSON(path,options={}, {timeoutMs=40000,request=globalTh
   if(!response.ok)throw Object.assign(new Error(result.error||'Не удалось выполнить запрос.'),{status:response.status,activeJobId:result.activeJobId});
   return result;
  }catch(error){
-  if(timedOut)throw new Error(`Программа не ответила за ${Math.ceil(timeoutMs/1000)} с. Проверьте окно Терминала и обновите страницу: операция могла сохраниться.`,{cause:error});
+  if(timedOut){const write=!['GET','HEAD'].includes((options?.method??'GET').toUpperCase());throw Object.assign(new Error(write?`Программа не ответила за ${Math.ceil(timeoutMs/1000)} с. Проверьте окно Терминала и обновите страницу: операция могла сохраниться.`:`Не удалось обновить данные за ${Math.ceil(timeoutMs/1000)} с. Поиск может продолжаться. Обновите страницу и проверьте окно программы.`,{cause:error}),{code:'UI_TIMEOUT',requestPath:path,writeMayHaveSucceeded:write});}
   throw error;
  }finally{clearTimeout(timer);external?.removeEventListener('abort',abort);}
 }

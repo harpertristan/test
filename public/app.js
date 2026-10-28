@@ -97,6 +97,11 @@ function updateCountries() {
 }
 
 const api=apiJSON;
+let lastPollError=null;
+async function recoverActive(error){
+  if(error.status!==409&&error.code!=='UI_TIMEOUT')return false;
+  try{const active=await api('/api/active');if(!active)return false;view='latest';renderJob(active);$('#form-error').textContent='';try{localStorage.setItem(storageKey,active.id);}catch{}if(isBusyJob(active))pollTimer=setTimeout(poll,700);return true;}catch{return false;}
+}
 
 function cell(text, className) {
   const el = document.createElement("td");
@@ -438,12 +443,13 @@ async function poll() {
   try {
     const id=job?.id;if(!id)return;const next=await api(`/api/jobs/${id}`);
     if(job?.id!==id)return;
+    if(lastPollError&&$('#form-error').textContent===lastPollError)$('#form-error').textContent='';lastPollError=null;
     renderJob(next);
     if (isBusyJob(job)) pollTimer = setTimeout(poll, 1200);
     else void refreshMonitor();
   } catch (error) {
-    $("#form-error").textContent =
-      `${error.message} Обновите страницу, чтобы восстановить связь.`;
+    lastPollError=`${error.message} Обновите страницу, чтобы восстановить связь.`;
+    $("#form-error").textContent=lastPollError;
     if (isBusyJob(job)) pollTimer = setTimeout(poll, 5000);
   }
 }
@@ -471,7 +477,7 @@ $("#search-form").addEventListener("submit", async (event) => {
     renderJob(next);
     pollTimer = setTimeout(poll, 700);
   } catch (error) {
-    if(error.status===409){try{const active=await api('/api/active');if(active){view='latest';renderJob(active);pollTimer=setTimeout(poll,700);return;}}catch{}}
+    if(await recoverActive(error))return;
     $("#form-error").textContent = error.message;
     $("#search-button").disabled = false;
   }
@@ -666,7 +672,7 @@ async function init() {
 void init();
 
 $('#catalogue-preset').addEventListener('click',()=>{const current=readConfig();applyConfig({...defaults.cataloguePreset,excludeTerms:current.excludeTerms,excludeDomains:current.excludeDomains,excludeAppIds:current.excludeAppIds,seedApps:[...new Set([...defaults.cataloguePreset.seedApps,...current.seedApps])],from:defaults.from,to:defaults.to});$('#schedule-feedback').textContent='Каталог за всё время: все запросы по выбранным странам, рекомендации и разработчики. Сохраните расписание, если хотите использовать этот режим ежедневно.';});
-$('#continue-checks').addEventListener('click',async()=>{try{clearTimeout(pollTimer);view='latest';renderJob(await api('/api/backlog/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}));pollTimer=setTimeout(poll,700);}catch(error){$('#form-error').textContent=error.message;}});
+$('#continue-checks').addEventListener('click',async()=>{try{clearTimeout(pollTimer);view='latest';renderJob(await api('/api/backlog/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}));pollTimer=setTimeout(poll,700);}catch(error){if(!await recoverActive(error))$('#form-error').textContent=error.message;}});
 
 $('#early-preset').addEventListener('click',()=>{const old=readConfig();applyConfig({...defaults.earlyPreset,excludeTerms:old.excludeTerms,excludeDomains:old.excludeDomains,excludeAppIds:old.excludeAppIds});$('#schedule-feedback').textContent=`Раннее обнаружение: библиотека ${defaults.referenceCount} известных сервисов, без ограничения даты и порога установок, рекомендации. Известные примеры помечаются; сохраните расписание.`;});
 
