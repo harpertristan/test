@@ -1,3 +1,5 @@
+import {restoreKnownProjects} from './lib/known-projects.js';
+import {marketPolicy,validateMarketPolicy} from './lib/market-scope.js';
 import {autoExclusionAudit} from './lib/auto-exclusion-audit.js';
 import {createSourceWorkspace} from './lib/source-workspace.js';
 import {HARDWARE_PROFILES} from './lib/ai-config.js';
@@ -103,6 +105,10 @@ export function createApp({
     '/crm.js':['crm.js','text/javascript'],
     '/source-workspace-catalog.js':['../lib/source-workspace-catalog.js','text/javascript'],
     '/ai-config.js':['../lib/ai-config.js','text/javascript'],
+    '/known-projects.js':['../lib/known-projects.js','text/javascript'],
+    '/market-scope.js':['../lib/market-scope.js','text/javascript'],
+    '/crypto-scope.js':['../lib/crypto-scope.js','text/javascript'],
+    '/utility-evidence.js':['../lib/utility-evidence.js','text/javascript'],
     '/identity-names.js':['../lib/identity-names.js','text/javascript'],
     '/finding-order.js':['../lib/finding-order.js','text/javascript'],
     '/theme.js':['theme.js','text/javascript'],
@@ -206,7 +212,7 @@ export function createApp({
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
-        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{access,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:rows.map(({documents,translations,sourceDocuments,sourceDocumentsOriginal,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{access,marketPolicy:marketPolicy(store.state),sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:rows.map(({documents,translations,sourceDocuments,sourceDocumentsOriginal,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/auto-exclusions.json'){
         const report=autoExclusionAudit(store.state,{appVersion:APP_VERSION,selectedModel:aiReview.summary({counts:false}).model,now:clock?clock():new Date()});
@@ -304,6 +310,10 @@ export function createApp({
           return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now,body.reason??'other'):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
         }catch(e){return send(e.code==='PERSISTENCE_ERROR'?500:400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
       }
+      if(req.method==='POST'&&url.pathname==='/api/crm/market-policy'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Слишком большой запрос.'});}
+        try{const policy=validateMarketPolicy(JSON.parse(raw||'{}'));await store.update(d=>{d.crm.settings.marketPolicy=policy;for(const s of[d,d.web,d.social,d.watch,d.apple])Object.assign(s.schedule.filters,structuredClone(policy));});return send(200,policy);}catch(e){return send(400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
+      }
       if(req.method==='POST'&&url.pathname==='/api/crm/repair'){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         if(aiReview.active()||neural.summary()?.busy)return send(409,{error:'Остановите текущие задания перед перепроверкой сохранённого.'});
@@ -340,7 +350,7 @@ export function createApp({
         let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
         try{
           const input=JSON.parse(raw);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Некорректное исключение.');
-          if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);if(input.key.startsWith('crm:')&&d.crm?.records?.[input.key.slice(4)])d.crm.records[input.key.slice(4)].status='review';});return send(200,{exclusions:effectiveExclusions(store.state)});}
+          if(url.pathname.endsWith('/remove')){if(typeof input.key!=='string')throw new Error('Укажите исключение.');await store.update(d=>{restoreKnownProjects(d,[input.key]);d.manualExclusions=d.manualExclusions.filter(e=>e.key!==input.key);if(input.key.startsWith('crm:')&&d.crm?.records?.[input.key.slice(4)])d.crm.records[input.key.slice(4)].status='review';});return send(200,{exclusions:effectiveExclusions(store.state)});}
           const sections={company:{findings:groupedCandidates(store.state).filter(e=>e.id.startsWith('company:')),jobs:[]},inbox:{findings:store.state.ai.inbox,jobs:[]},play:store.state,social:store.state.social,web:store.state.web,watch:store.state.watch,apple:store.state.apple};const section=Object.hasOwn(sections,input.section)?sections[input.section]:null;
           if(!section||typeof input.id!=='string')throw new Error('Выберите запись из результатов.');
           const entries=[...section.findings,...(section.reviewCandidates??[]),...section.jobs.flatMap(j=>[...(j.results??[]),...(j.existingResults??[]),...(j.reviewCandidates??[])])];
@@ -431,7 +441,8 @@ export function createApp({
           if (["running","cancelling"].includes(job.status))
             return send(409, { error: "Дождитесь завершения поиска." });
           const rules=effectiveExclusions(store.state),schedule=control.summary({rules}).schedule,filters=Date.parse(schedule.savedAt??'')>Date.parse(job.createdAt)?schedule.filters:job.config;
-          let results=(url.searchParams.get('new')==='1'?job.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...job.results,...(job.existingResults??[])]).filter(e=>!manuallyExcluded(e,rules));
+          const visible=control.visibleJob(job);
+          let results=(url.searchParams.get('new')==='1'?visible.results.filter(e=>e.firstJobId===job.id&&!e.isReference):[...visible.results,...(visible.existingResults??[])]).filter(e=>!manuallyExcluded(e,rules));
           if(url.searchParams.get('all')!=='1')results=results.filter(entry=>eligibleFinding(entry,filters));
           return send(200, exportCSV({...job,results}), "text/csv; charset=utf-8", {
             "Content-Disposition": `attachment; filename="${web?"web-services":watch?"changes":social ? "social-signals" : "play-finance"}.csv"`,

@@ -1,3 +1,4 @@
+import {DISCOVERY_VERSION} from '../lib/discovery.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {memoryStore} from '../lib/store.js';
@@ -13,7 +14,7 @@ const noNetwork={configured:()=>false,search:async()=>{throw Error('Unexpected n
 function history(){
  const store=memoryStore(now),s=store.state;
  for(let i=0;i<271;i++){
-  const row={appId:'co.sample.app'+i,title:'Business '+i,url:'https://play.google.com/store/apps/details?id=co.sample.app'+i,developerWebsite:'https://sample'+i+'.example.eu',countries:['DE'],keywords:['business account'],screeningText:text,firstFoundAt:now.toISOString(),discovery:{version:2,status:i<85?'service_match':'needs_review'}};
+  const row={appId:'co.sample.app'+i,title:'Business '+i,url:'https://play.google.com/store/apps/details?id=co.sample.app'+i,developerWebsite:'https://sample'+i+'.example.eu',countries:['DE'],keywords:['business account'],screeningText:text,firstFoundAt:now.toISOString(),discovery:{version:DISCOVERY_VERSION,status:i<85?'service_match':'needs_review'}};
   (i<85?s.findings:s.reviewCandidates).push(row);
  }
  for(let i=0;i<40;i++)s.manualExclusions.push({key:'excluded'+i,kind:'app',value:'co.sample.app'+i});

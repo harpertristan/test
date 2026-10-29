@@ -326,7 +326,7 @@ test("legacy data migration is additive and preserves Play settings, runs and hi
   await writeFile(path, JSON.stringify(old));
   const loaded = await openStore(path, now);
   assert.deepEqual(loaded.state.findings, old.findings);
-  assert.deepEqual(loaded.state.schedule, old.schedule);
+  assert.deepEqual(loaded.state.schedule, {...old.schedule,filters:{...old.schedule.filters,referenceDiscovery:true}});
   assert.equal(loaded.state.social.schedule.time, "09:15");
   assert.equal(loaded.state.social.findings.length, 0);
   assert.equal(JSON.parse(await readFile(path, "utf8")).version, 1);

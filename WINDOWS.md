@@ -1,6 +1,8 @@
-# Play Scout 4.2.1 — Windows: перенос с Mac со всеми ключами
+# Play Scout 4.3.0 — Windows: перенос с Mac со всеми ключами
 
-**Обновление 4.2 в той же папке через код: [пошаговый блок PowerShell](RELEASE_4_2_WINDOWS.md). Для Windows / 32 ГБ RAM / NVIDIA 8 ГБ и шести RTX 2060 Super: [GPU_AGENT.md](GPU_AGENT.md).**
+**[Установить Windows с нуля: папки, ключи, NVIDIA и команды](INSTALL_WINDOWS.md).**
+
+**Обновление 4.3 в той же папке через код: [пошаговый блок PowerShell](RELEASE_4_3_WINDOWS.md). Для Windows / 32 ГБ RAM / NVIDIA 8 ГБ и шести RTX 2060 Super: [GPU_AGENT.md](GPU_AGENT.md).**
 
 Основная установка: Windows, Ollama и NVIDIA с видеопамятью 8 ГБ или больше. Для общей ссылки компьютер должен оставаться включённым, программа — работать. Отдельный сервер для этого сценария не нужен.
 

@@ -1,3 +1,4 @@
+import {DISCOVERY_VERSION} from '../lib/discovery.js';
 import {EventEmitter} from 'node:events';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -99,7 +100,7 @@ test('daily watch resumes and maintains a separate schedule and persisted baseli
  store=await openStore(file,now);clock=new Date(+now+86400000);current=text+' Business accounts now offer a German IBAN.';m=createMonitor({kind:'watch',store,autoSchedule:true,clock:()=>clock,delay:0,provider:{page:async()=>webpage(current)}});await m.tick();await m.idle();assert.equal(m.findings().length,1);assert.equal(store.state.findings.length,0);assert.equal(store.state.social.findings.length,0);await m.stop();
 });
 test('company grouping retains one app and marks name-based associations as unconfirmed',()=>{
- const s=initialState(now);s.schedule.filters.strictBanking=false;s.findings=[{appId:'com.stablecom.app',title:'Stable.com',developerWebsite:'https://stable.com',discovery:{version:2,status:'service_match'}}];s.social.schedule.filters.eventMode='signals';s.social.findings=[{id:'post:1',title:'Stable.com launches business accounts',url:'https://finextra.com/article/1',discovery:{version:2,status:'service_match'}}];const groups=companyGroups(s);assert.equal(groups.length,1);assert.equal(groups[0].items.length,2);assert.equal(groups[0].unconfirmedAssociations,1);
+ const s=initialState(now);s.schedule.filters.strictBanking=false;s.findings=[{appId:'com.stablecom.app',title:'Stable.com',developerWebsite:'https://stable.com',discovery:{version:DISCOVERY_VERSION,status:'service_match'}}];s.social.schedule.filters.eventMode='signals';s.social.findings=[{id:'post:1',title:'Stable.com launches business accounts',url:'https://finextra.com/article/1',discovery:{version:DISCOVERY_VERSION,status:'service_match'}}];const groups=companyGroups(s);assert.equal(groups.length,1);assert.equal(groups[0].items.length,2);assert.equal(groups[0].unconfirmedAssociations,1);
 });
 test('one action enables all four schedules; watch API, assets and CSV respect authentication',async t=>{
  const store=memoryStore(now);for(const s of [store.state,store.state.social,store.state.web,store.state.watch])s.schedule.enabled=false;

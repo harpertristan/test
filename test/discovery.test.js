@@ -10,6 +10,7 @@ import {memoryStore,openStore,initialState} from '../lib/store.js';
 import {createMonitor} from '../lib/monitor.js';
 import {createApp} from '../server.js';
 import {LAUNCH_QUERIES} from '../lib/source-catalog.js';
+import {FOCUSED_PUBLICATION_QUERIES} from '../lib/focused-search.js';
 import {SOCIAL_QUERIES,BUSINESS_SOCIAL_QUERIES,validateSocialConfig} from '../lib/social-search.js';
 const now=new Date('2026-10-19T12:00:00Z');
 const fixtures=JSON.parse(await readFile(new URL('./fixtures/play-examples.json',import.meta.url),'utf8')).apps;
@@ -63,13 +64,13 @@ test('extra Play IDs from Brave are source-restricted and do not replace Google 
  await runSearch(job,{search:async()=>[],app:async()=>stable,research:{configured:()=>true,search:async()=>{calls++;return [{url:'https://play.google.com/store/apps/details?id=com.stablecom.app'},{url:'https://play.google.com.attacker.test/store/apps/details?id=evil.fake'}];}}},{delay:0});
  assert.equal(job.results.length,1);assert.equal(job.results[0].appId,stable.appId);assert.deepEqual(job.results[0].discoverySources,['webIndex']);assert.equal(calls,3);assert.equal(job.braveRequests,3); // two index lookups and one official-site evidence lookup
 });
-test('migration switches legacy search to the examples profile while preserving history, countries and custom exclusions',async t=>{
+test('migration focuses legacy search, keeps selected countries plus RO/SK/SI and preserves history and custom exclusions',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'profile-migrate-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'state.json');
  const old=initialState(now);old.schedule.filters={keywords:['старый запрос'],countries:['DE','LT'],minInstalls:100,limit:100,excludeTerms:['My exclusion'],excludeAppIds:['ignore.app'],excludeDomains:['bad.example']};old.findings=[{appId:'saved.old',title:'Saved'}];
  assert.deepEqual(old.social.schedule.filters.queries,LAUNCH_QUERIES);delete old.social.schedule.filters.profile;delete old.social.schedule.filters.eventMode;old.social.schedule.filters.queries=SOCIAL_QUERIES;
  await writeFile(file,JSON.stringify(old));const store=await openStore(file,now),filters=store.state.schedule.filters;
- assert.equal(filters.profile,'business');assert.equal(filters.releaseMonths,12);assert.equal(filters.minInstalls,0);assert.equal(filters.strictBanking,false);assert.deepEqual(filters.countries,['DE','LT']);assert.deepEqual(filters.excludeTerms,['My exclusion']);assert.deepEqual(filters.excludeAppIds,['ignore.app']);assert.equal(store.state.findings[0].appId,'saved.old');
- assert.deepEqual(store.state.social.schedule.filters.queries,LAUNCH_QUERIES);assert.deepEqual(validateSocialConfig({profile:'business',queries:['my custom query']},now).queries,['my custom query']);
+ assert.equal(filters.profile,'business');assert.equal(filters.releaseMonths,12);assert.equal(filters.minInstalls,0);assert.equal(filters.strictBanking,false);assert.deepEqual(filters.countries,['DE','LT','RO','SK','SI']);assert.deepEqual(filters.excludeTerms,['My exclusion']);assert.deepEqual(filters.excludeAppIds,['ignore.app']);assert.equal(store.state.findings[0].appId,'saved.old');
+ assert.deepEqual(store.state.social.schedule.filters.queries,FOCUSED_PUBLICATION_QUERIES);assert.deepEqual(validateSocialConfig({profile:'business',queries:['my custom query']},now).queries,['my custom query']);
  const again=await openStore(file,now);assert.deepEqual(again.state.schedule.filters,filters);
 });
 test('daily business schedule preserves a 12-month window and deduplicates apps across runs',async()=>{

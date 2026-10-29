@@ -20,8 +20,8 @@ const listing={appId:'com.ai.business',title:'New Business Bank',url:'https://pl
 const page={page:async url=>({url,title:'Business',text,body:'<p>'+text+'</p>'})};
 function fixture(patch={}){const store=patch.store??memoryStore(now);store.state.findings.push({...listing});let calls=0;const provider={configured:()=>true,model:'fixture-model',assess:async({documents})=>{calls++;return {assessment:answer(documents.find(d=>d.kind==='official_page')?.id??'s1'),model:'fixture-model',usage:{inputTokens:100,outputTokens:50}};},...patch.provider};return {store,provider,monitor:createAIReview({store,provider,pages:patch.pages??page,clock:patch.clock??(()=>now),...patch.options}),calls:()=>calls};}
 
-test('37 user examples retain supplied links and never invent URLs for name-only references',()=>{
- assert.equal(REFERENCE_LIBRARY.length,37);assert.equal(REFERENCE_LIBRARY.find(r=>r.name==='Unlimit').url,null);assert.equal(REFERENCE_LIBRARY.find(r=>r.name==='PhotonPay').domain,'photonpay.com');assert.ok(REFERENCE_LIBRARY.every(r=>r.evidenceStatus==='user_reference'));
+test('64 user examples retain supplied links and never invent URLs for name-only references',()=>{
+ assert.equal(REFERENCE_LIBRARY.length,64);assert.equal(REFERENCE_LIBRARY.find(r=>r.name==='Unlimit').url,null);assert.equal(REFERENCE_LIBRARY.find(r=>r.name==='PhotonPay').domain,'photonpay.com');assert.ok(REFERENCE_LIBRARY.every(r=>r.evidenceStatus==='user_reference'));
  const config=validateConfig(earlyPreset(['AT']),now);assert.equal(exclusion({genreId:'FINANCE',free:true,price:0,minInstalls:0},config),null);
  const first=referenceQueries(config,now),next=referenceQueries(config,new Date(+now+86400000));assert.equal(first.length,REFERENCE_LIBRARY.filter(r=>!r.name.includes('название уточнить')).length);assert.deepEqual(first,next);
 });
@@ -31,6 +31,7 @@ test('early mode stores a known example without claiming it as a new independent
 });
 test('site collection follows only real same-domain product links and avoids sign-in pages',async()=>{
  const urls=evidenceLinks('<a href="/faq">IBAN FAQ</a><a href="/registration">Business account</a><a href="https://evil.example/iban">IBAN</a><a href="/business">Business</a>','https://newbank.example.eu/');assert.deepEqual(urls,['https://newbank.example.eu/business','https://newbank.example.eu/faq']);
+ assert.deepEqual(evidenceLinks('<a href="/business">Business</a><a href="/business/accounts">Accounts</a><a href="/about-us">Company</a>','https://newbank.example.eu/'),['https://newbank.example.eu/business','https://newbank.example.eu/about-us'],'one identity page fits within the existing two-link budget');
  const seen=[],controller=new AbortController();let indexCalls=0;
  const result=await collectEvidence({...listing,section:'play',developerWebsite:'https://newbank.example.eu/identity/register'},{mode:'full',signal:controller.signal,pages:{page:async url=>{seen.push(url);return{url,text,body:'<a href="/faq">FAQ</a>'};}},index:{configured:()=>true,search:async()=>{indexCalls++;return[];}}});assert.equal(seen[0],'https://newbank.example.eu/');assert.equal(indexCalls,0);assert.equal(result.documents.length,3);
 });
@@ -76,7 +77,7 @@ test('upgrade and interrupted review recovery preserve history, quotas and disab
 });
 test('AI and example APIs use existing authentication, cross-site and JSON guards',async t=>{
  const f=fixture();const server=createApp({store:f.store,aiProvider:f.provider,aiPages:page,password:'test-private'});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>shutdownApp(server));const base=`http://127.0.0.1:${server.address().port}`,headers={Authorization:'Basic '+Buffer.from('admin:test-private').toString('base64'),'Content-Type':'application/json'};
- assert.equal((await fetch(base+'/api/ai/results')).status,401);assert.equal((await fetch(base+'/review')).status,401);assert.equal((await(await fetch(base+'/api/references',{headers})).json()).length,37);
+ assert.equal((await fetch(base+'/api/ai/results')).status,401);assert.equal((await fetch(base+'/review')).status,401);assert.equal((await(await fetch(base+'/api/references',{headers})).json()).length,64);
  assert.equal((await fetch(base+'/api/ai/start',{method:'POST',headers:{...headers,'Sec-Fetch-Site':'cross-site'},body:'{}'})).status,403);assert.equal((await fetch(base+'/api/ai/config',{method:'POST',headers,body:'{"monthlyLimit":0}'})).status,200);
  const response=await fetch(base+'/api/ai/start',{method:'POST',headers,body:'{}'});assert.equal(response.status,202);await server.aiReview.idle();assert.equal((await(await fetch(base+'/api/ai/results',{headers})).json())[0].decision,'match');
 });
@@ -95,7 +96,7 @@ test('a reference name grounded in the listing is marked known and removed from 
  f.store.state.findings[0].screeningText='Bankera offers corporate accounts.';f.store.state.ai.newIds=['company:newbank.example.eu'];await f.monitor.startJob();await f.monitor.idle();assert.equal(f.monitor.results()[0].reference,'Bankera');assert.deepEqual(f.store.state.ai.newIds,[]);assert.equal(dueReviews(f.store.state,f.provider.model,now).length,0);
 });
 
-test('four freshly observed user examples keep their real Play identities; Breinrock is retained without inventing missing IBAN proof',async()=>{
+test('four user examples retain their Play identities; generic IBAN alone never establishes European scope',async()=>{
  const {assessDiscovery}=await import('../lib/discovery.js');const {assessBanking}=await import('../lib/qualification.js');const rows=JSON.parse(await readFile(new URL('./fixtures/play-reference-updates.json',import.meta.url),'utf8')).apps;
- for(const app of rows){const c=earlyPreset(['DE']),docs=[{title:app.title,text:app.description,url:`https://play.google.com/store/apps/details?id=${app.appId}`}],assessment=assessDiscovery(docs,c,assessBanking(docs,c),app.appId);assert.equal(assessment.status,app.title==='Breinrock'?'needs_review':'service_match',app.title);assert.equal(assessment.euIban,'unknown');assert.ok(REFERENCE_LIBRARY.some(e=>e.appIds.includes(app.appId)));}
+ for(const app of rows){const c=earlyPreset(['DE']),docs=[{title:app.title,text:app.description,url:`https://play.google.com/store/apps/details?id=${app.appId}`}],assessment=assessDiscovery(docs,c,assessBanking(docs,c),app.appId);assert.equal(assessment.status,app.title==='Unlimit'?'service_match':'needs_review',app.title);assert.equal(assessment.euIban,'unknown');assert.ok(REFERENCE_LIBRARY.some(e=>e.appIds.includes(app.appId)));}
 });

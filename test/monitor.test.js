@@ -213,7 +213,7 @@ test("crash recovery retains a checkpointed finding and retries the interrupted 
   await recovered.idle();
   const retry = [...recovered.jobs.values()].at(-1);
   assert.equal(retry.results.length, 0);
-  assert.equal(retry.skipped.previouslySeen, 1);
+  assert.ok(retry.skipped.previouslySeen >= 1);assert.equal(retry.existingResults.length,1);
 });
 
 test("corrupt history is never silently reset or overwritten", async (t) => {
