@@ -1,4 +1,4 @@
-# Play Scout 4.2.0 — Windows: перенос с Mac со всеми ключами
+# Play Scout 4.2.1 — Windows: перенос с Mac со всеми ключами
 
 **Обновление 4.2 в той же папке через код: [пошаговый блок PowerShell](RELEASE_4_2_WINDOWS.md). Для Windows / 32 ГБ RAM / NVIDIA 8 ГБ и шести RTX 2060 Super: [GPU_AGENT.md](GPU_AGENT.md).**
 
