@@ -1140,3 +1140,8 @@ summary {
 .standalone>main{margin-left:0}
 
 .channel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin:16px 0}.channel-card{border:1px solid #bacfc1;border-radius:10px;padding:14px;min-width:0}.channel-card h3{font-size:16px;overflow-wrap:anywhere}.channel-card p{font-size:13px;overflow-wrap:anywhere}.channel-card label{display:flex;align-items:center;gap:8px;margin:10px 0}.channel-card input[type=checkbox]{width:auto}.channel-card input[type=time]{width:100%}.channel-card>a{display:block;margin-top:10px}.channel-card .crm-actions{flex-wrap:wrap}.channel-card button{font-size:12px;padding:8px 10px}#database-source,#local-endpoints,#local-model,#channel-query{width:100%}[hidden]{display:none!important}
+
+.crm-row-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch;}
+
+@media(max-width:850px){.crm-row-actions{grid-column:2;max-width:100%;}}
+[data-access=viewer] .crm-row-actions{display:none;}
