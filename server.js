@@ -1,3 +1,4 @@
+import {createCRMReader} from './lib/crm-reader.js';
 import {resetForReview} from './lib/review-cycle.js';
 import {restoreKnownProjects} from './lib/known-projects.js';
 import {marketPolicy,validateMarketPolicy} from './lib/market-scope.js';
@@ -96,10 +97,12 @@ export function createApp({
   const webMonitor=createMonitor({provider:socialProvider,kind:'web',store,delay:socialDelay,autoSchedule,clock,tickInterval,requestTimeoutMs});
   const appleMonitor=createMonitor({provider:appStoreProvider,kind:'apple',store,delay:0,autoSchedule:false,clock,tickInterval,requestTimeoutMs});
   const selectedAI=reviewRouter({store,openai:aiProvider,ollama:localAIProvider,gemini:cloudGeminiProvider,llamacpp:llamaProvider});
-  const aiReview=createAIReview({store,provider:selectedAI,pages:aiPages,index:socialProvider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.isBusy()),tickInterval});
+  const aiReview=createAIReview({store,provider:selectedAI,pages:aiPages,index:socialProvider,playSource:provider,clock,autoSchedule,isDiscoveryBusy:()=>[monitor,webMonitor,socialMonitor,watchMonitor,appleMonitor].some(source=>source.isBusy()),tickInterval});
   const neural=createNeuralSearch({store,review:aiReview,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor,apple:appleMonitor},clock});
   aiReview.setCollector(options=>neural.start(options));
   const sourceWorkspace=createSourceWorkspace({store,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor},review:aiReview,clock,autoSchedule,tickInterval});
+  const crmReader=createCRMReader();
+  const readCRM=task=>crmReader.read(store.state,{now:calendarWindow(clock?clock():new Date()).to+'T12:00:00+02:00',model:aiReview.summary({counts:false}).model,models:selectedAI.forConfig(store.state.ai.config).models,braveConfigured:socialProvider.configured()},task);
   const sourceSummary=(control,options)=>{const summary=control.summary(options),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,successfulSearches:job.successfulSearches}:null};};
   const files = {
     '/crm':['crm.html','text/html'],
@@ -214,16 +217,19 @@ export function createApp({
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
-        const options={rules:effectiveExclusions(store.state)},rows=crmRows(store.state,options),aiStatus=aiReview.summary(options),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId);return send(200,{access,marketPolicy:marketPolicy(store.state),reviewCycle:store.state.crm.reviewCycle?{id:store.state.crm.reviewCycle.id,startedAt:store.state.crm.reviewCycle.startedAt,restored:store.state.crm.reviewCycle.restored,protectedCount:store.state.crm.reviewCycle.protectedCount,backupFile:store.state.crm.reviewCycle.backupFile}:null,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:rows.map(({documents,translations,sourceDocuments,sourceDocumentsOriginal,evidenceDocuments,screeningText,snippet,...r})=>({...r,documentCount:documents?.length??0,translationCount:translations?.length??0})),counts:rows.reduce((counts,r)=>(counts[r.status]=(counts[r.status]??0)+1,counts),{}),monitors:{play:sourceSummary(monitor,options),social:sourceSummary(socialMonitor,options),web:sourceSummary(webMonitor,options),watch:sourceSummary(watchMonitor,options)},ai:{...aiStatus,job:aiJob?{engine:aiJob.engine??'openai',status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors}:null},neural:neural.summary(),brave:braveBudget()});
+        const snapshot=await readCRM({kind:'snapshot'}),options={rules:Object.freeze([]),counts:false},aiStatus=aiReview.summary({counts:false}),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId),monitors={};
+        for(const [name,control]of Object.entries({play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor})){const live=sourceSummary(control,options);monitors[name]={...snapshot.monitors[name],...live,totalFindings:snapshot.monitors[name].totalFindings,totalCandidates:snapshot.monitors[name].totalCandidates,legacyFindings:snapshot.monitors[name].legacyFindings};}
+        return send(200,{access,marketPolicy:marketPolicy(store.state),reviewCycle:store.state.crm.reviewCycle?{id:store.state.crm.reviewCycle.id,startedAt:store.state.crm.reviewCycle.startedAt,restored:store.state.crm.reviewCycle.restored,protectedCount:store.state.crm.reviewCycle.protectedCount,backupFile:store.state.crm.reviewCycle.backupFile}:null,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:snapshot.rows,counts:snapshot.counts,manualReview:{count:snapshot.manualCount,remaining:store.state.ai.manualBatch?.remainingIds?.length??0,createdAt:store.state.ai.manualBatch?.createdAt,total:store.state.ai.manualBatch?.candidateIds?.length??0},monitors,ai:{...aiStatus,...snapshot.ai,job:aiJob?{engine:aiJob.engine??'openai',scope:aiJob.scope,status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors,workers:aiJob.workers,remaining:aiJob.remainingIds?.length??0}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/auto-exclusions.json'){
         const report=autoExclusionAudit(store.state,{appVersion:APP_VERSION,selectedModel:aiReview.summary({counts:false}).model,now:clock?clock():new Date()});
         return send(200,JSON.stringify(report,null,2),'application/json; charset=utf-8',{'Content-Disposition':'attachment; filename="play-scout-auto-exclusions.json"','Cache-Control':'no-store'});
       }
-      if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=crmRows(store.state).find(r=>r.id===url.searchParams.get('id'));return send(row?200:404,row??{error:'Запись не найдена.'});}
+      if(req.method==='GET'&&url.pathname==='/api/crm/item'){const row=await readCRM({kind:'detail',id:url.searchParams.get('id')});return send(row?200:404,row??{error:'Запись не найдена.'});}
       if(req.method==='GET'&&['/api/crm/export.csv','/api/crm/export.docx','/api/crm/chat.json'].includes(url.pathname)){
-        const rows=crmExport(store.state,{status:url.searchParams.get('status')??'active',q:url.searchParams.get('q')??'',licenceType:url.searchParams.get('licenceType')??'both',reason:url.searchParams.get('reason')??'',sort:url.searchParams.get('sort')??'event_desc',source:url.searchParams.get('source')??''});
-        const type=url.pathname.endsWith('.csv')?'csv':url.pathname.endsWith('.docx')?'docx':'json';const body=type==='csv'?crmCSV(rows):type==='docx'?crmDOCX(rows):JSON.stringify(chatPacket(rows,{appVersion:APP_VERSION,validationPolicyVersion:store.state.ai.validationPolicyVersion,filters:Object.fromEntries(url.searchParams),lastRepair:store.state.ai.lastRepair,manualExclusionCount:store.state.manualExclusions.length,ai:{engine:store.state.ai.config.engine,mode:store.state.ai.config.mode,ollamaModel:store.state.ai.config.ollamaModel,geminiModel:store.state.ai.config.geminiModel}}),null,2);
+        const type=url.pathname.endsWith('.csv')?'csv':url.pathname.endsWith('.docx')?'docx':'json';
+        const value=await readCRM({kind:'export',format:type,options:{status:url.searchParams.get('status')??'active',q:url.searchParams.get('q')??'',licenceType:url.searchParams.get('licenceType')??'both',reason:url.searchParams.get('reason')??'',sort:url.searchParams.get('sort')??'event_desc',source:url.searchParams.get('source')??''},metadata:{appVersion:APP_VERSION,filters:Object.fromEntries(url.searchParams),validationPolicyVersion:store.state.ai.validationPolicyVersion,lastRepair:store.state.ai.lastRepair,manualExclusionCount:store.state.manualExclusions.length,ai:{engine:store.state.ai.config.engine,mode:store.state.ai.config.mode}}});
+        const body=type==='docx'?Buffer.from(value):type==='json'?JSON.stringify(value,null,2):value;
         return send(200,body,type==='csv'?'text/csv; charset=utf-8':type==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/json; charset=utf-8',{'Content-Disposition':`attachment; filename="play-scout-crm.${type}"`});
       }
       if(req.method==='GET'&&apple&&apiPath==='/api/defaults')return send(200,{preset:validateAppleConfig(),categories:APPLE_CATEGORIES});
@@ -316,6 +322,16 @@ export function createApp({
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Слишком большой запрос.'});}
         try{const policy=validateMarketPolicy(JSON.parse(raw||'{}'));await store.update(d=>{d.crm.settings.marketPolicy=policy;for(const s of[d,d.web,d.social,d.watch,d.apple])Object.assign(s.schedule.filters,structuredClone(policy));});return send(200,policy);}catch(e){return send(400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
       }
+      if(req.method==='POST'&&url.pathname==='/api/crm/manual/start'){
+        if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
+        let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
+        try{const input=JSON.parse(raw||'{}');if(input.resume!==undefined&&typeof input.resume!=='boolean')throw Error('Проверьте режим продолжения.');
+          if(aiReview.active())return send(409,{error:'Проверка ИИ уже идёт. Дождитесь завершения или остановите её.'});
+          let ids=await readCRM({kind:'manual'});if(input.resume){const pending=new Set(store.state.ai.manualBatch?.remainingIds??[]);ids=ids.filter(id=>pending.has(id));}
+          if(!ids.length)return send(409,{error:input.resume?'Нет оставшихся карточек для продолжения.':'В ручной очереди нет доступных карточек.'});
+          const job=await aiReview.startJob({ids,manualAll:true,reuseSaved:false});sourceWorkspace.analysisResumed();return send(202,job);
+        }catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:error.status??400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
+      }
       if(req.method==='POST'&&url.pathname==='/api/crm/reset-review'){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         if(aiReview.active()||neural.summary()?.busy||sourceWorkspace.summary().busy||[monitor,socialMonitor,webMonitor,watchMonitor].some(m=>m.isBusy()))return send(409,{error:'Остановите текущие задания перед возвратом всей базы на проверку.'});
@@ -335,7 +351,7 @@ export function createApp({
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         if(aiReview.active())return send(409,{error:'Остановите текущий разбор перед тестом.'});
         const config=store.state.ai.config;if(['ollama','llamacpp'].includes(config.engine))return send(400,{error:'Выберите Gemini или OpenAI для облачной проверки.'});
-        const provider=selectedAI.forConfig(config);if(!provider.configured())return send(503,{error:'Ключ выбранного ИИ не задан. Добавьте его через 4-Keys.cmd и перезапустите программу.'});
+        const provider=selectedAI.forConfig({...config,engine:config.engine==='hybrid'?'openai':config.engine});if(!provider.configured())return send(503,{error:'Ключ выбранного ИИ не задан. Добавьте его через 4-Keys.cmd и перезапустите программу.'});
         const usageKey=config.engine==='gemini'?'geminiUsage':'usage',month=budgetMonth();
         await store.update(d=>{d.ai[usageKey]??={};const u=d.ai[usageKey][month]??={attempts:0,inputTokens:0,outputTokens:0};u.attempts++;});
         try{const result=await provider.assess({title:'Connection test',documents:[{id:'s1',url:'https://example.com/',kind:'third_party',text:'Connection test. No product or account facts are supplied.'}],translateRu:false,mode:'economy'},{signal:AbortSignal.timeout(35000)});await store.update(d=>{const u=d.ai[usageKey][month];u.inputTokens+=result.usage.inputTokens;u.outputTokens+=result.usage.outputTokens;});return send(200,{ok:true,model:result.model});}catch{return send(503,{error:'Выбранный облачный ИИ не вернул ответ. Проверьте ключ, доступность модели и квоту в кабинете провайдера.'});}
@@ -469,6 +485,7 @@ export function createApp({
   server.watchMonitor=watchMonitor;
   server.webMonitor=webMonitor;
   server.aiReview=aiReview;
+  server.crmReader=crmReader;
   server.neural=neural;
   server.sourceWorkspace=sourceWorkspace;
   server.on("listening", () => {
@@ -500,6 +517,7 @@ export async function shutdownApp(server){
   await server.neural.stop();
   const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
   await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.appleMonitor.stop(),server.aiReview.stop()]);
+  await server.crmReader?.stop();
   server.closeAllConnections();
   await closed;
 }

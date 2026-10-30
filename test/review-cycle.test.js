@@ -1,3 +1,4 @@
+import {manuallyExcluded,effectiveExclusions} from '../lib/manual-exclusions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,readdir,rm,stat} from 'node:fs/promises';
@@ -6,7 +7,7 @@ import {join} from 'node:path';
 import {memoryStore,openStore} from '../lib/store.js';
 import {resetForReview,freshFinding} from '../lib/review-cycle.js';
 import {seedKnownProjects} from '../lib/known-projects.js';
-import {crmRows,crmExport,editCRM} from '../lib/crm.js';
+import {crmRows,crmExport,editCRM,bulkCRM} from '../lib/crm.js';
 import {groupedCandidates,storeInbox,inboxEntry} from '../lib/neural-inbox.js';
 import {createAIReview,dueReviews,collectEvidence} from '../lib/ai-review.js';
 import {createApp,shutdownApp} from '../server.js';
@@ -68,4 +69,9 @@ test('simultaneous card analyses share an in-flight canonical page fetch',async(
  const review=createAIReview({store:s,clock:()=>now,pages:{page:async url=>{calls.set(url,(calls.get(url)??0)+1);if(url==='https://first.eu/'||url==='https://second.eu/')return{url:'https://shared.eu/',text:'Business accounts.',body:'<a href="/business">Business</a><a href="/about">About</a>'};await gate;return{url,text:description,body:''};}},provider:{configured:()=>true,model:'offline',assess:async()=>({assessment:{},model:'offline',usage:{inputTokens:0,outputTokens:0}})}});
  try{await review.startJob({mode:'full'});for(let i=0;i<200&&!calls.has('https://shared.eu/about');i++)await new Promise(r=>setImmediate(r));assert.equal(calls.get('https://first.eu/'),1);assert.equal(calls.get('https://second.eu/'),1);assert.equal(calls.get('https://shared.eu/business'),1);assert.equal(calls.get('https://shared.eu/about'),1);}finally{release();await review.idle();await review.stop();}
  assert.equal(s.state.ai.results.length,2);
+});
+
+test('a restored name-only project can be excluded globally and stays excluded in the manual batch',()=>{
+ const s=memoryStore(now);s.state.crm.reviewEntries=[{id:'registry:name-origin',recheckId:'registry:name-origin',title:'Name only provider',originSection:'web',registryOnly:true,documents:[],targets:[]}];resetForReview(s.state,{now});
+ const row=crmRows(s.state).find(r=>r.title==='Name only provider');assert.ok(row);bulkCRM(s.state,{ids:[row.id],action:'exclude',reason:'not_provider'},now);assert.equal(crmRows(s.state).find(r=>r.id===row.id).status,'excluded');assert.ok(manuallyExcluded({title:'Name only provider'},effectiveExclusions(s.state)));
 });

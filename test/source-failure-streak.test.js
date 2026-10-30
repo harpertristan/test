@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{memoryStore}from'../lib/store.js';import{createMonitor}from'../lib/monitor.js';
+for(const kind of['web','social'])test(kind+' stops repeated malformed/network failures after three consecutive errors and retains successful partial state',async()=>{
+ const store=memoryStore(),config={...store.state[kind].schedule.filters,queries:['business IBAN new provider','business account EUR launch','corporate IBAN startup','SEPA account new company'],sources:['finextra'],referenceDiscovery:false},monitor=createMonitor({kind,store,delay:0,provider:{configured:()=>true,search:async()=>{calls++;if(calls===1)return[];throw new Error('Malformed backend response with private content');}}});let calls=0;
+ const job=await monitor.startJob(config);await monitor.idle();assert.equal(calls,4);assert.equal(job.status,'partial');assert.equal(job.successfulSearches,1);assert.ok(job.errors.some(e=>e.code==='SOURCE_UNAVAILABLE'));assert.ok(!JSON.stringify(job.errors).includes('private content'));await monitor.stop();
+});
