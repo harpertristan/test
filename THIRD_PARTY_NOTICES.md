@@ -1,6 +1,9 @@
 # google-play-scraper
 
-`lib/play-catalogue.js` adapts the search parser from google-play-scraper 10.1.4.
+`lib/play-catalogue.js` and the field mappings / pagination in
+`lib/play-store/` adapt google-play-scraper 10.1.4. Play Scout does not install
+or import that package. Its JavaScript evaluation and dependency throttle are
+not retained. Embedded data is parsed with JSON5 as bounded literals only.
 
 The MIT License (MIT)
 

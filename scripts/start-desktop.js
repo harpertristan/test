@@ -17,10 +17,11 @@ if(old?.status==='ok'&&old.source==='Google Play'){
 }
 else if(old?.busy){console.error('Локальный порт занят или программа не отвечает. Остановите прежний экземпляр перед запуском.');process.exitCode=1;}
 else{
- const child=fork(resolve(root,'server.js'),[],{cwd:root,stdio:['inherit','inherit','inherit','ipc'],env:{...process.env,HOST:process.env.HOST||(process.env.APP_PASSWORD?'0.0.0.0':'127.0.0.1')}});
+ const child=fork(resolve(root,'server.js'),[],{cwd:root,execArgv:[...process.execArgv,'--disallow-code-generation-from-strings'],stdio:['inherit','inherit','inherit','ipc'],env:{...process.env,HOST:process.env.HOST||(process.env.APP_PASSWORD?'0.0.0.0':'127.0.0.1')}});
  let timer,stopping=false,opened=false;const started=Date.now();
  const stop=()=>{if(stopping)return;stopping=true;clearInterval(timer);if(child.connected)child.send({type:'shutdown'});const deadline=setTimeout(()=>child.kill(),10000);deadline.unref();};
  process.on('SIGINT',stop);process.on('SIGTERM',stop);
- timer=setInterval(async()=>{if(opened||stopping)return;const result=await health();if(result?.status==='ok'&&result.source==='Google Play'){opened=true;clearInterval(timer);open();console.log('Программа готова. Для завершения используйте Control+C или '+(process.platform==='darwin'?'5-Остановить.command':'3-Stop.cmd')+'.');}else if(Date.now()-started>30000){clearInterval(timer);console.log('Запуск занимает больше времени. Проверьте сообщения выше. Адрес: '+url);}},300);
- child.on('exit',code=>{clearInterval(timer);process.exitCode=code??0;});
+ timer=setInterval(async()=>{if(opened||stopping)return;const result=await health();if(opened||stopping)return;if(result?.status==='ok'&&result.source==='Google Play'){opened=true;clearInterval(timer);open();console.log('Программа готова. Для завершения используйте Control+C или '+(process.platform==='darwin'?'5-Остановить.command':'3-Stop.cmd')+'.');}else if(Date.now()-started>30000){clearInterval(timer);console.log('Запуск занимает больше времени. Проверьте сообщения выше. Адрес: '+url);}},300);
+ child.once('error',error=>{clearInterval(timer);console.error('Не удалось запустить сервер Play Scout: '+error.message);process.exitCode=1;});
+ child.on('exit',(code,signal)=>{clearInterval(timer);if(signal){console.error('Сервер Play Scout завершён сигналом '+signal+'. Причину завершения нужно проверить в системном журнале; сохранённая база остаётся на диске.');process.exitCode=1;}else{process.exitCode=code??1;if(code)console.error('Сервер Play Scout завершился с кодом '+code+'. Сохраните сообщения выше.');else if(!stopping)console.log('Сервер Play Scout остановлен.');}});
 }

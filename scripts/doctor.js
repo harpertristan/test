@@ -9,8 +9,8 @@ catch(error){console.log(error.code==='ENOENT'?'Файл .env: отсутств�
 console.log(`Ключ Brave: ${process.env.BRAVE_SEARCH_API_KEY?'задан, проверьте кнопкой в приложении':'не задан'}`);
 console.log(`Ключ OpenAI: ${process.env.OPENAI_API_KEY?'задан, проверьте на вкладке «Нейронный поиск»':'не задан (необязателен)'}`);
 console.log(`Ключ Gemini: ${process.env.GEMINI_API_KEY?'задан, проверьте выбранный облачный ИИ в CRM':'не задан (необязателен)'}`);
-try{await access('node_modules/google-play-scraper');console.log('Зависимости: установлены');}
-catch{console.log('Зависимости: выполните npm ci');process.exitCode=1;}
+try{for(const name of ['json5','got','cheerio','ramda','tough-cookie','https-proxy-agent'])await access('node_modules/'+name);console.log('Зависимости: установлены. Google Play: разбор литералов без выполнения кода страницы.');}
+catch{console.log('Зависимости: выполните npm ci --ignore-scripts');process.exitCode=1;}
 try{
   const state=JSON.parse(await readFile(`${process.env.DATA_DIR || './data'}/state.json`,'utf8'));
   if(state?.version!==1 || !Array.isArray(state.findings) || !Array.isArray(state.jobs) || !state.schedule)throw new Error('Invalid history shape');

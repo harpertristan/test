@@ -10,7 +10,7 @@ fi
 PLAY_SCOUT_LOCK=$(shasum -a 256 package-lock.json | awk '{print $1}')
 PLAY_SCOUT_INSTALLED=$(cat .cache/install-lock 2>/dev/null || true)
 if [ ! -d node_modules ] || [ "$PLAY_SCOUT_LOCK" != "$PLAY_SCOUT_INSTALLED" ]; then
-  npm ci
+  npm ci --ignore-scripts
   mkdir -p .cache
   printf '%s' "$PLAY_SCOUT_LOCK" > .cache/install-lock
 fi

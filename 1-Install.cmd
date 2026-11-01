@@ -14,7 +14,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-call npm.cmd ci
+call npm.cmd ci --ignore-scripts
 if errorlevel 1 (
   echo Installation failed. Keep data and .env and check the error above.
   pause

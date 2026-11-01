@@ -14,7 +14,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist node_modules call npm.cmd ci
+if not exist node_modules call npm.cmd ci --ignore-scripts
 if errorlevel 1 (
   echo Dependency installation failed. Run 1-Install.cmd first.
   pause
