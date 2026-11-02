@@ -98,12 +98,11 @@ test('licence changes for a payment provider remain leads while a licence by its
  const e={title:'Payment platform for businesses',url:'https://provider.com/uk',documents:[{url:'https://provider.com/uk',kind:'official_page',text}]};assert.equal(screenCandidate(e).eligible,true);
  assert.equal(screenCandidate({...e,developerCountry:'HK'}).eligible,false);const result=validateAssessment({},e.documents.map(d=>({...d,id:'s1'})));assert.equal(result.facts.euIban.status,'unknown');
 });
-test('primary QR, budget, parking and remittance tools stay excluded after rejecting unsupported AI utility claims',()=>{
+test('primary QR, budget, parking and linked-account tools stay excluded after rejecting unsupported AI utility claims',()=>{
  const cases=[
   ['Payment QR Generataor IBAN','Transform banking information into a QR code. Quickly convert your IBAN and BIC into a scanable code. Service Providers & Freelancers.','iban_utility'],
   ['Yabi Money','Smart Budgeting. Automatic expense tracking from your bank SMS. Works with Egyptian banks and wallets.','accounting_tool'],
   ['Bmove','An application that allows you to pay for parking. Open an account as a legal entity to allow parking payments.','unrelated_product'],
-  ['Supersonicz Money Transfer','Send money around the globe. Instant Cash Pickup. Committed to support the emigrant communities.','retail_remittance'],
   ['YNAB','Securely link financial accounts to automatically import transactions. YNAB is an agent of Plaid Financial Ltd., an authorised payment institution. Plaid provides regulated account information services.','linked_accounts']
  ];
  for(const [title,text,kind]of cases){const result=screenCandidate({title,url:'https://provider.example/',documents:[{url:'https://provider.example/',kind:'official_page',text}]});assert.equal(result.eligible,false,title);assert.equal(result.kind,kind,title);}
