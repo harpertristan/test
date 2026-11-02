@@ -4,7 +4,7 @@ import{memoryStore}from'../lib/store.js';
 import{screenCandidate}from'../lib/screening.js';
 import{groupedCandidates}from'../lib/neural-inbox.js';
 import{createAIReview,dueReviews}from'../lib/ai-review.js';
-import{excludeCRM,restoreCRM}from'../lib/crm.js';
+import{excludeCRM,restoreCRM,crmRows}from'../lib/crm.js';
 import{apiJSON}from'../public/api.js';
 const text='Open business accounts with your German IBAN. Receive EUR and SEPA payments.',now=new Date('2026-10-28T12:00:00Z');
 function fixture(){const s=memoryStore(now);s.state.ai.inbox.push({id:'raw:413',section:'web',source:'web_service',title:'Acme',url:'https://speed413.example.eu/',developerWebsite:'https://speed413.example.eu/',screeningText:text,firstFoundAt:now.toISOString()});return s;}
@@ -14,7 +14,7 @@ test('text screening cache notices source, title and URL changes and cannot be c
  const form={title:'Licensing application forms',url:'https://www.amf-france.org/en/forms',documents:[{kind:'official_page',url:'https://www.amf-france.org/en/forms',text:'Wish to be licensed as an electronic money institution.'}]};assert.equal(screenCandidate(form).kind,'regulatory_reference');form.url='https://acme413.eu';form.title='Acme business account';form.documents[0].text=text;assert.equal(screenCandidate(form).eligible,true);
 });
 test('cached screening never caches manual exclusions, selected sources or the model review queue',async()=>{
- const s=fixture(),id=groupedCandidates(s.state)[0].id,ai=createAIReview({store:s,provider:{configured:()=>true,model:'offline'},pages:{}});assert.equal(ai.summary().due,1);excludeCRM(s.state,id,now,'worked');assert.equal(ai.summary().due,0);restoreCRM(s.state,id);assert.equal(ai.summary().due,1);s.state.ai.config.sources=['play'];assert.equal(ai.summary().due,0);s.state.ai.config.sources=['web'];assert.equal(ai.summary().due,1);await ai.stop();
+ const s=fixture(),id=groupedCandidates(s.state)[0].id,ai=createAIReview({store:s,provider:{configured:()=>true,model:'offline'},pages:{}});assert.equal(ai.summary().due,1);excludeCRM(s.state,id,now,'worked');assert.equal(ai.summary().due,0);restoreCRM(s.state,id);assert.equal(ai.summary().due,0);assert.equal(crmRows(s.state).find(r=>r.id===id).status,'review');const fresh=fixture(),normal=createAIReview({store:fresh,provider:{configured:()=>true,model:'offline'},pages:{}});assert.equal(normal.summary().due,1);fresh.state.ai.config.sources=['play'];assert.equal(normal.summary().due,0);fresh.state.ai.config.sources=['web'];assert.equal(normal.summary().due,1);await normal.stop();await ai.stop();
 });
 test('cheap AI status does not enumerate candidates and full counters share one candidate snapshot',async()=>{
  const s=fixture(),inbox=s.state.ai.inbox;let reads=0;Object.defineProperty(s.state.ai,'inbox',{enumerable:true,get(){reads++;return inbox;}});const ai=createAIReview({store:s,provider:{configured:()=>true,model:'offline'},pages:{}});

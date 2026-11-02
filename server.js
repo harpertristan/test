@@ -1,3 +1,4 @@
+import {learningSummary} from './lib/research-memory.js';
 import {createCRMReader} from './lib/crm-reader.js';
 import {resetForReview} from './lib/review-cycle.js';
 import {restoreKnownProjects} from './lib/known-projects.js';
@@ -107,7 +108,7 @@ export function createApp({
   const sourceWorkspace=createSourceWorkspace({store,monitors:{play:monitor,web:webMonitor,social:socialMonitor,watch:watchMonitor},review:aiReview,clock,autoSchedule,tickInterval});
   const crmReader=createCRMReader();
   const readCRM=task=>crmReader.read(store.state,{now:calendarWindow(clock?clock():new Date()).to+'T12:00:00+02:00',model:aiReview.summary({counts:false}).model,models:selectedAI.forConfig(store.state.ai.config).models,braveConfigured:socialProvider.configured()},task);
-  const sourceSummary=(control,options)=>{const summary=control.summary(options),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,successfulSearches:job.successfulSearches}:null};};
+  const sourceSummary=(control,options)=>{const summary=control.summary(options),job=control.active()??control.jobs.get(summary.latestJobId);return {...summary,lastJob:job?{status:job.status,searchDone:job.searchDone,searchTotal:job.searchTotal,detailDone:job.detailDone,detailTotal:job.detailTotal,current:job.current,request:job.request,errors:job.errors,ingestion:job.ingestion,successfulSearches:job.successfulSearches}:null};};
   const files = {
     '/crm':['crm.html','text/html'],
     '/crm.js':['crm.js','text/javascript'],
@@ -219,6 +220,7 @@ export function createApp({
           version: APP_VERSION,
           source: "Google Play",
           sourceCheck: "not-performed-by-health-endpoint",
+          storageError:store.lastPersistenceError??null,
           diagnostic,
           ...(manual?{manual:true}:{}),
         });
@@ -226,7 +228,7 @@ export function createApp({
       if(req.method==='GET'&&url.pathname==='/api/crm'){
         const snapshot=await readCRM({kind:'snapshot'}),options={rules:Object.freeze([]),counts:false},aiStatus=aiReview.summary({counts:false}),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId),monitors={};
         for(const [name,control]of Object.entries({play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor})){const live=sourceSummary(control,options);monitors[name]={...snapshot.monitors[name],...live,totalFindings:snapshot.monitors[name].totalFindings,totalCandidates:snapshot.monitors[name].totalCandidates,legacyFindings:snapshot.monitors[name].legacyFindings};}
-        return send(200,{access:{...access,canEdit:access.canEdit&&!diagnostic},runtime:{diagnostic,...(manual?{manual:true}:{})},historyCleanup:store.state.crm.historyCleanup??null,marketPolicy:marketPolicy(store.state),reviewCycle:store.state.crm.reviewCycle?{id:store.state.crm.reviewCycle.id,startedAt:store.state.crm.reviewCycle.startedAt,restored:store.state.crm.reviewCycle.restored,protectedCount:store.state.crm.reviewCycle.protectedCount,backupFile:store.state.crm.reviewCycle.backupFile}:null,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:snapshot.rows,counts:snapshot.counts,manualReview:{count:snapshot.manualCount,remaining:store.state.ai.manualBatch?.remainingIds?.length??0,createdAt:store.state.ai.manualBatch?.createdAt,total:store.state.ai.manualBatch?.candidateIds?.length??0},monitors,ai:{...aiStatus,...snapshot.ai,job:aiJob?{engine:aiJob.engine??'openai',scope:aiJob.scope,status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors,workers:aiJob.workers,remaining:aiJob.remainingIds?.length??0}:null},neural:neural.summary(),brave:braveBudget()});
+        return send(200,{access:{...access,canEdit:access.canEdit&&!diagnostic},runtime:{diagnostic,...(manual?{manual:true}:{})},learning:learningSummary(store.state),storage:{lastError:store.lastPersistenceError??null,checkpointWarning:store.persistenceStats?.lastCheckpointError??null},historyCleanup:store.state.crm.historyCleanup??null,marketPolicy:marketPolicy(store.state),reviewCycle:store.state.crm.reviewCycle?{id:store.state.crm.reviewCycle.id,startedAt:store.state.crm.reviewCycle.startedAt,restored:store.state.crm.reviewCycle.restored,protectedCount:store.state.crm.reviewCycle.protectedCount,backupFile:store.state.crm.reviewCycle.backupFile}:null,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:snapshot.rows,counts:snapshot.counts,reviewQueue:{count:snapshot.reviewableIds.length,remaining:(store.state.ai.manualBatch?.remainingIds??[]).filter(id=>snapshot.reviewableIds.includes(id)).length},manualReview:{count:snapshot.manualCount,remaining:store.state.ai.manualBatch?.remainingIds?.length??0,createdAt:store.state.ai.manualBatch?.createdAt,total:store.state.ai.manualBatch?.candidateIds?.length??0},monitors,ai:{...aiStatus,...snapshot.ai,job:aiJob?{engine:aiJob.engine??'openai',scope:aiJob.scope,status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors,workers:aiJob.workers,remaining:aiJob.remainingIds?.length??0}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/auto-exclusions.json'){
         const report=autoExclusionAudit(store.state,{appVersion:APP_VERSION,selectedModel:aiReview.summary({counts:false}).model,now:clock?clock():new Date()});
@@ -320,7 +322,7 @@ export function createApp({
             await store.update(d=>{for(const section of [d,d.apple,d.web,d.social,d.watch]){section.schedule.enabled=false;section.schedule.nextRunAt=null;}});
             void aiReview.tick();return send(200,{ok:true,time:config.time});
           }
-          if(url.pathname.endsWith('/stop')){await sourceWorkspace.cancelAll();await neural.cancel();await Promise.all([monitor,socialMonitor,webMonitor,watchMonitor,appleMonitor].map(c=>c.active()?c.cancel(c.active().id):Promise.resolve()));await aiReview.cancel();return send(200,{ok:true});}
+          if(url.pathname.endsWith('/stop')){const stopped=await Promise.allSettled([sourceWorkspace.cancelAll(),neural.cancel(),...[monitor,socialMonitor,webMonitor,watchMonitor,appleMonitor].map(c=>c.active()?c.cancel(c.active().id):Promise.resolve()),aiReview.cancel()]);const failure=stopped.find(r=>r.status==='rejected');if(failure)throw failure.reason;return send(200,{ok:true});}
           if(url.pathname.endsWith('/settings')){const presets={play:store.state.schedule,social:store.state.social.schedule,web:store.state.web.schedule,watch:store.state.watch.schedule,apple:store.state.apple.schedule};const c={play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor,apple:appleMonitor}[body.source];if(!c)throw new Error('Источник не найден.');return send(200,await c.saveSchedule({enabled:body.enabled??presets[body.source].enabled,time:body.time??presets[body.source].time,filters:{...presets[body.source].filters,...body.filters}}));}
           return send(200,await store.update(d=>url.pathname.endsWith('/exclude')?excludeCRM(d,body.id,now,body.reason??'other'):url.pathname.endsWith('/restore')?restoreCRM(d,body.id):editCRM(d,body,now)));
         }catch(e){return send(e.code==='PERSISTENCE_ERROR'?500:400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
@@ -329,12 +331,12 @@ export function createApp({
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Слишком большой запрос.'});}
         try{const policy=validateMarketPolicy(JSON.parse(raw||'{}'));await store.update(d=>{d.crm.settings.marketPolicy=policy;for(const s of[d,d.web,d.social,d.watch,d.apple])Object.assign(s.schedule.filters,structuredClone(policy));});return send(200,policy);}catch(e){return send(400,{error:e instanceof SyntaxError?'Некорректный JSON.':e.message});}
       }
-      if(req.method==='POST'&&url.pathname==='/api/crm/manual/start'){
+      if(req.method==='POST'&&['/api/crm/manual/start','/api/crm/triage/start'].includes(url.pathname)){
         if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'Ожидается JSON.'});
         let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'Слишком большой запрос.'});}
         try{const input=JSON.parse(raw||'{}');if(input.resume!==undefined&&typeof input.resume!=='boolean')throw Error('Проверьте режим продолжения.');
           if(aiReview.active())return send(409,{error:'Проверка ИИ уже идёт. Дождитесь завершения или остановите её.'});
-          let ids=await readCRM({kind:'manual'});if(input.resume){const pending=new Set(store.state.ai.manualBatch?.remainingIds??[]);ids=ids.filter(id=>pending.has(id));}
+          let ids=await readCRM({kind:url.pathname.includes('/triage/')?'triage':'manual'});if(input.resume){const pending=new Set(store.state.ai.manualBatch?.remainingIds??[]);ids=ids.filter(id=>pending.has(id));}
           if(!ids.length)return send(409,{error:input.resume?'Нет оставшихся карточек для продолжения.':'В ручной очереди нет доступных карточек.'});
           const job=await aiReview.startJob({ids,manualAll:true,reuseSaved:false});sourceWorkspace.analysisResumed();return send(202,job);
         }catch(error){return send(error.code==='PERSISTENCE_ERROR'?500:error.status??400,{error:error instanceof SyntaxError?'Некорректный JSON.':error.message});}
@@ -527,10 +529,9 @@ export async function shutdownApp(server){
   server.closeAllConnections();
   // Reject new mutations, then finish durable checkpoints before releasing the
   // port. The updater treats a closed port as permission to back up data.
-  await server.sourceWorkspace.stop();
-  await server.neural.stop();
-  await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.appleMonitor.stop(),server.aiReview.stop()]);
+  const stopped=await Promise.allSettled([server.sourceWorkspace.stop(),server.neural.stop(),server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.appleMonitor.stop(),server.aiReview.stop()]);
   await server.flushStore?.();
+  const failure=stopped.find(r=>r.status==='rejected');if(failure)throw failure.reason;
   const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
   await server.crmReader?.stop();
   server.closeAllConnections();

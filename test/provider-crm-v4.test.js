@@ -46,7 +46,7 @@ test('bulk exclusions use one derived snapshot and persist reasons, aliases, not
  let walks=0;const jobs=s.state.jobs;Object.defineProperty(s.state,'jobs',{configurable:true,enumerable:true,get(){walks++;return jobs;}});
  const result=bulkCRM(s.state,{ids,action:'exclude',reason:'worked'},now);assert.equal(result.updated,50);assert.equal(walks,1);
  const excluded=crmExport(s.state,{status:'excluded',reason:'worked'});assert.equal(excluded.length,50);assert.ok(excluded.every(r=>r.exclusionReason==='worked'));assert.equal(crmExport(s.state).length,10);assert.match(crmCSV(excluded),/Уже в работе/);assert.equal(chatPacket(excluded).records[0].exclusionReason,'Уже в работе / был в работе');
- bulkCRM(s.state,{ids:[ids[0]],action:'restore'});const restored=crmRows(s.state).find(r=>r.id===ids[0]);assert.equal(restored.notes,'Работали раньше');assert.equal(restored.status,'selected');
+ bulkCRM(s.state,{ids:[ids[0]],action:'restore'});const restored=crmRows(s.state).find(r=>r.id===ids[0]);assert.equal(restored.notes,'Работали раньше');assert.equal(restored.status,'review');assert.equal(restored.previousStatus,'selected');
  await s.update(d=>bulkCRM(d,{ids:[ids[1]],action:'exclude',reason:'location'},now));assert.equal(crmExport(s.state,{status:'excluded',reason:'location'}).length,1);
 });
 

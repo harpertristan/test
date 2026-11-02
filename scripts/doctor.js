@@ -1,5 +1,7 @@
-import {readFile,access} from 'node:fs/promises';
-import {readStoredState} from '../lib/state-journal.js';
+import {readFile,access,stat,statfs} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {resolve} from 'node:path';
+import {loadStoredState} from '../lib/state-journal.js';
 const packageData=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 console.log(`Play Scout ${packageData.version}`);
 console.log(`Node.js: ${process.versions.node}`);
@@ -13,7 +15,16 @@ console.log(`Ключ Gemini: ${process.env.GEMINI_API_KEY?'задан, пров
 try{for(const name of ['proper-lockfile','fast-json-patch','json5','got','cheerio','ramda','tough-cookie','https-proxy-agent'])await access('node_modules/'+name);console.log('Зависимости: установлены. Google Play: разбор литералов без выполнения кода страницы.');}
 catch{console.log('Зависимости: выполните npm ci --ignore-scripts');process.exitCode=1;}
 try{
-  const state=await readStoredState(`${process.env.DATA_DIR || './data'}/state.json`);
+  const storage=await loadStoredState(`${process.env.DATA_DIR || './data'}/state.json`),state=storage.state;
+  if(process.argv.includes('--storage')){
+   console.log('Проверка хранилища: только чтение, без изменения истории и API.');
+   const folder=resolve(process.env.DATA_DIR||'./data');
+   try{const disk=await statfs(folder);console.log('Свободно на диске: '+(disk.bavail*disk.bsize/1024**3).toFixed(2)+' ГБ');}catch(e){console.log('Свободное место: не удалось прочитать ('+(e.code??'UNKNOWN')+').');}
+   try{await access(folder,constants.W_OK);console.log('Права папки data: предварительная проверка записи пройдена; фактическая запись не выполнялась.');}catch(e){console.log('Права папки data: '+(e.code??'UNKNOWN'));}
+   console.log('Снимок: '+storage.snapshotBytes+' байт; журнал: '+storage.rawBytes+' байт; подтверждённая транзакция: '+storage.seq+'.');
+   console.log('Снимок и журнал: согласованы.'+(storage.rawBytes>storage.validBytes?' Последняя незавершённая строка не считается сохранённой транзакцией.':''));
+   try{await stat(resolve(folder,'state.json.lock'));console.log('Блокировка записи: найдена; сама по себе не доказывает наличие второго экземпляра.');}catch(e){console.log(e.code==='ENOENT'?'Блокировка записи: сейчас отсутствует.':'Блокировка записи: '+(e.code??'UNKNOWN'));}
+  }
   if(state?.version!==1 || !Array.isArray(state.findings) || !Array.isArray(state.jobs) || !state.schedule)throw new Error('Invalid history shape');
   console.log(`История: ${state.findings?.length ?? 0} приложений, ${state.reviewCandidates?.length ?? 0} кандидатов`);
   if(state.ai?.config?.engine==='llamacpp')console.log('GPU-серверы: '+state.ai.config.localEndpoints.join(', ')+'; alias: '+state.ai.config.localModel);

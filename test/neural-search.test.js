@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {memoryStore} from '../lib/store.js';import {createApp,shutdownApp} from '../server.js';
+import {memoryStore} from '../lib/store.js';import {crmRows} from '../lib/crm.js';
+import {createApp,shutdownApp} from '../server.js';
 import {groupedCandidates,inboxEntry,storeInbox} from '../lib/neural-inbox.js';
 import {validateAssessment} from '../lib/ai-review.js';import {earlyPreset} from '../lib/discovery.js';
 import {validateWebConfig} from '../lib/web-services.js';import {validateSocialConfig} from '../lib/social-search.js';import {validateWatchConfig} from '../lib/watch.js';
@@ -29,7 +30,7 @@ function setup(patch={}){
 
 test('all-source neural run archives rejected leads without paid AI, merges product domains and marks only new relevant groups',{timeout:5000},async t=>{
  const f=setup();t.after(()=>f.server.neural.stop());await f.server.neural.start();await f.server.neural.idle();
- const job=f.server.neural.summary();assert.equal(job.sources.length,4);assert.ok(job.sources.every(s=>s.status==='complete'));assert.ok(f.store.state.ai.inbox.some(e=>e.source==='finextra'),'commentary reaches AI even if the deterministic feed rejects it');assert.ok(f.store.state.ai.inbox.some(e=>e.appId===tool.appId),'checker reaches the AI reject category');
+ const job=f.server.neural.summary();assert.equal(job.sources.length,4);assert.ok(job.sources.every(s=>s.status==='complete'));assert.ok(!f.store.state.ai.inbox.some(e=>e.source==='finextra'),'editorial material stays outside the candidate queue');assert.ok(!f.store.state.ai.inbox.some(e=>e.appId===tool.appId),'checker stays outside the candidate queue');const rejected=crmRows(f.store.state).filter(r=>r.intakeRecord);assert.ok(rejected.some(r=>r.sources.includes('finextra')&&r.documents.length));assert.ok(rejected.some(r=>r.targets.some(t=>t.appId===tool.appId)&&r.documents.length));
  const groups=groupedCandidates(f.store.state);const product=groups.find(e=>e.id==='company:acme.example.eu');assert.ok(product.sources.includes('play'));assert.ok(product.sources.includes('web'));assert.ok(product.sources.includes('watch'));assert.ok(product.targets.length>=3);assert.equal(f.server.aiReview.results().length,1);assert.ok(!f.server.aiReview.results().some(e=>e.title.includes('Utility')));assert.equal(job.newIds.length,1);const calls=f.aiCalls();
  await f.server.neural.start();await f.server.neural.idle();assert.deepEqual(f.server.neural.summary().newIds,[]);assert.equal(f.aiCalls(),calls,'unchanged data does not consume another AI call');
 });
