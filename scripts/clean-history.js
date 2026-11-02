@@ -17,7 +17,7 @@ export async function cleanHistoryCLI(args=process.argv.slice(2)){
  console.log('Очередь Google Play: '+result.removedPending+'. Старых карточек архива: '+result.removedReviewEntries+'.');
  console.log('Остальные ручные исключения удал'+(result.applied?'ены: ':'ятся: ')+result.removedManualRules+'. Реестр ориентиров сохранён: '+result.knownProjectsPreserved+'.');
  console.log('Ключи, текущие фильтры, модель, расписания и учёт расхода API сохранены. Поиск и ИИ не запускались.');
- if(result.applied){console.log('Резервная копия полной истории: '+resolve(dirname(file),result.backupFile));console.log('Старые находки не перенесены в новый чёрный список: новый поиск проверит их по текущим критериям.');console.log('Проверить сохранённую CRM без поиска и ИИ: npm run start:diagnostic');}
+ if(result.applied){console.log('Проверено после очистки: ручная очередь — '+result.manualRemaining+'; автоисключения — '+result.autoExcludedRemaining+'.');console.log('Резервная копия полной истории: '+resolve(dirname(file),result.backupFile));console.log('Старые находки не перенесены в новый чёрный список: новый поиск проверит их по текущим критериям.');console.log('Проверить сохранённую CRM без поиска и ИИ: npm run start:diagnostic');}
  else console.log('Для очистки с резервной копией: npm run history:clean -- --apply');
  return result;
 }

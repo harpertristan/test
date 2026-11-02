@@ -9,7 +9,7 @@ import net from 'node:net';
 import {openStore,memoryStore} from '../lib/store.js';
 import {cleanHistory,cleanupPreview,cleanHistoryFile} from '../lib/history-cleanup.js';
 import {effectiveExclusions,manuallyExcluded} from '../lib/manual-exclusions.js';
-import {crmRows,crmExport} from '../lib/crm.js';
+import {crmRows,crmExport,bulkCRM} from '../lib/crm.js';
 import {groupedCandidates,storeInbox,inboxEntry} from '../lib/neural-inbox.js';
 import {dueReviews,createAIReview} from '../lib/ai-review.js';
 import {createMonitor} from '../lib/monitor.js';
@@ -85,4 +85,35 @@ test('diagnostic CRM after cleanup reports an empty manual queue and retained wo
 
 test('an explicitly worked legacy wallet retains its original notes in the worked tab and stays out of new search and AI',()=>{
  const store=memoryStore(now),s=store.state;s.findings.push({...entry('LegacyWallet','legacy-wallet.eu'),screeningText:'A non-custodial Bitcoin wallet. Manage private keys and send USDT.'});s.manualExclusions.push({key:'legacy-worked',kind:'app',value:'co.LegacyWallet.app',reason:'worked',title:'LegacyWallet'});const record={status:'selected',notes:'Keep worked wallet note'};s.crm.records['company:legacy-wallet.eu']=record;cleanHistory(s,{now});const row=crmRows(s).find(r=>r.id==='company:legacy-wallet.eu');assert.ok(row);assert.equal(row.worked,true);assert.equal(row.notes,record.notes);assert.equal(crmExport(s,{status:'active'}).length,0);assert.equal(crmExport(s,{status:'worked'}).length,1);assert.deepEqual(dueReviews(s,'offline'),[]);assert.deepEqual(groupedCandidates(s),[]);
+});
+
+function legacyRemainder(){
+ const s=memoryStore(now).state;s.crm.reviewCycle={id:'legacy-cleanup',startedAt:now.toISOString(),baseline:[],protectedIds:[],restored:0,protectedCount:54};s.crm.historyCleanup={id:'legacy',reviewCycleId:'legacy-cleanup',at:now.toISOString(),protectedProjects:54};s.crm.reviewEntries=[];s.ai.config.engine='hybrid';s.braveUsage['2026-11']=4;
+ for(let i=0;i<39;i++){
+  const domain='worked'+i+'.example.eu',id='company:'+domain;
+  s.manualExclusions.push({key:'worked-'+i,kind:'domain',value:domain,title:'Worked Finance '+i,reason:'worked',domains:['alias'+i+'.example.eu'],appIds:['co.legacy.case'+i]});
+  s.crm.reviewEntries.push({id,recheckId:id,title:'Worked Finance '+i,url:'https://'+domain+'/',developerWebsite:'https://'+domain+'/',source:'worked_archive',originSection:'web',targets:[],evidenceDocuments:[]});s.crm.records[id]={status:'selected',exclusionReason:'worked',notes:'Keep original note '+i,title:'Worked Finance '+i};s.ai.results.push({id,title:'Worked Finance '+i,url:'https://'+domain+'/',developerWebsite:'https://'+domain+'/',facts:{},summary:'Keep worked analysis '+i});s.crm.reviewCycle.protectedIds.push(id);
+ }
+ for(let i=0;i<15;i++){
+  const id=i<11?'app:co.legacy.case'+i:'company:alias'+i+'.example.eu',url='https://finextra.com/news/old-note-'+i;
+  s.crm.reviewEntries.push({id,recheckId:id,title:'Legacy editorial '+i,url,source:'worked_archive',originSection:'social',targets:[{section:'social',targetId:id,url}],evidenceDocuments:[]});s.crm.records[id]={status:'review',notes:'Discard legacy note '+i,...(i<11?{reviewCycleId:'legacy-cleanup',needsManualReview:true}:{})};s.ai.results.push({id,title:'Legacy editorial '+i,url,facts:{},summary:'Discard old analysis '+i});s.ai.reviewCache??={};s.ai.reviewCache['old-'+i]={id,marker:'discard'};s.crm.reviewCycle.protectedIds.push(id);
+ }
+ return s;
+}
+
+test('analysis IDs that resemble worked apps/domains cannot create extra archived cards or retain unmarked old decisions',()=>{
+ const s=legacyRemainder();s.crm.reviewEntries=s.crm.reviewEntries.filter(e=>e.source!=='worked_archive'||e.developerWebsite);const before=crmExport(s,{status:'worked'}).length;assert.equal(before,39);
+ cleanHistory(s,{now});assert.equal(crmExport(s,{status:'worked'}).length,before);assert.equal(crmExport(s,{status:'active'}).length,0);assert.equal(crmExport(s,{status:'review'}).length,0);assert.equal(crmExport(s,{status:'auto_excluded'}).length,0);assert.equal(s.ai.results.length,39);assert.equal(Object.keys(s.crm.records).length,39);assert.ok(!JSON.stringify(s.ai.reviewCache).includes('discard'));
+});
+
+test('a partially cleaned 4.6.3 base with 39 worked, 11 review and 4 auto-excluded cards repairs to the same 39 worked only, with a durable full backup',async t=>{
+ const s=legacyRemainder();assert.equal(crmRows(s).length,54);assert.equal(crmExport(s,{status:'worked'}).length,39);assert.equal(crmExport(s,{status:'review'}).length,11);assert.equal(crmExport(s,{status:'auto_excluded'}).length,4);
+ const dir=await mkdtemp(join(tmpdir(),'scout-clean-remainder-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'state.json');await writeFile(file,JSON.stringify(s));const preview=await cleanHistoryFile(file,{checkStopped:stopped});assert.equal(preview.protectedProjects,39);assert.equal(preview.removedReviewEntries,15);assert.equal(preview.removedAnalyses,15);
+ const result=await cleanHistoryFile(file,{apply:true,now,checkStopped:stopped});assert.deepEqual(JSON.parse(await readFile(join(dir,result.backupFile),'utf8')),s);const reloaded=await openStore(file,now);for(const status of['active','review','auto_excluded','confirmed'])assert.equal(crmExport(reloaded.state,{status}).length,0,status);const kept=crmExport(reloaded.state,{status:'worked'});assert.equal(kept.length,39);for(let i=0;i<39;i++)assert.equal(kept.find(r=>r.id==='company:worked'+i+'.example.eu').notes,'Keep original note '+i);assert.equal(reloaded.state.ai.results.length,39);assert.equal(reloaded.state.braveUsage['2026-11'],4);assert.equal(reloaded.state.ai.config.engine,'hybrid');assert.ok(!JSON.stringify(reloaded.state.crm).includes('Discard legacy note'));
+ const rules=effectiveExclusions(reloaded.state);assert.equal(manuallyExcluded({appId:'co.legacy.case0',title:'Renamed application'},rules),true);assert.equal(manuallyExcluded({url:'https://alias0.example.eu/',title:'Renamed service'},rules),true);assert.equal(manuallyExcluded({url:'https://fresh.example.eu/',title:'Fresh Provider'},rules),false);const again=cleanHistory(reloaded.state,{now});assert.equal(again.protectedProjects,39);assert.equal(crmExport(reloaded.state,{status:'worked'}).length,39);assert.equal(crmExport(reloaded.state,{status:'review'}).length,0);
+});
+
+test('worked archives retain original application targets across projection, cleanup and restore',()=>{
+ const s=memoryStore(now).state,appId='co.archive.original';s.manualExclusions.push({key:'original-target',kind:'app',value:appId,reason:'worked',title:'Original Target'});s.crm.reviewEntries=[{id:'legacy:original',recheckId:'legacy:original',title:'Archive title without the brand',url:'https://finextra.com/news/original-target',originSection:'social',source:'worked_archive',targets:[{section:'play',targetId:appId,appId,url:'https://play.google.com/store/apps/details?id='+appId}],evidenceDocuments:[]}];s.crm.records['legacy:original']={notes:'Original target note',status:'selected'};
+ assert.equal(crmExport(s,{status:'worked'}).length,1);cleanHistory(s,{now});const row=crmExport(s,{status:'worked'})[0];assert.equal(row.notes,'Original target note');assert.ok(row.targets.some(t=>t.appId===appId));assert.equal(crmExport(s,{status:'active'}).length,0);bulkCRM(s,{ids:[row.id],action:'restore'},now);assert.equal(crmExport(s,{status:'worked'}).length,0);assert.ok(!manuallyExcluded({appId},effectiveExclusions(s)));assert.ok(crmExport(s,{status:'review'}).some(r=>r.id===row.id));
 });

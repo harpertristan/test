@@ -7,7 +7,7 @@ import {EXCLUSION_REASONS} from './identity-names.js';
 import {SORT_OPTIONS,sortFindings,findingDates} from './finding-order.js';
 const $=s=>document.querySelector(s),el=(tag,text)=>Object.assign(document.createElement(tag),{textContent:text??''});
 const labels=CRM_VIEW_LABELS;
-const sources={review_archive:'Прежние записи',manual:'Прежние исключения',known:'Ваши ориентиры',play:'Google Play',apple:'Архив App Store',web:'Веб-сервисы',social:'Публикации / реестры',watch:'Изменения / RSS',registers:'Реестры',regulators:'Регуляторы',youtube:'YouTube',gemini:'Gemini'};
+const sources={worked_archive:'Сохранено из работы',review_archive:'Прежние записи',manual:'Прежние исключения',known:'Ваши ориентиры',play:'Google Play',apple:'Архив App Store',web:'Веб-сервисы',social:'Публикации / реестры',watch:'Изменения / RSS',registers:'Реестры',regulators:'Регуляторы',youtube:'YouTube',gemini:'Gemini'};
 const facts={business:'Счёт для бизнеса',account:'Сервис предоставляет счёт / IBAN',euIban:'IBAN страны ЕС',utility:'Утилита или неподходящий продукт'},factLabels={yes:'Есть цитата',no:'Отрицательная цитата',unknown:'Не подтверждено'};
 let data,mode='active',reasonFilter='',limit=50,selectedId,dirty=false,busy=false,settingsReady=false,detailRow,poll,actionBusy=false,loading=null,writeActive=false,flushTimer,lastRefreshError=null;
 const channelCards=new Map();
