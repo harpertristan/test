@@ -24,9 +24,9 @@ const filters=patch=>validateConfig({...cataloguePreset(['DE']),keywords:['busin
 function state(){const s=memoryStore(now).state;s.findings.push({...bank});return s;}
 const fact=(status,quote,sourceId='s1')=>({status,evidence:quote?[{sourceId,quote}]:[]});
 const reply=documents=>({business:fact('yes','Acme offers business accounts for companies.'),account:fact('yes','Open a business account with a German IBAN.'),euIban:fact('yes','Open a business account with a German IBAN.'),utility:fact('unknown'),summaryRu:'Предлагается бизнес-счёт с немецким IBAN.',translations:documents.map(d=>({sourceId:d.id,translationRu:'Acme предлагает счета для компаний. Доступен немецкий IBAN и интернет-банк.'}))});
-test('Nigeria exclusions cover title, descriptions, NGN and .ng without confusing Niger or a storefront',()=>{
- for(const entry of [{title:'Nigerian business account'},{screeningText:'Built in Nigeria'},{snippet:'Hold NGN naira balances'},{developerWebsite:'https://example.com.ng/'}])assert.equal(nigeriaEvidence(entry).reason,'excludedNigeria');
- for(const entry of [{title:'Niger startup'},{countries:['NG'],title:'German business bank'},{title:'Netherlands Business Account'}])assert.equal(nigeriaEvidence(entry),null);
+test('Nigeria exclusions use provider identity without confusing currencies, Niger or a storefront',()=>{
+ for(const entry of [{title:'Nigerian business account'},{screeningText:'Built in Nigeria'},{snippet:'CBN licensed bank'},{developerWebsite:'https://example.com.ng/'}])assert.equal(nigeriaEvidence(entry).reason,'excludedNigeria');
+ for(const entry of [{title:'Niger startup'},{countries:['NG'],title:'German business bank'},{title:'Netherlands Business Account'},{snippet:'Hold NGN naira balances'}])assert.equal(nigeriaEvidence(entry),null);
  assert.equal(excluded({text:'Nigerian bank'},validateCriteria({profile:'business'})),'excludedNigeria');
 });
 test('historical Nigeria projects remain auditable in CRM but cannot enter the AI queue or active exports',()=>{
@@ -57,7 +57,7 @@ test('Apple direct search uses EU storefronts and no credentials or Google insta
 test('Apple genre screening retains a business service, rejects Nigeria and paid apps and deduplicates IDs',async()=>{
  const config=validateAppleConfig({queries:['business account'],countries:['DE']}),job=createAppleJob('apple',config,now),raw=[];
  const a={trackId:123456,trackName:'Acme',sellerUrl:'https://acme.example.eu',description:text,genreIds:['6000'],primaryGenreId:6000,price:0,releaseDate:'2026-10-01T00:00:00Z'};
- await runAppleSearch(job,{search:async()=>[a,a,{...a,trackId:789,description:text+' Nigeria NGN'}, {...a,trackId:456,price:3}]},{delay:0,clock:()=>now,onRawCandidate:async e=>raw.push(e)});assert.equal(job.status,'complete');assert.equal(job.results.length,1);assert.equal(job.results[0].url,'https://apps.apple.com/de/app/id123456');assert.equal(job.skipped.excludedNigeria,1);assert.equal(job.skipped.paid,1);assert.equal(job.skipped.duplicate,1);assert.equal(raw.length,3);
+ await runAppleSearch(job,{search:async()=>[a,a,{...a,trackId:789,description:text+' Our company is incorporated in Nigeria.'}, {...a,trackId:456,price:3}]},{delay:0,clock:()=>now,onRawCandidate:async e=>raw.push(e)});assert.equal(job.status,'complete');assert.equal(job.results.length,1);assert.equal(job.results[0].url,'https://apps.apple.com/de/app/id123456');assert.equal(job.skipped.excludedNigeria,1);assert.equal(job.skipped.paid,1);assert.equal(job.skipped.duplicate,1);assert.equal(raw.length,3);
 });
 test('Google Play, Apple and web snapshots merge by actual provider domain in CRM',()=>{
  const s=state();s.apple.findings.push({id:'apple:123',appId:'apple:123',title:'Acme iOS',developerWebsite:bank.developerWebsite,url:'https://apps.apple.com/de/app/id123',screeningText:text});s.web.findings.push({id:'web:123',title:'Acme web',url:bank.developerWebsite,snippet:text});
