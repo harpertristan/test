@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import{memoryStore}from'../lib/store.js';import{resetForReview}from'../lib/review-cycle.js';import{groupedCandidates}from'../lib/neural-inbox.js';import{validateAssessment,createAIReview}from'../lib/ai-review.js';import{crmRows,crmExport,crmCSV,editCRM,bulkCRM,chatPacket}from'../lib/crm.js';import{createApp,shutdownApp}from'../server.js';
+import{VALIDATION_POLICY_VERSION}from'../lib/product-evidence.js';
 const reset=new Date('2026-10-30T09:00:00Z'),checked=new Date('2026-10-30T10:00:00Z'),later=new Date('2026-10-30T11:00:00Z');
 const good='We offer business accounts to companies. We provide business accounts with a dedicated German IBAN and SEPA transfers.';
 const empty={status:'unknown',evidence:[]},fact=(status,quote)=>({status,evidence:[{sourceId:'s1',quote}]});
@@ -8,7 +9,7 @@ function fixture(text=good,host='routing.eu'){
 }
 function assessed(f,text,raw={},options={}){
  const entry=groupedCandidates(f.store.state,{includeExcluded:true,allSources:true})[0],document={id:'s1',url:entry.developerWebsite,text,kind:options.kind??'official_page'},assessment=validateAssessment({business:empty,account:empty,euIban:empty,utility:empty,summaryRu:'Проверка условий.',...raw},[document]);
- const result={...assessment,id:f.id,title:entry.title,url:entry.url,developerWebsite:entry.developerWebsite,sourceDocuments:[document],model:'offline',engine:'openai',analysisMethod:'ai',version:2,policyVersion:4,inputHash:entry.inputHash,checkedAt:checked.toISOString(),...options};f.store.state.ai.results=[result];return result;
+ const result={...assessment,id:f.id,title:entry.title,url:entry.url,developerWebsite:entry.developerWebsite,sourceDocuments:[document],model:'offline',engine:'openai',analysisMethod:'ai',version:2,policyVersion:VALIDATION_POLICY_VERSION,inputHash:entry.inputHash,checkedAt:checked.toISOString(),...options};f.store.state.ai.results=[result];return result;
 }
 const row=f=>crmRows(f.store.state).find(r=>r.id===f.id);
 
@@ -19,7 +20,7 @@ test('reviewed manual queue routes strong matches, explicit tools and unresolved
 });
 
 test('a missing/unavailable site, unverified model labels, stale or old analysis never remove a restored card',()=>{
- for(const options of[{checkedAt:'2026-10-29T08:00:00Z'},{inputHash:'changed'},{analysisMethod:'pre_ai_screen'},{policyVersion:3},{sourceDocuments:[]},{sourceErrors:['Публичный сайт не прочитан; используются доступные описания и индекс.']}]){
+ for(const options of[{checkedAt:'2026-10-29T08:00:00Z'},{inputHash:'changed'},{analysisMethod:'pre_ai_screen'},{policyVersion:VALIDATION_POLICY_VERSION-1},{sourceDocuments:[]},{sourceErrors:['Публичный сайт не прочитан; используются доступные описания и индекс.']}]){
   const f=fixture('An IBAN checker.');assessed(f,'An IBAN checker.',{utility:fact('yes','An IBAN checker.')},options);assert.equal(row(f).status,'review',JSON.stringify(options));
  }
  const f=fixture();assessed(f,good,{business:empty,account:empty,euIban:empty,utility:fact('yes','Ordinary features: balances and transfers.')});assert.equal(row(f).status,'review');
