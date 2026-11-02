@@ -65,12 +65,14 @@ export function createApp({
   delay = 500,
   store = memoryStore(),
   autoSchedule = false,
+  diagnostic = false,
   clock,
   tickInterval,
   requestTimeoutMs,
   password = process.env.APP_PASSWORD || "",
   viewerPassword = process.env.VIEW_PASSWORD || "",
 } = {}) {
+  if(diagnostic)autoSchedule=false;
   const budgetMonth=()=>calendarWindow(clock?clock():new Date()).to.slice(0,7);
   const braveBudget=()=>({limit:0,unlimited:true,used:store.state.braveUsage?.[budgetMonth()]??0});
   socialProvider.setBeforeRequest?.(async()=>store.update(d=>{d.braveUsage??={};const month=budgetMonth();d.braveUsage[month]=(d.braveUsage[month]??0)+1;}));
@@ -198,7 +200,8 @@ export function createApp({
         if(viewer&&!owner)access={role:'viewer',canEdit:false};
       }
       if(req.method==='POST'&&!access.canEdit)return send(403,{error:'Эта ссылка открыта в режиме просмотра. Для изменений войдите как admin.'});
-      if(req.method==='GET'&&url.pathname==='/api/access')return send(200,access);
+      if(!['GET','HEAD'].includes(req.method)&&url.pathname!=='/api/system/shutdown'&&(diagnostic||server.shuttingDown))return send(503,{error:diagnostic?'Диагностический режим: поиск, ИИ и изменения отключены.':'Программа завершает сохранение. Дождитесь остановки.'});
+      if(req.method==='GET'&&url.pathname==='/api/access')return send(200,{...access,canEdit:access.canEdit&&!diagnostic,diagnostic});
       if(apple&&req.method==='POST')return send(410,{error:'App Store отключён. Сохранённые записи доступны в архиве CRM.'});
       if (req.method === "GET" && files[url.pathname]) {
         const [file, type] = files[url.pathname];
@@ -214,12 +217,13 @@ export function createApp({
           version: APP_VERSION,
           source: "Google Play",
           sourceCheck: "not-performed-by-health-endpoint",
+          diagnostic,
         });
       if(req.method==='GET'&&url.pathname==='/api/licences')return send(200,{registers:LICENCE_REGISTERS,types:LICENCE_TYPES});
       if(req.method==='GET'&&url.pathname==='/api/crm'){
         const snapshot=await readCRM({kind:'snapshot'}),options={rules:Object.freeze([]),counts:false},aiStatus=aiReview.summary({counts:false}),aiJob=aiReview.active()??aiReview.job(aiStatus.latestJobId),monitors={};
         for(const [name,control]of Object.entries({play:monitor,social:socialMonitor,web:webMonitor,watch:watchMonitor})){const live=sourceSummary(control,options);monitors[name]={...snapshot.monitors[name],...live,totalFindings:snapshot.monitors[name].totalFindings,totalCandidates:snapshot.monitors[name].totalCandidates,legacyFindings:snapshot.monitors[name].legacyFindings};}
-        return send(200,{access,marketPolicy:marketPolicy(store.state),reviewCycle:store.state.crm.reviewCycle?{id:store.state.crm.reviewCycle.id,startedAt:store.state.crm.reviewCycle.startedAt,restored:store.state.crm.reviewCycle.restored,protectedCount:store.state.crm.reviewCycle.protectedCount,backupFile:store.state.crm.reviewCycle.backupFile}:null,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:snapshot.rows,counts:snapshot.counts,manualReview:{count:snapshot.manualCount,remaining:store.state.ai.manualBatch?.remainingIds?.length??0,createdAt:store.state.ai.manualBatch?.createdAt,total:store.state.ai.manualBatch?.candidateIds?.length??0},monitors,ai:{...aiStatus,...snapshot.ai,job:aiJob?{engine:aiJob.engine??'openai',scope:aiJob.scope,status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors,workers:aiJob.workers,remaining:aiJob.remainingIds?.length??0}:null},neural:neural.summary(),brave:braveBudget()});
+        return send(200,{access:{...access,canEdit:access.canEdit&&!diagnostic},runtime:{diagnostic},marketPolicy:marketPolicy(store.state),reviewCycle:store.state.crm.reviewCycle?{id:store.state.crm.reviewCycle.id,startedAt:store.state.crm.reviewCycle.startedAt,restored:store.state.crm.reviewCycle.restored,protectedCount:store.state.crm.reviewCycle.protectedCount,backupFile:store.state.crm.reviewCycle.backupFile}:null,sourceWorkspace:sourceWorkspace.summary(),hardwareProfiles:HARDWARE_PROFILES,exclusionReasons:EXCLUSION_REASONS,rows:snapshot.rows,counts:snapshot.counts,manualReview:{count:snapshot.manualCount,remaining:store.state.ai.manualBatch?.remainingIds?.length??0,createdAt:store.state.ai.manualBatch?.createdAt,total:store.state.ai.manualBatch?.candidateIds?.length??0},monitors,ai:{...aiStatus,...snapshot.ai,job:aiJob?{engine:aiJob.engine??'openai',scope:aiJob.scope,status:aiJob.status,done:aiJob.done,total:aiJob.total,current:aiJob.current,mode:aiJob.mode,createdAt:aiJob.createdAt,finishedAt:aiJob.finishedAt,stage:aiJob.stage,progress:aiJob.progress,request:aiJob.request,errors:aiJob.errors,workers:aiJob.workers,remaining:aiJob.remainingIds?.length??0}:null},neural:neural.summary(),brave:braveBudget()});
       }
       if(req.method==='GET'&&url.pathname==='/api/crm/auto-exclusions.json'){
         const report=autoExclusionAudit(store.state,{appVersion:APP_VERSION,selectedModel:aiReview.summary({counts:false}).model,now:clock?clock():new Date()});
@@ -486,9 +490,11 @@ export function createApp({
   server.webMonitor=webMonitor;
   server.aiReview=aiReview;
   server.crmReader=crmReader;
+  server.flushStore=()=>store.flush?.();
   server.neural=neural;
   server.sourceWorkspace=sourceWorkspace;
   server.on("listening", () => {
+    if(diagnostic)return;
     void sourceWorkspace.listen().catch(console.error);
     monitor.start();
     socialMonitor.start();
@@ -498,6 +504,7 @@ export function createApp({
     // App Store is archived, not scheduled.
   });
   server.on("close", () => {
+    if(server.shuttingDown)return;
     void sourceWorkspace.stop();
     void neural.stop();
     void aiReview.stop();
@@ -511,12 +518,17 @@ export function createApp({
 }
 
 export async function shutdownApp(server){
-  // Stop accepting connections first. Finish worker checkpoints before closing
-  // browser connections, including clients that never finished a POST body.
+  server.shuttingDown=true;
+  // Abort requests that are still waiting for a POST body; they must not enqueue
+  // a mutation after the final flush. The listener remains available for health.
+  server.closeAllConnections();
+  // Reject new mutations, then finish durable checkpoints before releasing the
+  // port. The updater treats a closed port as permission to back up data.
   await server.sourceWorkspace.stop();
   await server.neural.stop();
-  const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
   await Promise.all([server.monitor.stop(),server.socialMonitor.stop(),server.watchMonitor.stop(),server.webMonitor.stop(),server.appleMonitor.stop(),server.aiReview.stop()]);
+  await server.flushStore?.();
+  const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
   await server.crmReader?.stop();
   server.closeAllConnections();
   await closed;
@@ -536,17 +548,19 @@ if (
   }
   const port = Number(process.env.PORT || 3000);
   const dataFile = resolve(process.env.DATA_DIR || "./data", "state.json");
+  const diagnostic=process.argv.includes('--diagnostic');
   let store;
   try {
-    store = await openStore(dataFile);
+    store = await openStore(dataFile,new Date(),{readOnly:diagnostic});
   } catch (error) {
     console.error(error.message);
     process.exit(1);
   }
-  const server = createApp({ store, autoSchedule: true });
-  server.listen(port, process.env.HOST || (process.env.APP_PASSWORD?"0.0.0.0":"127.0.0.1"), () => {
+  const server = createApp({ store, autoSchedule: !diagnostic,diagnostic });
+  server.listen(port, diagnostic?'127.0.0.1':process.env.HOST || (process.env.APP_PASSWORD?"0.0.0.0":"127.0.0.1"), () => {
     console.log(`Play Finance Finder: port ${port}`);
     console.log(`CRM: http://127.0.0.1:${port}/crm`);
+    if(diagnostic)console.log('Диагностика: автоматические задания, поиск, ИИ и изменения отключены для этого запуска.');
   });
   let stopping;
   const stop=()=>stopping??=(async()=>{

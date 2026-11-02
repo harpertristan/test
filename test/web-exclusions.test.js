@@ -58,8 +58,9 @@ test('excluding an app hides latest/history/review/watch/CSV and future runs wit
  const review=await call('/api/exclusions',{section:'play',id:'com.review.app'});assert.equal(review.status,200);assert.equal((await call('/api/candidates')).data.some(e=>e.appId==='com.review.app'),false);
 });
 test('excluding a publication affects only that link; web-domain exclusion also hides associated apps and persists across restart',async t=>{
- const path=await file(t),store=await openStore(path,now);const website=evaluateWebService(webResult,config(),now).post;store.state.web.findings.push({...website,firstFoundAt:now.toISOString()});store.state.findings.push({...publicApp,developerWebsite:webResult.url,discovery:website.discovery});
- const social={...website,source:'finextra',signalType:'publication',title:'Acme launches business accounts in Europe',snippet:webResult.description,url:'https://finextra.com/newsarticle/one'};store.state.social.findings.push({...social,id:'post:one'},{...social,id:'post:two',url:'https://finextra.com/newsarticle/two'});
+ const path=await file(t),store=await openStore(path,now);const website=evaluateWebService(webResult,config(),now).post;
+ const social={...website,source:'finextra',signalType:'publication',title:'Acme launches business accounts in Europe',snippet:webResult.description,url:'https://finextra.com/newsarticle/one'};
+ await store.update(d=>{d.web.findings.push({...website,firstFoundAt:now.toISOString()});d.findings.push({...publicApp,developerWebsite:webResult.url,discovery:website.discovery});d.social.findings.push({...social,id:'post:one'},{...social,id:'post:two',url:'https://finextra.com/newsarticle/two'});});
  const {call}=await http(t,{store});const article=await call('/api/exclusions',{section:'social',id:'post:one'});assert.equal(article.data.rule.kind,'url');assert.equal((await call('/api/social/findings?all=1')).data.length,1);
  const domain=await call('/api/exclusions',{section:'web',id:website.id});assert.equal(domain.data.rule.kind,'domain');assert.equal((await call('/api/web/findings?all=1')).data.length,0);assert.equal((await call('/api/findings?all=1')).data.length,0);
  const reopened=await openStore(path,now);assert.equal(reopened.state.manualExclusions.length,2);assert.equal(reopened.state.web.findings.length,1);assert.equal(reopened.state.findings.length,1);

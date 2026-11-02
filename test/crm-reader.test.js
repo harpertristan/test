@@ -15,3 +15,13 @@ test('health responds while a large CRM projection runs, and shutdown settles qu
  let projectionDone=false;const list=fetch(base+'/api/crm').then(async r=>{const data=await r.json();projectionDone=true;return data;});await new Promise(r=>setTimeout(r,10));const health=await(await fetch(base+'/api/health')).json();assert.equal(health.status,'ok');assert.equal(projectionDone,false);assert.equal((await list).rows.length,1800);
  const reader=createCRMReader(),pending=reader.read(fixture(20).state,context).then(()=>null,e=>e);await new Promise(r=>setImmediate(r));await reader.stop();assert.match((await pending).message,/останавливается/);await assert.rejects(reader.read(store.state,context),/останавливается/);
 });
+
+test('file-backed reader keeps its projection for counters/progress and refreshes on notes, results and exclusions',async t=>{
+ const {mkdtemp,rm}=await import('node:fs/promises'),{join}=await import('node:path'),{tmpdir}=await import('node:os'),{openStore}=await import('../lib/store.js');
+ const dir=await mkdtemp(join(tmpdir(),'scout-reader-cache-'));t.after(()=>rm(dir,{recursive:true,force:true}));const store=await openStore(join(dir,'state.json')),reader=createCRMReader();t.after(()=>reader.stop());await store.update(d=>{d.findings=fixture(1).state.findings;d.jobs.push({id:'progress',status:'running',done:0,results:[],config:d.schedule.filters,errors:[]});});let clones=0;
+ const track=()=>Object.defineProperty(store.state,'cloneMarker',{enumerable:true,configurable:true,get(){clones++;return 'saved';}});
+ track();await reader.read(store.state,context);assert.equal(clones,1);
+ for(const change of[d=>{d.braveUsage['2026-11']=1;},d=>{d.jobs[0].done++;},d=>{d.ai.usage['2026-11']={attempts:1};}]){await store.update(change);track();clones=0;await reader.read(store.state,context);assert.equal(clones,0);}
+ await store.update(d=>{d.crm.records['company:read0.eu']={notes:'Changed note'};});track();clones=0;const detail=await reader.read(store.state,context,{kind:'detail',id:'company:read0.eu'});assert.equal(clones,1);assert.equal(detail.notes,'Changed note');
+ await store.update(d=>{d.manualExclusions.push({kind:'domain',value:'read0.eu',key:'exclude',reason:'worked'});});const updated=await reader.read(store.state,context);assert.equal(updated.rows.find(r=>r.id==='company:read0.eu').status,'excluded');
+});

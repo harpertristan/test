@@ -196,15 +196,15 @@ test("disabled schedule and edited time/filters survive restart; saving again do
 
 test("crash recovery retains a checkpointed finding and retries the interrupted daily run", async (t) => {
   const file = await dataFile(t);
-  const live = monitor(await openStore(file, now));
+  const store=await openStore(file,now),live = monitor(store);
   const completed = await live.startJob(config);
   await live.idle();
-  const state = JSON.parse(await readFile(file, "utf8"));
+  await store.update(state=>{
   state.jobs[0].status = "running";
   state.jobs[0].source = "scheduled";
   state.schedule.enabled = true;
   state.schedule.nextRunAt = "2026-10-20T07:00:00.000Z";
-  await writeFile(file, JSON.stringify(state));
+  });
   const recovered = monitor(await openStore(file, now), { autoSchedule: true });
   assert.equal(recovered.jobs.get(completed.id).status, "cancelled");
   assert.equal(recovered.findings().length, 1);

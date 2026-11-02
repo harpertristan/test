@@ -18,10 +18,11 @@ async function setup(t){
  return {root,source,target,file};
 }
 test('Mac update replaces code in place, backs up secrets/history and preserves unrelated local files',async t=>{
- const {source,target}=await setup(t),state=await read(join(target,'data/state.json')),env=await read(join(target,'.env'));let installs=0;
+ const {source,target,file}=await setup(t),state=await read(join(target,'data/state.json')),env=await read(join(target,'.env'));const journal='durable delta history\n';await file(target,'data/state.json.journal',journal);let installs=0;
  const result=await updateInPlace(source,target,{stop:async()=>{},install:async dir=>{installs++;assert.equal(dir,target);assert.equal(JSON.parse(await read(join(dir,'package.json'))).version,'4.0.1');},diagnose:async()=>{},log:silent});
  assert.equal(installs,1);assert.equal(result.target,target);assert.equal(await read(join(target,'server.js')),'new server');assert.equal(await read(join(target,'data/state.json')),state);assert.equal(await read(join(target,'.env')),env);assert.equal(await read(join(target,'data/extra.json')),'other data');assert.equal(await read(join(target,'.git/local')),'git metadata');assert.equal(await read(join(target,'custom.txt')),'local export');
  assert.equal(await read(join(result.backup,'data/state.json')),state);assert.equal(await read(join(result.backup,'.env')),env);assert.equal(await read(join(result.backup,'code/server.js')),'old server');assert.match(await read(join(target,'.cache/install-lock')),/^[a-f0-9]{64}$/);await assert.rejects(access(join(target,'.cache/update.lock')));
+ assert.equal(await read(join(target,'data/state.json.journal')),journal);assert.equal(await read(join(result.backup,'data/state.json.journal')),journal);
 });
 test('failed dependency installation restores old code and leaves personal data byte-for-byte intact',async t=>{
  const {source,target,file}=await setup(t),state=await read(join(target,'data/state.json')),env=await read(join(target,'.env'));await file(target,'.cache/install-lock','old install marker');

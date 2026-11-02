@@ -1,4 +1,5 @@
 import {readFile,access} from 'node:fs/promises';
+import {readStoredState} from '../lib/state-journal.js';
 const packageData=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 console.log(`Play Scout ${packageData.version}`);
 console.log(`Node.js: ${process.versions.node}`);
@@ -9,10 +10,10 @@ catch(error){console.log(error.code==='ENOENT'?'Файл .env: отсутств�
 console.log(`Ключ Brave: ${process.env.BRAVE_SEARCH_API_KEY?'задан, проверьте кнопкой в приложении':'не задан'}`);
 console.log(`Ключ OpenAI: ${process.env.OPENAI_API_KEY?'задан, проверьте на вкладке «Нейронный поиск»':'не задан (необязателен)'}`);
 console.log(`Ключ Gemini: ${process.env.GEMINI_API_KEY?'задан, проверьте выбранный облачный ИИ в CRM':'не задан (необязателен)'}`);
-try{for(const name of ['json5','got','cheerio','ramda','tough-cookie','https-proxy-agent'])await access('node_modules/'+name);console.log('Зависимости: установлены. Google Play: разбор литералов без выполнения кода страницы.');}
+try{for(const name of ['proper-lockfile','fast-json-patch','json5','got','cheerio','ramda','tough-cookie','https-proxy-agent'])await access('node_modules/'+name);console.log('Зависимости: установлены. Google Play: разбор литералов без выполнения кода страницы.');}
 catch{console.log('Зависимости: выполните npm ci --ignore-scripts');process.exitCode=1;}
 try{
-  const state=JSON.parse(await readFile(`${process.env.DATA_DIR || './data'}/state.json`,'utf8'));
+  const state=await readStoredState(`${process.env.DATA_DIR || './data'}/state.json`);
   if(state?.version!==1 || !Array.isArray(state.findings) || !Array.isArray(state.jobs) || !state.schedule)throw new Error('Invalid history shape');
   console.log(`История: ${state.findings?.length ?? 0} приложений, ${state.reviewCandidates?.length ?? 0} кандидатов`);
   if(state.ai?.config?.engine==='llamacpp')console.log('GPU-серверы: '+state.ai.config.localEndpoints.join(', ')+'; alias: '+state.ai.config.localModel);
