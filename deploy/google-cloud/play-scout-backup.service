@@ -1,0 +1,9 @@
+[Unit]
+Description=Consistent Play Scout backup with application restart
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /srv/play-scout/code/deploy/google-cloud/server.sh backup-and-start
+TimeoutStartSec=1800

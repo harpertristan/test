@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Play Scout backup (short application downtime)
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Europe/Kaliningrad
+Persistent=false
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

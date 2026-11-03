@@ -1,4 +1,6 @@
-# Play Scout 4.8.5 — CRM для Mac и Windows
+# Play Scout 4.8.6 — CRM для Mac и Windows
+
+**[Полный перенос в Google Cloud с Ollama, общим доступом и обновлениями с Mac](GOOGLE_CLOUD.md).**
 
 **[4.8.5: кнопка-робот «Разобрать с ИИ» на главной панели](RELEASE_4_8_5.md).**
 
