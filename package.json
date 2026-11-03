@@ -1,6 +1,6 @@
 {
   "name": "play-finance-finder",
-  "version": "4.8.0",
+  "version": "4.8.1",
   "description": "CRM для Mac и Windows: поиск банков, небанковских IBAN-провайдеров и криптосервисов",
   "private": true,
   "scripts": {

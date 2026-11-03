@@ -25,3 +25,20 @@ test('file-backed reader keeps its projection for counters/progress and refreshe
  await store.update(d=>{d.crm.records['company:read0.eu']={notes:'Changed note'};});track();clones=0;const detail=await reader.read(store.state,context,{kind:'detail',id:'company:read0.eu'});assert.equal(clones,1);assert.equal(detail.notes,'Changed note');
  await store.update(d=>{d.manualExclusions.push({kind:'domain',value:'read0.eu',key:'exclude',reason:'worked'});});const updated=await reader.read(store.state,context);assert.equal(updated.rows.find(r=>r.id==='company:read0.eu').status,'excluded');
 });
+
+test('card revisions track saved evidence and decisions without changing for unrelated progress',async t=>{
+ const store=fixture(2),reader=createCRMReader();t.after(()=>reader.stop());
+ const snapshot=()=>reader.read(store.state,context),detail=id=>reader.read(store.state,context,{kind:'detail',id});
+ const first=await snapshot(),id=first.rows[0].id,other=first.rows[1].id,revision=first.rows[0].detailRevision;
+ assert.match(revision,/^[a-f0-9]{64}$/);assert.equal((await detail(id)).detailRevision,revision);
+ assert.ok(!Object.hasOwn(first.rows[0],'documents'));
+ await store.update(d=>{d.braveUsage['2026-11']=10;d.crm.records[other]={notes:'Other provider'};});
+ assert.equal((await snapshot()).rows.find(r=>r.id===id).detailRevision,revision);
+ await store.update(d=>{d.ai.results.push({id,model:'fixture',inputHash:first.rows[0].currentInputHash,checkedAt:'2026-11-03T12:00:00Z',sourceDocuments:[{url:'https://read0.eu/business',text:'Saved result and source text',kind:'official_page'}]});});
+ const reviewed=(await snapshot()).rows.find(r=>r.id===id);assert.notEqual(reviewed.detailRevision,revision);assert.equal((await detail(id)).detailRevision,reviewed.detailRevision);
+ // Even a source-only correction must refresh the open card, with no model rerun.
+ await store.update(d=>{d.ai.results[0].sourceDocuments[0].text+=' corrected';});
+ assert.notEqual((await detail(id)).detailRevision,reviewed.detailRevision);
+ const corrected=(await detail(id)).detailRevision;await store.update(d=>{d.crm.records[id]={notes:'Keep my note',status:'approved',approval:{by:'user',at:context.now}};});
+ const approved=await detail(id);assert.notEqual(approved.detailRevision,corrected);assert.equal(approved.notes,'Keep my note');assert.equal(approved.approval.by,'user');
+});
