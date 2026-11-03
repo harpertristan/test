@@ -47,3 +47,19 @@ test('a new worked mark consolidates both variants into one restorable record wi
 test('an unanalysed old provider retains its discovery baseline and pending queue after its support-domain ID changes',()=>{
  const s=memoryStore(now).state;s.crm.reviewCycle={id:'cycle',baseline:['company:support.qa-bank.eu'],protectedIds:[]};s.ai.manualBatch={id:'pending',candidateIds:['company:support.qa-bank.eu'],remainingIds:['company:support.qa-bank.eu']};consolidateProviderIdentities(s,now);assert.deepEqual(s.crm.reviewCycle.baseline,['company:qa-bank.eu']);assert.deepEqual(s.ai.manualBatch.remainingIds,['company:qa-bank.eu']);assert.equal(s.crm.identityAliases['company:support.qa-bank.eu'],'company:qa-bank.eu');
 });
+
+const socialPost=(id,name='Cruise Pay Finance',site=null)=>({id:'raw:'+id,section:'social',source:'facebook',sourceTransport:'apify',advertiserName:name,title:name,url:'https://www.facebook.com/cruisepay/posts/'+id,developerWebsite:site,screeningText:'We offer business accounts for companies.',firstFoundAt:now.toISOString()});
+test('Apify advertiser posts and its unique product website share one CRM and AI candidate with all evidence',()=>{
+ const s=memoryStore(now).state;s.ai.inbox.push(socialPost('1'),socialPost('2'),socialPost('3','CruisePay Finance','https://cruisepay.finance/'));
+ const groups=groupedCandidates(s,{allSources:true});assert.equal(groups.length,1);assert.equal(groups[0].id,'company:cruisepay.finance');assert.equal(groups[0].targets.length,3);assert.equal(groups[0].documents.length,3);assert.equal(crmRows(s).length,1);assert.equal(dueReviews(s,'fixture',now,{allSources:true}).length,1);
+});
+test('social name matching is connector-scoped and does not merge conflicting domains or generic titles',()=>{
+ const s=memoryStore(now).state;s.ai.inbox.push(socialPost('1'),socialPost('2','CruisePay Finance','https://cruisepay.finance/'),socialPost('3','Cruise Pay Finance','https://other-company.eu/'),{...socialPost('4'),source:'linkedin'}, {...socialPost('5'),advertiserName:null}, {...socialPost('6'),advertiserName:null});
+ assert.equal(groupedCandidates(s,{allSources:true}).length,6);
+});
+test('existing social decisions, notes and queues migrate without dropping originals and migration is repeatable',()=>{
+ const s=memoryStore(now).state,a=socialPost('1'),b=socialPost('2');s.ai.inbox.push(a,b);const first='link:'+a.url,second='link:'+b.url,target='social:facebook:cruisepayfinance';
+ s.crm.records[first]={status:'selected',notes:'First note'};s.crm.records[second]={status:'review',notes:'Second note'};s.ai.shortlist=[first];s.ai.manualBatch={candidateIds:[first,second],remainingIds:[second]};
+ consolidateProviderIdentities(s,now);assert.match(s.crm.records[target].notes,/First note/);assert.match(s.crm.records[target].notes,/Second note/);assert.deepEqual(s.ai.shortlist,[target]);assert.deepEqual(s.ai.manualBatch.candidateIds,[target]);assert.ok(s.crm.identityArchive[first]);assert.deepEqual(consolidateProviderIdentities(s,now),[]);
+ s.ai.inbox.push(socialPost('3','CruisePay Finance','https://cruisepay.finance/'));consolidateProviderIdentities(s,now);assert.ok(s.crm.records['company:cruisepay.finance']);assert.deepEqual(s.ai.shortlist,['company:cruisepay.finance']);assert.equal(crmRows(s).length,1);
+});
