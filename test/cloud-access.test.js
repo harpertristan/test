@@ -9,7 +9,7 @@ test('cloud requires valid passwords by default; only literal true opts into pub
  assert.equal(env.APP_PASSWORD,'fixture-owner-password');
 });
 test('explicit public mode allows anonymous CRM viewing and editing using the usual API',async t=>{
- const store=memoryStore(),server=createApp({store,manual:true,...cloudAccess({PLAY_SCOUT_PUBLIC_ADMIN:'true',APP_PASSWORD:'fixture-preserved-password'})});
+ const store=memoryStore();store.state.web.findings.push({id:'fixture-public',title:'Fixture Business',url:'https://fixture-public.example/',developerWebsite:'https://fixture-public.example/',screeningText:'We provide business accounts for companies.'});const server=createApp({store,manual:true,...cloudAccess({PLAY_SCOUT_PUBLIC_ADMIN:'true',APP_PASSWORD:'fixture-preserved-password'})});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>shutdownApp(server));
  const base='http://127.0.0.1:'+server.address().port,r=await fetch(base+'/api/crm');assert.equal(r.status,200);
  const data=await r.json();assert.equal(data.access.canEdit,true);const id=data.rows[0].id;
