@@ -63,3 +63,19 @@ test('existing social decisions, notes and queues migrate without dropping origi
  consolidateProviderIdentities(s,now);assert.match(s.crm.records[target].notes,/First note/);assert.match(s.crm.records[target].notes,/Second note/);assert.deepEqual(s.ai.shortlist,[target]);assert.deepEqual(s.ai.manualBatch.candidateIds,[target]);assert.ok(s.crm.identityArchive[first]);assert.deepEqual(consolidateProviderIdentities(s,now),[]);
  s.ai.inbox.push(socialPost('3','CruisePay Finance','https://cruisepay.finance/'));consolidateProviderIdentities(s,now);assert.ok(s.crm.records['company:cruisepay.finance']);assert.deepEqual(s.ai.shortlist,['company:cruisepay.finance']);assert.equal(crmRows(s).length,1);
 });
+
+test('separately discovered website anchors repeated social cards automatically without another collection',()=>{
+ const s=memoryStore(now).state;s.ai.inbox.push(socialPost('1'),socialPost('2'));s.web.findings.push({id:'web-cruise',title:'CruisePay Finance',section:'web',url:'https://cruisepay.finance/',developerWebsite:'https://cruisepay.finance/',screeningText:'We offer business accounts for companies.',firstFoundAt:now.toISOString()});
+ s.crm.records['social:facebook:cruisepayfinance']={notes:'Keep my note',status:'review'};
+ consolidateProviderIdentities(s,now);const rows=crmRows(s);assert.equal(rows.length,1);assert.equal(rows[0].id,'company:cruisepay.finance');assert.equal(rows[0].targets.length,3);assert.equal(rows[0].notes,'Keep my note');assert.equal(dueReviews(s,'fixture',now,{allSources:true}).length,1);
+});
+test('archived repetitions consolidate automatically and retain distinct evidence, notes and classification',()=>{
+ const s=memoryStore(now).state,a=socialPost('old1'),b=socialPost('old2');
+ s.crm.intakeArchive={};for(const e of [a,b])s.crm.intakeArchive['link:'+e.url]={id:'link:'+e.url,title:e.title,state:'filtered',code:'non_account_tool',reason:'Original filter',entries:[e],firstFoundAt:now.toISOString()};
+ s.crm.records['link:'+a.url]={notes:'Archived note'};consolidateProviderIdentities(s,now);
+ const rows=crmRows(s);assert.equal(rows.length,1);assert.equal(rows[0].targets.length,2);assert.equal(rows[0].documents.length,2);assert.equal(rows[0].notes,'Archived note');assert.equal(rows[0].status,'auto_excluded');assert.deepEqual(consolidateProviderIdentities(s,now),[]);
+});
+test('same advertiser name cannot bridge two independently collected product domains',()=>{
+ const s=memoryStore(now).state;s.ai.inbox.push(socialPost('1'));for(const domain of ['cruisepay.finance','different-company.eu'])s.web.findings.push({id:domain,title:'CruisePay Finance',section:'web',url:'https://'+domain,developerWebsite:'https://'+domain,screeningText:'Business accounts for companies.'});
+ assert.equal(groupedCandidates(s,{allSources:true}).length,3);
+});
