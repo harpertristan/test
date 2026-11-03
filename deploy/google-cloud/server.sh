@@ -19,8 +19,8 @@ check_credentials() {
   compose run --rm --no-deps --entrypoint node app --input-type=module -e '
     import {parseEnv} from "node:util"; import {readFileSync} from "node:fs";
     const e=parseEnv(readFileSync("/app/.env","utf8"));
-    if(!e.APP_PASSWORD || e.APP_PASSWORD.length<12)throw Error("Set APP_PASSWORD with at least 12 characters");
-    if(e.VIEW_PASSWORD && (e.VIEW_PASSWORD.length<12 || e.VIEW_PASSWORD===e.APP_PASSWORD))throw Error("VIEW_PASSWORD must be different and at least 12 characters");
+    const {cloudAccess}=await import("/app/lib/cloud-access.js");
+    cloudAccess({...e,PLAY_SCOUT_PUBLIC_ADMIN:process.env.PLAY_SCOUT_PUBLIC_ADMIN});
     console.log("Application access configuration checked; no credential values displayed.");'
 }
 backup() {
