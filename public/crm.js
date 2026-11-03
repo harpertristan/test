@@ -35,10 +35,14 @@ function render(){
  document.documentElement.dataset.access=mutable?'admin':'viewer';
  $('#access-status').textContent=data.runtime?.diagnostic?'Диагностический просмотр':!mutable?'Режим просмотра':data.runtime?.manual?'Ручной запуск · расписания на паузе':'Расписания включаются в настройках';
  const queue=data.reviewQueue??data.manualReview,remaining=queue?.remaining??0;
- $('#manual-analyse').textContent='Проверить очередь · '+(queue?.count??0);
+ $('#manual-analyse-label').textContent=data.ai.busy?'ИИ разбирает…':'Разобрать с ИИ';
+ $('#manual-analyse-count').textContent=data.ai.busy?`${data.ai.job?.done??0}/${data.ai.job?.total??0}`:String(queue?.count??0);
+ $('#manual-analyse-hint').textContent=!data.ai.configured?'Сначала настройте ИИ':data.ai.busy?'Проверяю карточки по очереди':queue?.count?'Вся очередь · '+engineName():'Очередь пуста';
+ $('#manual-analyse').setAttribute('aria-busy',String(Boolean(data.ai.busy)));
+ $('#manual-analyse').setAttribute('aria-label',data.ai.busy?`ИИ разбирает: ${data.ai.job?.done??0} из ${data.ai.job?.total??0}`:`Разобрать с ИИ: ${queue?.count??0} карточек`);
  $('#manual-analyse').disabled=!mutable||actionBusy||busy||!data.ai.configured||!queue?.count;
  $('#manual-analyse').hidden=Boolean(remaining)&&!data.ai.busy;
- $('#manual-resume').textContent='Продолжить проверку · '+remaining;$('#manual-resume').hidden=!remaining||data.ai.busy;$('#manual-resume').disabled=!mutable||actionBusy||busy||!data.ai.configured;
+ $('#manual-resume-label').textContent='Продолжить с ИИ';$('#manual-resume-count').textContent=String(remaining);$('#manual-resume-hint').textContent='Оставшиеся карточки · '+engineName();$('#manual-resume').setAttribute('aria-label',`Продолжить с ИИ: ${remaining} карточек`);$('#manual-resume').hidden=!remaining||data.ai.busy;$('#manual-resume').disabled=!mutable||actionBusy||busy||!data.ai.configured;
  $('#choose-sources').disabled=!mutable||actionBusy;$('#stop-all').hidden=!busy;$('#stop-all').disabled=!mutable||actionBusy;
  for(const id of['collect','licence-run','analyse','enable-daily','repair-local','repair-ai','reset-review'])$('#'+id).disabled=!mutable||actionBusy||busy;
  $('#play-resume').hidden=!data.monitors.play.pendingChecks;$('#play-resume').textContent='Продолжить Google Play · '+(data.monitors.play.pendingChecks??0);$('#play-resume').disabled=!mutable||actionBusy||data.monitors.play.busy;
