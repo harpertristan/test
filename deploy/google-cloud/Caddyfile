@@ -1,5 +1,11 @@
 {$SCOUT_DOMAIN} {
     header X-Robots-Tag "noindex, nofollow, noarchive"
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+            test_dir {$SCOUT_ACME_TEST_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
+        }
+    }
     encode zstd gzip
     reverse_proxy app:3000
 }

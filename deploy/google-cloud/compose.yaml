@@ -60,6 +60,7 @@ services:
     profiles: ["public"]
     environment:
       SCOUT_DOMAIN: ${SCOUT_DOMAIN:-localhost}
+      SCOUT_ACME_TEST_CA: ${SCOUT_ACME_TEST_CA:-https://acme-staging-v02.api.letsencrypt.org/directory}
     ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
