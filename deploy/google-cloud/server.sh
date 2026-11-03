@@ -6,7 +6,13 @@ root=/srv/play-scout
 code="$root/code"
 [[ ${EUID} -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 cd "$code"
-compose() { docker compose --env-file "$root/deployment.env" -f "$code/deploy/google-cloud/compose.yaml" "$@"; }
+compose() {
+  local files=(-f "$code/deploy/google-cloud/compose.yaml")
+  if grep -Eq '^PLAY_SCOUT_ACCELERATOR=cpu\r?$' "$root/deployment.env"; then
+    files+=(-f "$code/deploy/google-cloud/compose.cpu.yaml")
+  fi
+  docker compose --env-file "$root/deployment.env" "${files[@]}" "$@"
+}
 check_credentials() {
   test -f "$root/app.env"
   # Read using Node's own dotenv parser, not shell evaluation.
@@ -26,7 +32,7 @@ backup() {
   id=$(compose ps -a -q app)
   if [[ -n "$id" ]]; then docker inspect --format '{{.Image}}' "$id" > "$target/image-id"; fi
   cp "$root/deployment.env" "$target/deployment.env"
-  cp deploy/google-cloud/compose.yaml "$target/compose.yaml"
+  compose config > "$target/compose.yaml"
   cp deploy/google-cloud/Caddyfile "$target/Caddyfile"
   tar -C "$root" -czf "$target/profile.tar.gz" data app.env
   tar -tzf "$target/profile.tar.gz" >/dev/null
