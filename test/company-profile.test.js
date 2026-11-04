@@ -19,3 +19,16 @@ test('registry fields take draft priority and personal proof is kept apart from 
  reanalyze(db,'company');const state=profileState(db,'company');assert.equal(state.values.company_number,'01234567');assert.equal(state.values.registered_address_line1,'EXAMPLE HOUSE 1 SAMPLE STREET');assert.equal(state.values.city,'BRISTOL');assert.equal(state.values.postal_code,'BS1 1AA');assert.equal(state.values.registered_country,'United Kingdom');assert.equal(state.values.contact_address_line1,'Sample iela 12-3');assert.equal(state.values.contact_city,'Riga');assert.equal(state.values.contact_country,'Latvia');assert.equal(state.directorCheck.firstName,'Alice');assert.equal(state.sources.registered_address_line1.page,2);assert.equal(state.sources.contact_address_line1.documentId,'bill');assert.equal(db.prepare('SELECT id FROM extracted_fields WHERE id=?').get('old-local-city'),undefined);assert.ok(state.comparisons.city.some(c=>c.value==='SAMPLE VILLAGE'));
 });
 test('email and phone are not master-sheet fields, even when a legacy stored sheet contains them',t=>{const db=setup(t),values=completedProfile();const state=publish(db,values);assert.equal(state.schema.some(field=>['company_email','company_phone'].includes(field.key)),false);assert.equal(state.values.company_email,undefined);assert.equal(state.values.company_phone,undefined);});
+test('profile automatically selects the document majority and preserves alternatives and operator changes',t=>{
+ const db=setup(t);
+ note(db,'a','Business description: Retail goods\nAccount purpose:\nReceive retail payments');
+ note(db,'b','Business description: Retail goods\nSource: another independent document');
+ note(db,'c','Business description: Wholesale goods');
+ let state=profileState(db,'company');assert.equal(state.values.business_description,'Retail goods');assert.equal(state.recommendations.business_description.votes,2);assert.equal(state.comparisons.business_description.length,3);assert.equal(state.values.account_purpose,'Receive retail payments');
+ publish(db,completedProfile(state.values,{business_description:'Operator description'}));state=profileState(db,'company');assert.equal(state.values.business_description,'Operator description');assert.equal(state.recommendations.business_description.value,'Retail goods');
+});
+test('a single review-only cited description is selected without a button click',t=>{
+ const db=setup(t);note(db,'source','Retail sale of example goods');
+ db.prepare('INSERT INTO extracted_fields VALUES(?,?,?,?,?,?,?,?,?,?)').run('description','company','business_description','Retail sale of example goods','source',1,'Retail sale of example goods','Semantic source requires operator review','review',0);
+ const state=profileState(db,'company');assert.equal(state.values.business_description,'Retail sale of example goods');assert.equal(state.comparisons.business_description.length,1);assert.equal(state.approved,false);assert.match(state.recommendations.business_description.reason,/Единственный/);
+});
