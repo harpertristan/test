@@ -39,7 +39,7 @@ try{
   const stableCalls=agentCalls;await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Обновить поля').click());
   await bank.waitForFunction(()=>window.__panel.querySelectorAll('.card .ai-note').length>10);
   await bank.locator('#lei').focus();assert.ok(await bank.evaluate(()=>window.__overlay.querySelector('.tip .ai-note')?.textContent.includes('ИИ объясняет поле: LEI')));
-  assert.ok(await bank.evaluate(()=>window.__overlay.querySelector('.tip').textContent.includes('20-символьный')));
+  await bank.evaluate(()=>[...window.__overlay.querySelector('.tip').querySelectorAll('button')].find(b=>b.textContent==='Подробнее').click());assert.ok(await bank.evaluate(()=>window.__panel.querySelector('.field-detail').textContent.includes('20-символьный')));await bank.evaluate(()=>[...window.__panel.querySelectorAll('header button')].find(b=>b.textContent==='Свернуть').click());
   assert.equal(agentCalls,stableCalls,'unchanged fields must reuse the analysis');
 
   const descriptors=await bank.evaluate(()=>Object.fromEntries(['regLine1','regCity','regPost','regCountry','opLine1','opCity','opPost','opCountry','dial','phone'].map(id=>[id,RegistrationDOM.describe(document.getElementById(id),id)])));
@@ -47,6 +47,9 @@ try{
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());
   await bank.waitForFunction(()=>document.getElementById('opCountry').value==='GB');
   for(const [id,value] of Object.entries({company:'EXAMPLE GOODS LTD',legal:'private',web:'https://example.com',regLine1:'8 Example Road',regLine2:'Test Town',regCity:'Example City',regPost:'AB1 2CD',regCountry:'GB',opLine1:'77 Sample Avenue',opCity:'Oxford',opPost:'OX1 1AA',opCountry:'GB',date:'10-03-2025',vat:'GB123456789',dial:'+44',phone:'2079460018',tax:'',taxCountry:'MT',email:'operator-private@example.net',lei:''}))assert.equal(await bank.locator('#'+id).inputValue(),value,id);
+  await bank.locator('#company').focus();await bank.evaluate(()=>[...window.__overlay.querySelector('.tip').querySelectorAll('button')].find(b=>b.textContent==='Подробнее').click());
+  assert.equal(await bank.evaluate(()=>window.__panel.querySelector('.field-detail .detail-value').textContent),'EXAMPLE GOODS LTD');assert.ok(await bank.evaluate(()=>window.__panel.querySelector('.field-detail .detail-source').textContent.includes('EXAMPLE GOODS LTD')));
+  mkdirSync('test-results',{recursive:true});await bank.screenshot({path:'test-results/hybrid-source.png'});await bank.evaluate(()=>[...window.__panel.querySelectorAll('header button')].find(b=>b.textContent==='Свернуть').click());
   assert.equal(await bank.locator('#same').isChecked(),false);assert.equal(await bank.evaluate(()=>window.__submissions),0);
   await bank.locator('#regPost').focus();assert.ok(await bank.evaluate(()=>window.__overlay.textContent.includes('Почтовый индекс юридического адреса')));
   await bank.locator('#taxCountry').selectOption('GB');await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Tax number'&&card.querySelector('.value')));

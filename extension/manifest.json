@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Помощник регистраций компаний",
   "description": "Подсказки по подтверждённым документам, объяснения на русском и вставка полей по нажатию.",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "permissions": [
     "activeTab",
     "scripting",
