@@ -39,3 +39,15 @@ test('recognizes all 30 scanned PDF pages including a unique identifier on the f
   for(const page of pages)assert.ok(page.text.trim().length>0,`page ${page.page} must be read`);
   assert.match(pages[29].text,/87654321/);assert.match(pages[29].text,/FINAL PAGE/);
 });
+
+test('identity photo OCR transfers explicitly labelled compound names into the profile draft',{timeout:120000},async t=>{
+ const {mkdtempSync,rmSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {openDatabase}=await import('../lib/database.js');const {reanalyze}=await import('../lib/auto-facts.js');const {profileState}=await import('../lib/company-profile.js');
+ const canvas=createCanvas(1600,600),ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,1600,600);ctx.fillStyle='black';ctx.font='42px sans-serif';
+ ['PASSPORT','Surname: DE LA CRUZ','Given names: ANNA MARIA','Nationality: EXAMPLE'].forEach((line,i)=>ctx.fillText(line,40,100+i*110));
+ const pages=await extractDocument(canvas.toBuffer('image/png'),'synthetic-identity.png');
+ const directory=mkdtempSync(join(tmpdir(),'ra-photo-')),db=openDatabase(directory);t.after(()=>{db.close();rmSync(directory,{recursive:true,force:true});});
+ db.prepare('INSERT INTO users VALUES(1,?,?)').run('test','hash');db.prepare('INSERT INTO companies VALUES(?,?,?)').run('company',1,'EXAMPLE GOODS LTD');
+ db.prepare('INSERT INTO documents VALUES(?,?,?,?,?)').run('identity','company','synthetic-identity.png',JSON.stringify(pages),'ready');reanalyze(db,'company');
+ const state=profileState(db,'company');assert.equal(state.values.contact_first_name,'ANNA MARIA');assert.equal(state.values.contact_last_name,'DE LA CRUZ');assert.equal(state.approved,false);assert.equal(state.sources.contact_first_name.documentId,'identity');
+});

@@ -46,3 +46,11 @@ test('structured operator form and official-style document values reconcile with
   assert.equal(reviewState(db,'company').unresolvedCount,0);assert.equal(db.prepare("SELECT count(*) n FROM facts WHERE key IN ('contact_first_name','contact_last_name','incorporated_on','company_name')").get().n,4);
   const state=reviewState(db,'company');assert.equal(confirmReview(db,'company',state.signature).approved,true);
 });
+test('foreign-company evidence remains reviewable without blocking selected company facts',t=>{
+ const db=setup(t);
+ addDocument(db,'registry','CERTIFICATE OF INCORPORATION\nEXAMPLE GOODS LTD\nCompany Number: 12345678');
+ addDocument(db,'provider','OTHER PROVIDER LIMITED\nCompany number: 87654321');
+ reanalyze(db,'company');
+ assert.equal(db.prepare("SELECT value FROM facts WHERE key='company_number'").get()?.value,'12345678');
+ assert.ok(listExtracted(db,'company').some(r=>r.value==='87654321'&&!r.automatic));
+});
