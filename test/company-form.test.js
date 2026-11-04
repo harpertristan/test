@@ -64,3 +64,8 @@ test('choice metadata includes public options, help and observed states without 
  assert.equal(suggest({label:'I agree with Terms & Conditions',type:'checkbox',consent:true},[]).status,'manual');
  assert.equal(suggest({label:'Upload certificate',type:'file'},[]).status,'manual');assert.equal(suggest({label:'Company name',type:'text',readOnly:true},[]).status,'manual');
 });
+
+test('AI receives relevant master-profile evidence and document extracts but not unrelated personal facts',async t=>{
+ const {db}=setup(t);let sent;await analyzeForm(db,'company','bank.example',[{id:'reg',label:'Company registration number',type:'text',value:'typed-on-page-must-not-send'}],{AI_API_KEY:'synthetic-test-key-only',AI_MODEL:'test-model'},async(_url,options)=>{sent=JSON.parse(JSON.parse(options.body).messages[1].content);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:[{id:'reg',key:'company_number',explanation:'Используйте подтверждённый номер основной анкеты; расхождение с документом проверьте.'}]})}}]})};},{reviewApproved:true,evidence:[{key:'company_number',value:'87654321',source:'Master sheet',quote:'Approved number 87654321',origin:'master-profile'},{key:'company_number',value:'12345678',source:'Registry extract',quote:'Number 12345678',origin:'document'},{key:'contact_passport_number',value:'unrelated-personal-secret',source:'Passport',origin:'document'}]});
+ assert.equal(sent.evidence.find(row=>row.origin==='master-profile').value,'87654321');assert.equal(sent.evidence.find(row=>row.origin==='document').value,'12345678');assert.equal(JSON.stringify(sent).includes('unrelated-personal-secret'),false);assert.equal(JSON.stringify(sent).includes('typed-on-page-must-not-send'),false);
+});

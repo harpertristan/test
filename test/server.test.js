@@ -1,3 +1,4 @@
+import {completedProfile} from '../scripts/fixtures/profile.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync} from 'node:fs';
@@ -16,7 +17,8 @@ test('documents → verified facts → scoped browser proposals and corrections'
   t.after(async()=>{await new Promise(resolve=>server.close(resolve));db.close();rmSync(dir,{recursive:true,force:true});});
   let cookie='';
   async function call(path,{method='GET',body,headers={}}={}){const response=await fetch(base+'/api'+path,{method,headers:{Origin:origin,'X-Assistant-Request':'1',...(cookie?{Cookie:cookie}:{}),...(body && !(body instanceof FormData)?{'Content-Type':'application/json'}:{}),...headers},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});return {response,data:await response.json()};}
-  async function approve(id){const state=(await call(`/companies/${id}/review`)).data;const result=await call(`/companies/${id}/review`,{method:'POST',body:{confirmed:true,signature:state.signature}});assert.equal(result.response.status,200,JSON.stringify(result.data));}
+  async function approve(id){const state=(await call(`/companies/${id}/profile`)).data;const result=await call(`/companies/${id}/profile`,{method:'POST',body:{values:completedProfile(state.values),confirmed:true,signature:state.sourceSignature,revision:state.updatedAt}});assert.equal(result.response.status,200,JSON.stringify(result.data));}
+
   assert.equal((await call('/companies')).response.status,401);
   let result=await call('/login',{method:'POST',body:{username:'alice',password:'wrong'}});assert.equal(result.response.status,401);
   result=await call('/login',{method:'POST',body:{username:'alice',password:'a-long-example-password'}});assert.equal(result.response.status,200);cookie=result.response.headers.get('set-cookie').split(';')[0];const aliceCookie=cookie;
@@ -26,7 +28,7 @@ test('documents → verified facts → scoped browser proposals and corrections'
   result=await call(`/companies/${companyId}/notes`,{method:'POST',body:{title:'Director approved note',text:'Company name: Example Limited\nCountry of incorporation: United Kingdom\n<script>alert(1)</script>'}});const documentId=result.data.id;
   const fields=[{id:'0',label:'Company name',type:'text'},{id:'1',label:'Country of tax residence',type:'text'}];
   result=await call('/propose',{method:'POST',body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'needs_confirmation');await approve(companyId);
-  result=await call('/propose',{method:'POST',body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'suggested');assert.equal(result.data.fields[0].automatic,true);
+  result=await call('/propose',{method:'POST',body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'suggested');assert.equal(result.data.fields[0].automatic,false);
   const fact={key:'company_name',value:'Example Limited',documentId,page:1,quote:'Company name: Example Limited',confirmed:true};
   result=await call(`/companies/${companyId}/facts`,{method:'POST',body:{...fact,value:'Invented company'}});assert.equal(result.response.status,400);
   result=await call(`/companies/${companyId}/facts`,{method:'POST',body:{...fact,quote:'Invented source: Example Limited'}});assert.equal(result.response.status,400);
@@ -35,7 +37,7 @@ test('documents → verified facts → scoped browser proposals and corrections'
   await approve(companyId);
   result=await call('/extension-token',{method:'POST'});const extensionToken=result.data.token;
   const extensionHeaders={Authorization:`Bearer ${extensionToken}`,Origin:'chrome-extension://'+'a'.repeat(32)};
-  result=await call('/propose',{method:'POST',headers:extensionHeaders,body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].value,'Example Limited');assert.equal(result.data.fields[1].status,'manual');assert.equal(result.data.fields[0].source,'Director approved note');
+  result=await call('/propose',{method:'POST',headers:extensionHeaders,body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].value,'Example Limited');assert.equal(result.data.fields[1].status,'suggested');assert.equal(result.data.fields[0].source,'Анкета компании · подтверждено оператором');
   assert.equal((await call(`/companies/${companyId}/documents`,{headers:extensionHeaders})).response.status,403);
   assert.equal((await call(`/companies/${companyId}/facts`,{method:'POST',body:fact,headers:extensionHeaders})).response.status,403);
   assert.equal((await call('/extension-token',{method:'POST',headers:extensionHeaders})).response.status,403);

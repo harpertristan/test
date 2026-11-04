@@ -18,6 +18,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
       await chrome.storage.session.set({origin:url.origin,token:message.token});
       return {ok:true};
     }
+    if(message.type==='appearance'){if(message.theme!==undefined){if(!['classic','violet'].includes(message.theme))throw Error('Неизвестное оформление.');await chrome.storage.local.set({appearance:message.theme});}return {theme:(await chrome.storage.local.get('appearance')).appearance||'classic'};}
     if(message.type==='openSettings'){await chrome.runtime.openOptionsPage();return {ok:true};}
     if(message.type==='openDashboard'){const {origin}=await chrome.storage.session.get('origin');if(!origin)throw Error('Сначала подключите сервер.');await chrome.tabs.create({url:origin+'/#ai-settings'});return {ok:true};}
     if(message.type!=='api')throw Error('Неизвестный запрос.');

@@ -1,3 +1,4 @@
+import {publishProfile} from './fixtures/profile.js';
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync,mkdirSync,readFileSync} from 'node:fs';
@@ -20,7 +21,7 @@ try{
   const company=(await api('/companies',{name:'EXAMPLE GOODS LTD'})).data;
   await api(`/companies/${company.id}/notes`,{title:'Synthetic notebook',text:notebook+'\nCompany legal form: Private company limited by shares\nCountry of tax residence: United Kingdom\nCompany phone: +44 20 7946 0018\nCompany email: company@example.com\nOperating address\n77 Sample Avenue, Oxford, England, OX1 1AA\n'});
   const upload=new FormData();upload.append('documents',new Blob([makePdf('VAT Registration Number GB123 4567 89')]),'synthetic-vat-certificate.pdf');await api(`/companies/${company.id}/documents`,upload);
-  const review=(await api(`/companies/${company.id}/review`)).data;assert.equal(review.unresolvedCount,0);await api(`/companies/${company.id}/review`,{confirmed:true,signature:review.signature});
+  await publishProfile(api,company.id);
   const token=(await api('/extension-token',{})).data.token;
   browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const context=await browser.newContext(),page=await context.newPage();
   const errors=[];context.on('page',p=>p.on('pageerror',error=>errors.push(error.message)));page.on('pageerror',error=>errors.push(error.message));
@@ -55,7 +56,7 @@ try{
   await bank.locator('#taxCountry').selectOption('GB');await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Tax number'&&card.querySelector('.value')));
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());await bank.waitForFunction(()=>document.getElementById('tax').value==='1234567890');
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Агент: разобрать анкету').click());await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('button')].some(button=>button.textContent==='Подтвердить назначение поля'));
-  assert.equal(lastAgentBody.includes('operator-private@example.net'),false);assert.equal(lastAgentBody.includes('GB123456789'),false);
+  assert.equal(lastAgentBody.includes('operator-private@example.net'),false);assert.equal(lastAgentBody.includes('GB123456789'),true);
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Подтвердить назначение поля').click());await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Organisation designation for this application'&&card.querySelector('.value')));
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());await bank.waitForFunction(()=>document.getElementById('unusual').value==='EXAMPLE GOODS LTD');
   const previousCalls=agentCalls;

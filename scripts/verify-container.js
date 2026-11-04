@@ -1,3 +1,4 @@
+import {publishProfile} from './fixtures/profile.js';
 // Smoke test with synthetic data; intended to run inside the production image.
 import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -21,7 +22,7 @@ try{
   const uploaded=(await call(`/companies/${company.id}/documents`,data)).data;assert.equal(uploaded[0].status,'extracted',uploaded[0].error);
   const docs=(await call(`/companies/${company.id}/documents`)).data;assert.match(docs[0].pages[0].text,/EXAMPLE LIMITED/);
   await call(`/companies/${company.id}/facts`,{key:'company_name',value:'EXAMPLE LIMITED',documentId:docs[0].id,page:1,quote:'EXAMPLE LIMITED',confirmed:true});
-  const review=(await call(`/companies/${company.id}/review`)).data;await call(`/companies/${company.id}/review`,{confirmed:true,signature:review.signature});
+  await publishProfile(call,company.id);
   const proposal=(await call('/propose',{companyId:company.id,host:'bank.example',fields:[{id:'0',label:'Company name',type:'text'}]})).data;assert.equal(proposal.fields[0].value,'EXAMPLE LIMITED');
   console.log('PASS: production container, authentication, image upload, local OCR, verified source and proposal. Node '+process.version);
 }finally{await new Promise(resolve=>server.close(resolve));db.close();rmSync(directory,{recursive:true,force:true});}

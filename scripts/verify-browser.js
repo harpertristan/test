@@ -1,3 +1,4 @@
+import {completedProfile} from './fixtures/profile.js';
 // Browser UI check with a simulated extension runtime. No extension installation
 // is attempted; real Dolphin/extension installation is a separate check.
 import {chromium} from '@playwright/test';
@@ -38,7 +39,7 @@ try{
   for(const [key,value] of [['company_name','EXAMPLE GOODS LTD'],['contact_first_name','Alice'],['contact_last_name','Example'],['website','https://example.com']])await page.locator(`#structuredForm [name=${key}]`).fill(value);
   await page.getByRole('button',{name:'Сохранить и сопоставить с документами',exact:true}).click();
   await page.getByText('Совпадает в источниках: 2',{exact:true}).first().waitFor();
-  await page.locator('#reviewConfirmed').check();await page.locator('#approveReview').click();await page.locator('#reviewStatus').filter({hasText:'подтверждена'}).waitFor();
+  const draft=await page.evaluate(async()=>await (await fetch('/api/companies/'+document.getElementById('companySelect').value+'/profile')).json());const values=completedProfile(draft.values);for(const field of draft.schema){const control=page.locator('#profile-'+field.key);if(field.type==='select')await control.selectOption(values[field.key]||'');else if(values[field.key]&&!await control.inputValue())await control.fill(values[field.key]);}await page.locator('#profileConfirmed').check();await page.locator('#saveCompanyProfile').click();await page.locator('#profileProgress').filter({hasText:'Анкета сохранена'}).waitFor();
   await page.locator('#createToken').click();await page.locator('#tokenBox').waitFor({state:'visible'});const token=await page.locator('#tokenValue').inputValue();
   const bank=await context.newPage();
   await bank.addInitScript(({token,origin})=>{
@@ -61,7 +62,8 @@ try{
   assert.equal(await bank.locator('[name=firstName]').inputValue(),'Alice');assert.equal(await bank.locator('[name=last_name]').inputValue(),'Example');
   assert.equal(await bank.locator('[name=company_name]').inputValue(),'EXAMPLE GOODS LTD');assert.equal(await bank.locator('[name=website]').inputValue(),'https://example.com');
   assert.equal(await bank.locator('[name=incorporation_country]').inputValue(),'GB');
-  for(const name of ['work_email','phone_number','dial_code','industry','volume','password'])assert.equal(await bank.locator(`[name=${name}]`).inputValue(),'');
+  for(const [name,value] of [['work_email','company@example.com'],['phone_number','2079460018'],['dial_code','+44'],['industry','retail']])assert.equal(await bank.locator(`[name=${name}]`).inputValue(),value);
+  for(const name of ['volume','password'])assert.equal(await bank.locator(`[name=${name}]`).inputValue(),'');
   assert.equal(await bank.locator('[name=no_website]').isChecked(),false);assert.equal(await bank.evaluate(()=>window.__submissions),0);
   await bank.locator('[name=website]').fill('https://user-entered.example');
   await bank.evaluate(()=>[...window.__testPanelRoot.querySelectorAll('button')].find(b=>b.textContent==='Заполнить найденные пустые поля').click());
