@@ -10,11 +10,17 @@ import {openDatabase} from './lib/database.js';
 import {extractDocument} from './lib/extraction.js';
 import {FIELDS,suggest,normalize,sensitive} from './lib/fields.js';
 import {token,digest,verifyPassword,requireString,fail} from './lib/security.js';
+import {reanalyze,listExtracted,resolveExtracted,refreshAutoFacts} from './lib/auto-facts.js';
+import {valueGrounded} from './lib/normalization.js';
+import {semanticExtraction} from './lib/semantic-extraction.js';
+import {reviewState,confirmReview} from './lib/review.js';
+import {compact,comparableValue} from './lib/normalization.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env} = {}) {
   const app = express();
   const uploadDir = join(dataDir,'uploads'); mkdirSync(uploadDir,{recursive:true,mode:0o700});
+  for(const company of db.prepare('SELECT id FROM companies').all())reanalyze(db,company.id);
   app.disable('x-powered-by');
   if(process.env.TRUST_PROXY === '1') app.set('trust proxy',1);
   app.use(helmet({contentSecurityPolicy:{directives:{'script-src':["'self'"],'img-src':["'self'",'data:'],'frame-ancestors':["'none'"]}},strictTransportSecurity:origin.startsWith('https:') ? undefined : false}));
@@ -33,7 +39,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     }
     next();
   });
-  app.get('/api/health',(_req,res) => res.json({ok:true,version:'0.1.0'}));
+  app.get('/api/health',(_req,res) => res.json({ok:true,version:'0.2.0'}));
   app.post('/api/login',loginLimiter,(req,res) => {
     if(req.get('Origin') !== origin || req.get('X-Assistant-Request') !== '1') fail('Войдите через интерфейс приложения.',403);
     const username = requireString(req.body.username,'Логин',100);
@@ -53,11 +59,15 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     if(!session || (bearer && session.kind !== 'extension') || (!bearer && session.kind !== 'web')) return res.status(401).json({error:'Войдите в приложение или подключите расширение заново.'});
     req.user = session;
     if(session.kind === 'web' && !['GET','HEAD','OPTIONS'].includes(req.method) && (req.get('Origin') !== origin || req.get('X-Assistant-Request') !== '1')) return res.status(403).json({error:'Запрос не подтверждён интерфейсом.'});
-    if(session.kind === 'extension' && !((req.method === 'GET' && /^\/(me|companies|companies\/[^/]+\/facts)$/.test(req.path)) || (req.method === 'POST' && /^\/(propose|explain|companies\/[^/]+\/corrections)$/.test(req.path)))) return res.status(403).json({error:'Токен расширения не разрешает это действие.'});
+    if(session.kind === 'extension' && !((req.method === 'GET' && /^\/(me|companies|companies\/[^/]+\/(facts|review))$/.test(req.path)) || (req.method === 'POST' && /^\/(propose|explain|companies\/[^/]+\/corrections)$/.test(req.path)))) return res.status(403).json({error:'Токен расширения не разрешает это действие.'});
     next();
   });
   const companyFor = (req,id = req.params.companyId) => db.prepare('SELECT * FROM companies WHERE id=? AND user_id=?').get(id,req.user.user_id) || fail('Компания не найдена.',404);
-  const factsFor = companyId => db.prepare('SELECT facts.*,documents.filename FROM facts JOIN documents ON documents.id=facts.document_id WHERE facts.company_id=? ORDER BY facts.key').all(companyId);
+  const factsFor = companyId => {
+    const facts=db.prepare("SELECT facts.*,documents.filename,EXISTS(SELECT 1 FROM extracted_fields e WHERE e.company_id=facts.company_id AND e.key=facts.key AND e.status='conflict') AS conflicted,COALESCE((SELECT note FROM extracted_fields e WHERE e.company_id=facts.company_id AND e.key=facts.key AND e.value=facts.value LIMIT 1),'') AS note FROM facts JOIN documents ON documents.id=facts.document_id WHERE facts.company_id=? ORDER BY facts.key").all(companyId);
+    const sources=db.prepare("SELECT e.*,d.filename,d.status AS document_status FROM extracted_fields e JOIN documents d ON d.id=e.document_id WHERE e.company_id=? AND e.status!='dismissed'").all(companyId);
+    return facts.map(fact=>({...fact,matches:sources.filter(source=>source.key===fact.key&&comparableValue(fact.key,source.value)===comparableValue(fact.key,fact.value)).map(source=>({filename:source.filename,page:source.page,quote:source.quote,kind:source.document_status==='note'||/\.txt$/i.test(source.filename)?'Блокнот / анкета':'Файл документа'}))}));
+  };
   app.get('/api/me',(req,res)=>res.json({username:req.user.username,fields:FIELDS,aiEnabled:Boolean(ai.AI_API_KEY && ai.AI_MODEL)}));
   app.post('/api/logout',(req,res)=>{db.prepare('DELETE FROM sessions WHERE hash=?').run(req.user.hash);res.clearCookie('ra_session',{path:'/'});res.json({ok:true});});
   app.post('/api/extension-token',(req,res)=>{
@@ -91,20 +101,41 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
         results.push({id,filename,status});
       } catch(error) {if(existsSync(join(uploadDir,id)))unlinkSync(join(uploadDir,id));results.push({filename,status:'error',error:error.message});}
     }
+    reanalyze(db,req.params.companyId);
     res.status(201).json(results);
   });
   app.post('/api/companies/:companyId/notes',(req,res)=>{
     companyFor(req);const id=randomUUID();
     const text=requireString(req.body.text,'Текст заметки',100000);
     db.prepare('INSERT INTO documents VALUES(?,?,?,?,?)').run(id,req.params.companyId,requireString(req.body.title,'Название заметки',200),JSON.stringify([{page:1,text}]),'note');
+    reanalyze(db,req.params.companyId);
     res.status(201).json({id});
+  });
+  app.post('/api/companies/:companyId/structured',(req,res)=>{
+    companyFor(req);if(!req.body.values||typeof req.body.values!=='object'||Array.isArray(req.body.values))fail('Заполните форму сведений.');
+    const lines=[];for(const [key,value] of Object.entries(req.body.values)){if(!Object.hasOwn(FIELDS,key))fail('Неизвестный тип сведений.');if(typeof value!=='string'||value.length>2000)fail('Слишком длинное значение.');if(value.trim())lines.push(FIELDS[key]+': '+compact(value));}
+    if(!lines.length)fail('Заполните хотя бы одно поле.');const id=randomUUID();db.prepare('INSERT INTO documents VALUES(?,?,?,?,?)').run(id,req.params.companyId,'Анкета оператора',JSON.stringify([{page:1,text:lines.join('\n')}]),'note');
+    reanalyze(db,req.params.companyId);res.status(201).json({id});
   });
   app.get('/api/companies/:companyId/documents/:id/original',(req,res)=>{
     companyFor(req);const doc=db.prepare('SELECT * FROM documents WHERE id=? AND company_id=?').get(req.params.id,req.params.companyId);
     if(!doc || !existsSync(join(uploadDir,doc.id)))fail('Файл не найден.',404);
     res.download(join(uploadDir,doc.id),doc.filename);
   });
+  app.delete('/api/companies/:companyId/documents/:id',(req,res)=>{
+    companyFor(req);const doc=db.prepare('SELECT id FROM documents WHERE id=? AND company_id=?').get(req.params.id,req.params.companyId);if(!doc)fail('Источник не найден.',404);
+    db.prepare('DELETE FROM documents WHERE id=?').run(doc.id);
+    db.prepare("UPDATE extracted_fields SET status=CASE WHEN automatic=1 THEN 'auto' ELSE 'review' END WHERE company_id=? AND status='resolved' AND key NOT IN (SELECT key FROM facts WHERE company_id=?)").run(req.params.companyId,req.params.companyId);
+    reanalyze(db,req.params.companyId);if(existsSync(join(uploadDir,doc.id)))unlinkSync(join(uploadDir,doc.id));res.json({ok:true});
+  });
   app.get('/api/companies/:companyId/facts',(req,res)=>{companyFor(req);res.json(factsFor(req.params.companyId));});
+  app.get('/api/companies/:companyId/review',(req,res)=>{companyFor(req);res.json(reviewState(db,req.params.companyId));});
+  app.post('/api/companies/:companyId/review',(req,res)=>{companyFor(req);if(req.body.confirmed!==true)fail('Отметьте подтверждение всех итоговых данных.');res.json(confirmReview(db,req.params.companyId,req.body.signature));});
+  app.get('/api/companies/:companyId/extracted',(req,res)=>{companyFor(req);res.json(listExtracted(db,req.params.companyId));});
+  app.post('/api/companies/:companyId/analyze',(req,res)=>{companyFor(req);res.json(reanalyze(db,req.params.companyId));});
+  app.post('/api/companies/:companyId/analyze-ai',async(req,res)=>{companyFor(req);if(req.body.consent!==true)fail('Подтвердите отправку текста документов API-провайдеру.');res.json(await semanticExtraction(db,req.params.companyId,ai));});
+  app.post('/api/companies/:companyId/extracted/confirm',(req,res)=>{companyFor(req);resolveExtracted(db,req.params.companyId,req.body.selections);res.json({ok:true});});
+  app.delete('/api/companies/:companyId/extracted/:id',(req,res)=>{companyFor(req);const row=db.prepare('SELECT * FROM extracted_fields WHERE id=? AND company_id=?').get(req.params.id,req.params.companyId);if(row){db.prepare("UPDATE extracted_fields SET status='dismissed' WHERE id=?").run(row.id);db.prepare('DELETE FROM facts WHERE company_id=? AND key=? AND confirmed=2').run(req.params.companyId,row.key);refreshAutoFacts(db,req.params.companyId);}res.json({ok:true});});
   app.post('/api/companies/:companyId/facts',(req,res)=>{
     companyFor(req);
     const {key,documentId,page,confirmed}=req.body;
@@ -113,11 +144,13 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     const document=db.prepare('SELECT * FROM documents WHERE id=? AND company_id=?').get(documentId,req.params.companyId);
     const text=document && JSON.parse(document.pages).find(p=>p.page===page)?.text;
     const compact=s=>s.normalize('NFKC').replace(/\s+/g,' ').trim();
-    if(!text || !compact(text).includes(compact(quote)) || !compact(quote).includes(compact(value))) fail('Значение должно присутствовать в цитате, а цитата — на выбранной странице. Для новых сведений сначала добавьте подтверждённую заметку.');
+    if(!text || !compact(text).includes(compact(quote)) || !valueGrounded(key,value,quote)) fail('Значение должно соответствовать цитате, а цитата — выбранной странице. Для новых сведений сначала добавьте заметку.');
     db.prepare('INSERT INTO facts VALUES(?,?,?,?,?,?,?,1) ON CONFLICT(company_id,key) DO UPDATE SET value=excluded.value,document_id=excluded.document_id,page=excluded.page,quote=excluded.quote,confirmed=1').run(randomUUID(),req.params.companyId,key,value,documentId,page,quote);
+    db.prepare("UPDATE extracted_fields SET status='resolved' WHERE company_id=? AND key=?").run(req.params.companyId,key);
+    reanalyze(db,req.params.companyId);
     res.json({ok:true});
   });
-  app.delete('/api/companies/:companyId/facts/:id',(req,res)=>{companyFor(req);db.prepare('DELETE FROM facts WHERE id=? AND company_id=?').run(req.params.id,req.params.companyId);res.json({ok:true});});
+  app.delete('/api/companies/:companyId/facts/:id',(req,res)=>{companyFor(req);const row=db.prepare('SELECT key FROM facts WHERE id=? AND company_id=?').get(req.params.id,req.params.companyId);if(row)db.prepare("UPDATE extracted_fields SET status='dismissed' WHERE company_id=? AND key=?").run(req.params.companyId,row.key);db.prepare('DELETE FROM facts WHERE id=? AND company_id=?').run(req.params.id,req.params.companyId);res.json({ok:true});});
   app.post('/api/companies/:companyId/corrections',(req,res)=>{
     companyFor(req);
     const host=requireString(req.body.host,'Домен',253).toLowerCase();
@@ -133,11 +166,13 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     if(!Array.isArray(req.body.fields) || req.body.fields.length>100)fail('До 100 полей за запрос.');
     const host=requireString(req.body.host,'Домен',253).toLowerCase();
     const facts=factsFor(company.id);
+    const review=reviewState(db,company.id);
     const corrections=db.prepare('SELECT field,message FROM corrections WHERE company_id=? AND host=?').all(company.id,host);
-    res.json({company:{id:company.id,name:company.name},fields:req.body.fields.map(field=>{
+    res.json({company:{id:company.id,name:company.name},review,fields:req.body.fields.map(field=>{
       if(!field || typeof field.id!=='string' || field.id.length>100 || (field.options && (!Array.isArray(field.options)||field.options.length>500)))fail('Некорректное поле.');
       const saved=corrections.filter(c=>normalize(c.field)===normalize(field.label));
-      return {id:field.id,label:String(field.label||'').slice(0,300),...(saved.length ? {status:'manual',reason:'Для этого поля сохранено исправление. Проверьте его перед ручным заполнением.',corrections:saved.map(c=>c.message)} : suggest(field,facts))};
+      if(!review.approved)return {id:field.id,label:String(field.label||'').slice(0,300),status:'needs_confirmation',reason:review.unresolvedCount?'В карточке есть расхождения. Выберите итоговые значения и подтвердите все данные.':'Данные разобраны. В веб-интерфейсе отметьте «Я проверил все итоговые данные», чтобы разрешить заполнение.'};
+      return {id:field.id,label:String(field.label||'').slice(0,300),...(saved.length ? {status:'manual',reason:'Для этого поля сохранено исправление. Проверьте его перед ручным заполнением.',corrections:saved.map(c=>c.message)} : suggest(field,facts,{personRole:['director','beneficiary'].includes(req.body.personRole)?req.body.personRole:'contact'}))};
     })});
   });
   app.post('/api/explain',rateLimit({windowMs:60000,limit:10,legacyHeaders:false}),async(req,res)=>{

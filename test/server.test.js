@@ -16,6 +16,7 @@ test('documents → verified facts → scoped browser proposals and corrections'
   t.after(async()=>{await new Promise(resolve=>server.close(resolve));db.close();rmSync(dir,{recursive:true,force:true});});
   let cookie='';
   async function call(path,{method='GET',body,headers={}}={}){const response=await fetch(base+'/api'+path,{method,headers:{Origin:origin,'X-Assistant-Request':'1',...(cookie?{Cookie:cookie}:{}),...(body && !(body instanceof FormData)?{'Content-Type':'application/json'}:{}),...headers},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});return {response,data:await response.json()};}
+  async function approve(id){const state=(await call(`/companies/${id}/review`)).data;const result=await call(`/companies/${id}/review`,{method:'POST',body:{confirmed:true,signature:state.signature}});assert.equal(result.response.status,200,JSON.stringify(result.data));}
   assert.equal((await call('/companies')).response.status,401);
   let result=await call('/login',{method:'POST',body:{username:'alice',password:'wrong'}});assert.equal(result.response.status,401);
   result=await call('/login',{method:'POST',body:{username:'alice',password:'a-long-example-password'}});assert.equal(result.response.status,200);cookie=result.response.headers.get('set-cookie').split(';')[0];const aliceCookie=cookie;
@@ -24,24 +25,29 @@ test('documents → verified facts → scoped browser proposals and corrections'
   result=await call('/companies',{method:'POST',body:{name:'Example Limited'}});const companyId=result.data.id;assert.equal(result.response.status,201);
   result=await call(`/companies/${companyId}/notes`,{method:'POST',body:{title:'Director approved note',text:'Company name: Example Limited\nCountry of incorporation: United Kingdom\n<script>alert(1)</script>'}});const documentId=result.data.id;
   const fields=[{id:'0',label:'Company name',type:'text'},{id:'1',label:'Country of tax residence',type:'text'}];
-  result=await call('/propose',{method:'POST',body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'manual');
+  result=await call('/propose',{method:'POST',body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'needs_confirmation');await approve(companyId);
+  result=await call('/propose',{method:'POST',body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'suggested');assert.equal(result.data.fields[0].automatic,true);
   const fact={key:'company_name',value:'Example Limited',documentId,page:1,quote:'Company name: Example Limited',confirmed:true};
   result=await call(`/companies/${companyId}/facts`,{method:'POST',body:{...fact,value:'Invented company'}});assert.equal(result.response.status,400);
   result=await call(`/companies/${companyId}/facts`,{method:'POST',body:{...fact,quote:'Invented source: Example Limited'}});assert.equal(result.response.status,400);
   result=await call(`/companies/${companyId}/facts`,{method:'POST',body:{...fact,confirmed:false}});assert.equal(result.response.status,400);
   assert.equal((await call(`/companies/${companyId}/facts`,{method:'POST',body:fact})).response.status,200);
+  await approve(companyId);
   result=await call('/extension-token',{method:'POST'});const extensionToken=result.data.token;
   const extensionHeaders={Authorization:`Bearer ${extensionToken}`,Origin:'chrome-extension://'+'a'.repeat(32)};
   result=await call('/propose',{method:'POST',headers:extensionHeaders,body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].value,'Example Limited');assert.equal(result.data.fields[1].status,'manual');assert.equal(result.data.fields[0].source,'Director approved note');
   assert.equal((await call(`/companies/${companyId}/documents`,{headers:extensionHeaders})).response.status,403);
   assert.equal((await call(`/companies/${companyId}/facts`,{method:'POST',body:fact,headers:extensionHeaders})).response.status,403);
   assert.equal((await call('/extension-token',{method:'POST',headers:extensionHeaders})).response.status,403);
+  assert.equal((await call(`/companies/${companyId}/review`,{method:'POST',headers:extensionHeaders,body:{confirmed:true}})).response.status,403);
   assert.equal((await call('/explain',{method:'POST',body:{label:'Company name'},headers:extensionHeaders})).response.status,503);
   assert.equal((await call(`/companies/${companyId}/corrections`,{method:'POST',headers:extensionHeaders,body:{host:'bank.example',field:'Company name',message:'Use the registered legal name, not a trading brand.'}})).response.status,201);
   result=await call('/propose',{method:'POST',headers:extensionHeaders,body:{companyId,host:'bank.example',fields}});assert.equal(result.data.fields[0].status,'manual');assert.equal(result.data.fields[0].corrections.length,1);
   result=await call('/propose',{method:'POST',headers:extensionHeaders,body:{companyId,host:'another-bank.example',fields}});assert.equal(result.data.fields[0].status,'suggested');
   const data=new FormData();data.append('documents',new Blob(['Registration number: 12345678']),'registration.txt');
   result=await call(`/companies/${companyId}/documents`,{method:'POST',body:data});assert.equal(result.response.status,201);assert.equal(result.data[0].status,'extracted');
+  assert.equal((await call(`/companies/${companyId}/review`)).data.approved,false);
+  assert.equal((await call('/propose',{method:'POST',headers:extensionHeaders,body:{companyId,host:'another-bank.example',fields}})).data.fields[0].status,'needs_confirmation');
   const uploaded=result.data[0].id;const download=await fetch(`${base}/api/companies/${companyId}/documents/${uploaded}/original`,{headers:{Cookie:cookie}});assert.equal(download.status,200);assert.equal(await download.text(),'Registration number: 12345678');
   result=await call('/login',{method:'POST',body:{username:'bob',password:'another-long-password'}});cookie=result.response.headers.get('set-cookie').split(';')[0];
   assert.deepEqual((await call('/companies')).data,[]);

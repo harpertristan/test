@@ -23,6 +23,6 @@ test('ambiguous or unsupported select values require manual selection',()=>{
   const field={label:'Country of incorporation',type:'select-one',options:[{text:'United Kingdom',value:'GB'}]},facts=[{...fact,key:'country',value:'United Kingdom'}];
   assert.equal(suggest(field,facts).optionValue,'GB');
   assert.equal(suggest({...field,options:[...field.options,...field.options]},facts).status,'manual');
-  assert.equal(suggest({...field,options:[{text:'UK',value:'GB'}]},facts).status,'manual');
+  assert.equal(suggest({...field,options:[{text:'UK',value:'GB'}]},facts).optionValue,'GB');
   assert.equal(suggest({label:'Company name',type:'text'},[fact,{...fact,id:'f2'}]).status,'manual');
 });

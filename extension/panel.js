@@ -8,52 +8,42 @@
   shadow.append(style);
   function element(tag,text,className){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;}
   const panel=element('section',undefined,'panel'),header=element('header'),title=element('h2','Помощник регистраций'),close=element('button','×','quiet'),main=element('main'),status=element('p','','status'),companySelect=element('select'),cards=element('div'),manual=element('div');
-  const settings=element('button','Подключение','quiet'),refresh=element('button','Обновить поля','quiet'),companyLabel=element('label','Рабочая компания'),intro=element('p','Сверяйте компанию и смысл вопроса. Вставка только по вашему нажатию.','note');
-  companyLabel.append(companySelect);header.append(title,close);main.append(intro,settings,refresh,companyLabel,status,cards,manual);panel.append(header,main,element('div','Пароли, подтверждения, подписи и отправка анкеты — у вас.','bottom'));shadow.append(panel);document.documentElement.append(host);
-  let visible=true,active=true,companyId='',facts=[],fieldTitles={},fieldMap=new Map(),version=0,timer,lastSignature='',pageKey=location.href;
+  const fillButton=element('button','Заполнить найденные пустые поля'),autoLabel=element('label'),autoToggle=element('input'),roleSelect=element('select');
+  autoToggle.type='checkbox';autoToggle.style.width='auto';autoLabel.append(autoToggle,document.createTextNode(' Автоматически заполнять новые пустые поля'));
+  for(const [value,text] of [['contact','Контактное лицо из блокнота'],['director','Директор'],['beneficiary','Бенефициар']]){const option=element('option',text);option.value=value;roleSelect.append(option);}
+  const roleLabel=element('label','Чьи сведения использовать');roleLabel.append(roleSelect);
+  const settings=element('button','Подключение','quiet'),refresh=element('button','Обновить поля','quiet'),companyLabel=element('label','Рабочая компания'),intro=element('p','Сведения берутся из карточки компании. Заполните найденное одной кнопкой или включите автозаполнение пустых полей.','note');
+  companyLabel.append(companySelect);header.append(title,close);main.append(intro,settings,refresh,companyLabel,roleLabel,fillButton,autoLabel,status,cards,manual);panel.append(header,main,element('div','Пароли, подтверждения, подписи и отправка анкеты — у вас.','bottom'));shadow.append(panel);document.documentElement.append(host);
+  let visible=true,active=true,companyId='',facts=[],fieldTitles={},fieldMap=new Map(),version=0,timer,lastSignature='',pageKey=location.href,lastProposals=[],filling=false,lastReview=null,polling=false,ticks=0;
   const toggle=()=>{visible=!visible;host.style.setProperty('display',visible?'block':'none','important');if(visible)void scan(true);};
   globalThis.__registrationAssistant={toggle};close.addEventListener('click',toggle);
   settings.addEventListener('click',()=>chrome.runtime.sendMessage({type:'openSettings'}));
   const say=text=>{status.textContent=text;};
   async function api(path,body){const result=await chrome.runtime.sendMessage({type:'api',path,method:body?'POST':'GET',body});if(!result.ok)throw Error(result.error);return result.data;}
   function safe(fn){return async()=>{try{await fn();}catch(error){say(error.message);}};}
-  function labelFor(el){let text=[...(el.labels||[])].map(label=>label.textContent).join(' ').trim();if(!text)text=el.getAttribute('aria-label')||'';if(!text){text=(el.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>document.getElementById(id)?.textContent||'').join(' ').trim();}if(!text)text=el.getAttribute('placeholder')||el.name||'';return text.replace(/\s+/g,' ').replace(/\s*\*\s*$/,'').trim().slice(0,300);}
+  function labelFor(el){let text=[...(el.labels||[])].map(label=>{const copy=label.cloneNode(true);copy.querySelectorAll('input,select,textarea,button').forEach(control=>control.remove());return copy.textContent;}).join(' ').trim();if(!text)text=el.getAttribute('aria-label')||'';if(!text){text=(el.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>document.getElementById(id)?.textContent||'').join(' ').trim();}if(!text)text=el.getAttribute('placeholder')||el.name||'';return text.replace(/\s+/g,' ').replace(/\s*\*\s*$/,'').trim().slice(0,300);}
   function isSensitive(el,label){return el.type==='password'||/password|passcode|one.?time|verification code|security code|cvv|cvc|\bpin\b|\botp\b|card number|парол|код подтверждения/i.test(label+' '+el.name+' '+el.id+' '+el.autocomplete);}
-  function describe(el,id){const label=labelFor(el);return {id,label,name:(el.name||'').slice(0,100),type:el.tagName==='SELECT'?el.type:el.tagName==='TEXTAREA'?'textarea':el.type,options:el.tagName==='SELECT'?[...el.options].slice(0,500).map(o=>({text:o.textContent.trim().slice(0,200),value:o.value.slice(0,200),disabled:o.disabled})):undefined};}
+  function describe(el,id){const label=labelFor(el);return {id,label,name:(el.name||'').slice(0,100),type:el.tagName==='SELECT'?el.type:el.tagName==='TEXTAREA'?'textarea':el.type,autocomplete:(el.autocomplete||'').split(' ').at(-1),placeholder:el.getAttribute('placeholder')||'',splitPhone:/phone|telephone|mobile/i.test(label)&&[...(el.closest('form')||document).querySelectorAll('input,select')].some(control=>/^(?:dial(?:ling|ing)? code|calling code|country calling code|phone country code|country code)$/i.test(labelFor(control))),options:el.tagName==='SELECT'?[...el.options].slice(0,500).map(o=>({text:o.textContent.trim().slice(0,200),value:o.value.slice(0,200),disabled:o.disabled})):undefined};}
   function eligible(el){return !el.disabled&&!el.readOnly&&!['hidden','submit','button','reset','file','image'].includes(el.type)&&!isSensitive(el,labelFor(el))&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';}
   function collect(){fieldMap=new Map();const list=[];for(const el of document.querySelectorAll('input,select,textarea')){if(list.length>=100)break;if(!eligible(el))continue;const id=String(list.length),field=describe(el,id);if(!field.label)continue;fieldMap.set(id,{el,field});list.push(field);}return list;}
   async function scan(force=false){
     if(!visible||!active)return;
-    if(location.href!==pageKey){pageKey=location.href;lastSignature='';version++;cards.replaceChildren();manual.replaceChildren();}
-    const fields=collect(),signature=companyId+':'+pageKey+':'+JSON.stringify(fields);
+    if(location.href!==pageKey){autoToggle.checked=false;lastProposals=[];pageKey=location.href;lastSignature='';version++;cards.replaceChildren();manual.replaceChildren();}
+    const fields=collect(),signature=companyId+':'+roleSelect.value+':'+pageKey+':'+JSON.stringify(fields);
     if(!force&&signature===lastSignature)return;lastSignature=signature;
     const current=++version;cards.replaceChildren();manual.replaceChildren();
     if(!companyId){say('Выберите компанию.');return;}
     if(!fields.length){say('Доступных подписанных полей не найдено. Поля внутри iframe, закрытого Shadow DOM и нативных приложений эта версия не читает.');return;}
     say(`Сверяем ${fields.length} полей…`);
-    try{const [result,verifiedFacts]=await Promise.all([api('/propose',{companyId,host:location.hostname,fields}),api(`/companies/${companyId}/facts`)]);if(current!==version||!visible||!active)return;facts=verifiedFacts;render(result.fields,fields);say(`Компания: ${result.company.name}. Доступных полей: ${fields.length}. Изменения страницы отслеживаются, скриншоты не передаются.`);}catch(error){if(current===version)say(error.message);}
+    try{const [result,verifiedFacts]=await Promise.all([api('/propose',{companyId,personRole:roleSelect.value,host:location.hostname,fields}),api(`/companies/${companyId}/facts`)]);if(current!==version||!visible||!active)return;facts=verifiedFacts;lastReview=result.review;fillButton.disabled=!lastReview.approved;autoToggle.disabled=!lastReview.approved;if(!lastReview.approved)autoToggle.checked=false;lastProposals=result.fields;render(result.fields,fields);say(`Компания: ${result.company.name}. Доступных полей: ${fields.length}. Изменения страницы отслеживаются, скриншоты не передаются.`);if(autoToggle.checked)await fillEmpty();}catch(error){if(current===version)say(error.message);}
   }
   function render(proposals,fields){
-    for(const proposal of proposals){const card=element('article',undefined,'card');card.append(element('span',proposal.status==='suggested'?'Подтверждённый источник':'Нужна ваша проверка','badge'),element('h3',proposal.label),element('p',proposal.reason));
+    for(const proposal of proposals){const card=element('article',undefined,'card');card.append(element('span',proposal.status==='suggested'?(proposal.automatic?'Найдено автоматически':'Подтверждённый источник'):'Нужна ваша проверка','badge'),element('h3',proposal.label),element('p',proposal.reason));
       if(proposal.status==='suggested'){
         card.append(element('p',proposal.value,'value'),element('p',`${proposal.source} · страница / блок ${proposal.page}`,'source'));
         const detail=element('details');detail.append(element('summary','Цитата из источника'),element('p',proposal.quote));card.append(detail);
         const insert=element('button','Вставить в это поле');
-        insert.addEventListener('click',safe(async()=>{
-          const selectedCompany=companyId,currentPage=pageKey,capturedVersion=version,entry=fieldMap.get(proposal.id);
-          if(!entry||!entry.el.isConnected||!eligible(entry.el)||JSON.stringify(describe(entry.el,proposal.id))!==JSON.stringify(entry.field))throw Error('Поле изменилось. Обновите подсказки.');
-          insert.disabled=true;
-          try {
-            const fresh=await api('/propose',{companyId:selectedCompany,host:location.hostname,fields:[entry.field]});const verified=fresh.fields[0];
-            if(companyId!==selectedCompany||location.href!==currentPage||capturedVersion!==version||!entry.el.isConnected||!eligible(entry.el)||JSON.stringify(describe(entry.el,proposal.id))!==JSON.stringify(entry.field))throw Error('Компания или страница изменилась. Ничего не вставлено.');
-            if(verified.status!=='suggested'||verified.factId!==proposal.factId||verified.value!==proposal.value||verified.optionValue!==proposal.optionValue)throw Error('Источник или правило изменилось. Обновите панель перед вставкой.');
-            const el=entry.el;
-            if(el.type==='checkbox'||el.type==='radio')throw Error('Подтверждения заполняются вручную.');
-            if(el.value&&!confirm(`В поле «${proposal.label}» уже есть значение. Заменить его на «${proposal.value}» для компании «${companySelect.selectedOptions[0]?.textContent}»?`))return;
-            writeValue(el,proposal.optionValue??proposal.value);
-            el.scrollIntoView({block:'center',behavior:'smooth'});say('Значение вставлено. Проверьте его на странице; анкета не отправлялась.');
-          }finally{insert.disabled=false;}
-        }));card.append(insert);
+        insert.addEventListener('click',safe(async()=>{insert.disabled=true;try{await applyProposal(proposal,true);}finally{insert.disabled=false;}}));card.append(insert);
       }
       for(const correction of proposal.corrections||[])card.append(element('p',correction,'rules'));
       const explain=element('button','Объяснить по-русски','quiet');explain.addEventListener('click',safe(async()=>{explain.disabled=true;try{say('Получаем пояснение. Провайдеру передаётся только текст вопроса.');const result=await api('/explain',{label:proposal.label});card.append(element('p',result.explanation,'note'),element('p',result.notice,'source'));say('Пояснение получено.');}finally{explain.disabled=false;}}));card.append(explain);cards.append(card);
@@ -65,6 +55,26 @@
     form.append(element('p','Исправление запомнится для этой компании, домена и названия поля. На этом поле обычная подсказка остановится до удаления правила.','source'),select,text,button);
     form.addEventListener('submit',event=>{event.preventDefault();void safe(async()=>{const field=fields.find(f=>f.id===select.value);await api(`/companies/${companyId}/corrections`,{host:location.hostname,field:field.label,message:text.value});await scan(true);say('Исправление сохранено. Для изменения самого значения откройте карточку компании.');})();});manual.append(title,form);
   }
+  async function applyProposal(proposal,overwrite=false){
+    const selectedCompany=companyId,currentPage=pageKey,capturedVersion=version,personRole=roleSelect.value,entry=fieldMap.get(proposal.id);
+    if(!entry||!entry.el.isConnected||!eligible(entry.el)||JSON.stringify(describe(entry.el,proposal.id))!==JSON.stringify(entry.field))throw Error('Поле изменилось. Обновите подсказки.');
+    if(entry.el.value&&!overwrite)return false;
+    const fresh=await api('/propose',{companyId:selectedCompany,personRole,host:location.hostname,fields:[entry.field]}),verified=fresh.fields[0];
+    if(companyId!==selectedCompany||location.href!==currentPage||version!==capturedVersion||roleSelect.value!==personRole||!entry.el.isConnected||!eligible(entry.el)||JSON.stringify(describe(entry.el,proposal.id))!==JSON.stringify(entry.field))throw Error('Компания, роль или страница изменилась. Вставка остановлена.');
+    if(verified.status!=='suggested'||verified.factId!==proposal.factId||verified.value!==proposal.value||verified.optionValue!==proposal.optionValue)throw Error('Источник или правило изменилось. Обновите панель.');
+    const el=entry.el;
+    if(['checkbox','radio','password','file'].includes(el.type))return false;
+    if(el.value){if(!overwrite)return false;if(!confirm(`Заменить значение поля «${proposal.label}» на «${proposal.value}» для компании «${companySelect.selectedOptions[0]?.textContent}»?`))return false;}
+    writeValue(el,proposal.optionValue??proposal.value);return true;
+  }
+  async function fillEmpty(){
+    if(filling)return;filling=true;fillButton.disabled=true;let count=0;
+    try{for(const proposal of lastProposals){if(proposal.status!=='suggested')continue;try{if(await applyProposal(proposal))count++;}catch(error){say(`Заполнено: ${count}. ${error.message}`);return;}}say(`Заполнено пустых полей: ${count}. Остальные требуют сведений или уточнения. Проверьте анкету перед отправкой.`);}
+    finally{filling=false;fillButton.disabled=!lastReview?.approved;}
+  }
+  fillButton.addEventListener('click',safe(async()=>{await scan(true);await fillEmpty();}));
+  autoToggle.addEventListener('change',safe(async()=>{if(autoToggle.checked){await scan(true);await fillEmpty();}}));
+  roleSelect.addEventListener('change',()=>{autoToggle.checked=false;lastSignature='';void scan(true);});
   function writeValue(el,value){
     const probe=el.cloneNode(true);probe.value=value;
     if(probe.value!==value||(el.maxLength>0&&value.length>el.maxLength)||!probe.checkValidity())throw Error('Значение не соответствует ограничениям поля. Проверьте формат вручную.');
@@ -75,7 +85,7 @@
   }
   function renderManualPicker(fields){
     const allowed=fields.filter(field=>!['checkbox','radio','select-multiple'].includes(field.type));
-    if(!facts.length||!allowed.length)return;
+    if(!lastReview?.approved||!facts.length||!allowed.length)return;
     const detail=element('details'),summary=element('summary','Выбрать поле и данные вручную'),form=element('form'),target=element('select'),source=element('select'),preview=element('div'),ackLabel=element('label'),ack=element('input'),submit=element('button','Вставить выбранные данные');
     for(const field of allowed){const option=element('option',field.label);option.value=field.id;target.append(option);}
     for(const fact of facts){const option=element('option',fieldTitles[fact.key]||fact.key);option.value=fact.id;source.append(option);}
@@ -89,7 +99,7 @@
       if(!entry||!fact||!entry.el.isConnected||!eligible(entry.el)||JSON.stringify(describe(entry.el,entry.field.id))!==JSON.stringify(entry.field))throw Error('Поле изменилось. Обновите панель.');
       submit.disabled=true;
       try{
-        const fresh=(await api(`/companies/${currentCompany}/facts`)).find(f=>f.id===fact.id);
+        const approved=await api(`/companies/${currentCompany}/review`);if(!approved.approved)throw Error('Итоговые данные изменились. Подтвердите их заново в веб-интерфейсе.');const fresh=(await api(`/companies/${currentCompany}/facts`)).find(f=>f.id===fact.id);
         if(companyId!==currentCompany||location.href!==currentPage||version!==currentVersion||!entry.el.isConnected||!eligible(entry.el)||JSON.stringify(describe(entry.el,entry.field.id))!==JSON.stringify(entry.field))throw Error('Страница или компания изменилась. Ничего не вставлено.');
         if(!fresh||fresh.value!==fact.value||fresh.quote!==fact.quote)throw Error('Источник изменился. Обновите панель.');
         let value=fact.value;
@@ -103,9 +113,9 @@
       }finally{submit.disabled=false;}
     })();});
   }
-  companySelect.addEventListener('change',()=>{companyId=companySelect.value;lastSignature='';void scan(true);});refresh.addEventListener('click',safe(async()=>{await loadCompanies();await scan(true);}));
+  companySelect.addEventListener('change',()=>{companyId=companySelect.value;autoToggle.checked=false;lastProposals=[];lastSignature='';void scan(true);});refresh.addEventListener('click',safe(async()=>{await loadCompanies();await scan(true);}));
   async function loadCompanies(){const [companies,me]=await Promise.all([api('/companies'),api('/me')]),previous=companyId;fieldTitles=me.fields;companySelect.replaceChildren();const empty=element('option','Выберите компанию');empty.value='';companySelect.append(empty);for(const company of companies){const o=element('option',company.name);o.value=company.id;companySelect.append(o);}companySelect.value=companies.some(c=>c.id===previous)?previous:'';companyId=companySelect.value;}
   const observer=new MutationObserver(changes=>{if(!visible||!changes.some(c=>c.target!==host&&![...(c.addedNodes||[]),...(c.removedNodes||[])].includes(host)))return;clearTimeout(timer);timer=setTimeout(()=>void scan().catch(error=>say(error.message)),600);});observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['aria-label','aria-labelledby','disabled','readonly','hidden','type','placeholder']});
-  const interval=setInterval(()=>{if(!host.isConnected){active=false;observer.disconnect();clearInterval(interval);clearTimeout(timer);delete globalThis.__registrationAssistant;return;}if(visible&&location.href!==pageKey)void scan(true);},1000);
+  const interval=setInterval(()=>{if(!host.isConnected){active=false;observer.disconnect();clearInterval(interval);clearTimeout(timer);delete globalThis.__registrationAssistant;return;}if(visible&&location.href!==pageKey)void scan(true);if(visible&&companyId&&!polling&&!filling&&++ticks%5===0){polling=true;const selected=companyId;void api(`/companies/${selected}/review`).then(state=>{if(companyId===selected&&(state.signature!==lastReview?.signature||state.approved!==lastReview?.approved))return scan(true);}).catch(error=>say(error.message)).finally(()=>{polling=false;});}},1000);
   void safe(async()=>{await loadCompanies();await scan(true);})();
 })();

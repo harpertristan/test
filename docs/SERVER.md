@@ -47,17 +47,17 @@ docker compose version
 
 ## 5. Передайте архив проекта
 
-Скачайте `registration-assistant-0.1.0.zip` на Windows. В **новом локальном** окне PowerShell передайте файл, указав настоящий путь:
+Скачайте `registration-assistant-0.2.0.zip` на Windows. В **новом локальном** окне PowerShell передайте файл, указав настоящий путь:
 
 ```powershell
-scp "C:\Users\YOUR_NAME\Downloads\registration-assistant-0.1.0.zip" root@SERVER_IP:/root/
+scp "C:\Users\YOUR_NAME\Downloads\registration-assistant-0.2.0.zip" root@SERVER_IP:/root/
 ```
 
 Вернитесь в окно SSH и выполните:
 
 ```sh
 mkdir -p /opt
-unzip /root/registration-assistant-0.1.0.zip -d /opt
+unzip /root/registration-assistant-0.2.0.zip -d /opt
 cd /opt/registration-assistant/deploy
 cp .env.example .env
 chmod 600 .env
@@ -94,7 +94,7 @@ docker compose logs --tail=40 app caddy
 1. Войдите.
 2. Создайте компанию `Example Limited`.
 3. Добавьте заметку с текстом `Company name: Example Limited`.
-4. Подтвердите значение `Example Limited` с этой цитатой.
+4. Проверьте автоматически извлечённое значение `Example Limited`, отметьте общую галочку подтверждения итоговых данных и нажмите кнопку подтверждения.
 5. Подключите расширение по WINDOWS-DOLPHIN.md.
 6. На черновой / тестовой форме проверьте вставку и сохранение исправления.
 7. Только после этого переходите к настоящим документам и анкетам.

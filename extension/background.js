@@ -24,7 +24,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
     const {origin,token}=await chrome.storage.session.get(['origin','token']);
     if(!origin||!token)throw Error('Подключите сервер в настройках расширения. После закрытия браузера токен нужно ввести заново.');
     const method=message.method||'GET',path=message.path;
-    if(!((method==='GET'&&(['/me','/companies'].includes(path)||/^\/companies\/[a-f0-9-]{36}\/facts$/.test(path)))||(method==='POST'&&['/propose','/explain'].includes(path))||(method==='POST'&&/^\/companies\/[a-f0-9-]{36}\/corrections$/.test(path))))throw Error('Запрос запрещён расширением.');
+    if(!((method==='GET'&&(['/me','/companies'].includes(path)||/^\/companies\/[a-f0-9-]{36}\/(facts|review)$/.test(path)))||(method==='POST'&&['/propose','/explain'].includes(path))||(method==='POST'&&/^\/companies\/[a-f0-9-]{36}\/corrections$/.test(path))))throw Error('Запрос запрещён расширением.');
     if(!settingsPage && method==='POST'&&['/propose'].includes(path)) {
       const current=await chrome.tabs.get(sender.tab.id);
       if(message.body?.host!==new URL(current.url).hostname)throw Error('Страница изменилась. Обновите панель.');
