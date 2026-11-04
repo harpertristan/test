@@ -13,11 +13,11 @@ import {token,digest,verifyPassword,requireString,fail} from './lib/security.js'
 import {reanalyze,listExtracted,resolveExtracted,refreshAutoFacts} from './lib/auto-facts.js';
 import {valueGrounded} from './lib/normalization.js';
 import {semanticExtraction} from './lib/semantic-extraction.js';
-import {reviewState,confirmReview} from './lib/review.js';
 import {compact,comparableValue} from './lib/normalization.js';
 import {aiConfiguration,aiStatus,saveAISettings} from './lib/ai-settings.js';
 import {analyzeForm,fieldFingerprint,fieldMetadata,mappingAllowed,consumeAICall} from './lib/form-agent.js';
 import {requestOpenAI,publicAIError} from './lib/openai-request.js';
+import {profileState,saveProfile,primaryFacts,PRIMARY_KEYS,effectiveReview} from './lib/company-profile.js';
 import {helpFor} from './lib/field-help.js';
 import {resolveFieldKey} from './lib/fields.js';
 
@@ -78,8 +78,10 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
   const factsFor = companyId => {
     const facts=db.prepare("SELECT facts.*,documents.filename,EXISTS(SELECT 1 FROM extracted_fields e WHERE e.company_id=facts.company_id AND e.key=facts.key AND e.status='conflict') AS conflicted,COALESCE((SELECT note FROM extracted_fields e WHERE e.company_id=facts.company_id AND e.key=facts.key AND e.value=facts.value LIMIT 1),'') AS note FROM facts JOIN documents ON documents.id=facts.document_id WHERE facts.company_id=? ORDER BY facts.key").all(companyId);
     const sources=db.prepare("SELECT e.*,d.filename,d.status AS document_status FROM extracted_fields e JOIN documents d ON d.id=e.document_id WHERE e.company_id=? AND e.status!='dismissed'").all(companyId);
-    return facts.map(fact=>({...fact,matches:sources.filter(source=>source.key===fact.key&&comparableValue(fact.key,source.value)===comparableValue(fact.key,fact.value)).map(source=>({filename:source.filename,page:source.page,quote:source.quote,kind:source.document_status==='note'||/\.txt$/i.test(source.filename)?'Блокнот / анкета':'Файл документа'}))}));
+    const enriched=facts.map(fact=>({...fact,matches:sources.filter(source=>source.key===fact.key&&comparableValue(fact.key,source.value)===comparableValue(fact.key,fact.value)).map(source=>({filename:source.filename,page:source.page,quote:source.quote,kind:source.document_status==='note'||/\.txt$/i.test(source.filename)?'Блокнот / анкета':'Файл документа'}))}));
+    const primary=primaryFacts(db,companyId,enriched);return primary.length?[...primary,...enriched.filter(f=>!PRIMARY_KEYS.has(f.key)&&!primary.some(p=>p.key===f.key))]:enriched;
   };
+  const evidenceFor=companyId=>{const master=profileState(db,companyId);if(!master.approved)return [];return [...['tax_status','vat_status','operating_address_mode'].map(key=>({key,value:master.values[key]||'',source:'Основная анкета компании',page:1,quote:key+': '+master.values[key],origin:'master-profile'})),...factsFor(companyId).map(f=>({key:f.key,value:f.value,source:f.filename,page:f.page,quote:f.quote,origin:f.id.startsWith('profile-')?'master-profile':'document'})),...db.prepare('SELECT f.key,f.value,d.filename AS source,f.page,f.quote FROM facts f JOIN documents d ON d.id=f.document_id WHERE f.company_id=?').all(companyId).map(f=>({...f,origin:'document'}))];};
   const aiFor=req=>aiConfiguration(db,dataDir,req.user.user_id,ai);
   app.get('/api/me',(req,res)=>res.json({username:req.user.username,fields:FIELDS,aiEnabled:aiStatus(db,req.user.user_id,ai).configured}));
   app.get('/api/ai-settings',(req,res)=>res.json(aiStatus(db,req.user.user_id,ai)));
@@ -104,9 +106,9 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     res.json({ok:true});
   });
   app.get('/api/companies/:companyId/documents',(req,res)=>{companyFor(req);res.json(db.prepare('SELECT * FROM documents WHERE company_id=?').all(req.params.companyId).map(d=>({...d,pages:JSON.parse(d.pages)})));});
-  const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:15*1024*1024,files:8,fields:0},fileFilter:(_req,file,cb)=>['.pdf','.docx','.txt','.png','.jpg','.jpeg'].includes(extname(file.originalname).toLowerCase())?cb(null,true):cb(Object.assign(new Error('Неподдерживаемый формат файла. Используйте PDF, DOCX, TXT, PNG или JPG.'),{status:400}))});
-  app.post('/api/companies/:companyId/documents',fileLimiter,(req,_res,next)=>{companyFor(req);next();},upload.array('documents',8),async(req,res)=>{
-    if(!req.files?.length) fail('Выберите до 8 файлов: PDF, DOCX, TXT, PNG или JPG. До 15 МБ каждый.');
+  const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:15*1024*1024,files:20,fields:0},fileFilter:(_req,file,cb)=>['.pdf','.docx','.txt','.png','.jpg','.jpeg'].includes(extname(file.originalname).toLowerCase())?cb(null,true):cb(Object.assign(new Error('Неподдерживаемый формат файла. Используйте PDF, DOCX, TXT, PNG или JPG.'),{status:400}))});
+  app.post('/api/companies/:companyId/documents',fileLimiter,(req,_res,next)=>{companyFor(req);next();},upload.array('documents',20),async(req,res)=>{
+    if(!req.files?.length) fail('Выберите до 20 файлов: PDF, DOCX, TXT, PNG или JPG. До 15 МБ каждый.');
     const results = [];
     for(const file of req.files) {
       const id = randomUUID();const decoded=Buffer.from(file.originalname,'latin1').toString('utf8');const filename = basename(decoded.includes('\uFFFD')?file.originalname:decoded).slice(0,200);
@@ -145,9 +147,11 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     db.prepare("UPDATE extracted_fields SET status=CASE WHEN automatic=1 THEN 'auto' ELSE 'review' END WHERE company_id=? AND status='resolved' AND key NOT IN (SELECT key FROM facts WHERE company_id=?)").run(req.params.companyId,req.params.companyId);
     reanalyze(db,req.params.companyId);if(existsSync(join(uploadDir,doc.id)))unlinkSync(join(uploadDir,doc.id));res.json({ok:true});
   });
+  app.get('/api/companies/:companyId/profile',(req,res)=>{companyFor(req);res.json(profileState(db,req.params.companyId));});
+  app.post('/api/companies/:companyId/profile',(req,res)=>{companyFor(req);res.json(saveProfile(db,req.params.companyId,req.body));});
   app.get('/api/companies/:companyId/facts',(req,res)=>{companyFor(req);res.json(factsFor(req.params.companyId));});
-  app.get('/api/companies/:companyId/review',(req,res)=>{companyFor(req);res.json(reviewState(db,req.params.companyId));});
-  app.post('/api/companies/:companyId/review',(req,res)=>{companyFor(req);if(req.body.confirmed!==true)fail('Отметьте подтверждение всех итоговых данных.');res.json(confirmReview(db,req.params.companyId,req.body.signature));});
+  app.get('/api/companies/:companyId/review',(req,res)=>{companyFor(req);res.json(effectiveReview(db,req.params.companyId));});
+  app.post('/api/companies/:companyId/review',(req,res)=>{companyFor(req);if(req.body.confirmed!==true)fail('Отметьте подтверждение всех итоговых данных.');const state=effectiveReview(db,req.params.companyId);if(!state.approved)fail('Сначала заполните и сохраните основную анкету компании.',409);res.json(state);});
   app.get('/api/companies/:companyId/extracted',(req,res)=>{companyFor(req);res.json(listExtracted(db,req.params.companyId));});
   app.post('/api/companies/:companyId/analyze',(req,res)=>{companyFor(req);res.json(reanalyze(db,req.params.companyId));});
   app.post('/api/companies/:companyId/analyze-ai',async(req,res)=>{companyFor(req);if(req.body.consent!==true)fail('Подтвердите отправку текста документов API-провайдеру.');res.json(await semanticExtraction(db,req.params.companyId,aiFor(req),aiFetch));});
@@ -183,19 +187,25 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     if(!Array.isArray(req.body.fields) || req.body.fields.length>100)fail('До 100 полей за запрос.');
     const host=requireString(req.body.host,'Домен',253).toLowerCase();
     const facts=factsFor(company.id);
-    const review=reviewState(db,company.id);
+    const review=effectiveReview(db,company.id);
     const corrections=db.prepare('SELECT field,message FROM corrections WHERE company_id=? AND host=?').all(company.id,host);
     res.json({company:{id:company.id,name:company.name},review,fields:req.body.fields.map(field=>{
       if(!field || typeof field.id!=='string' || field.id.length>100 || (field.options && (!Array.isArray(field.options)||field.options.length>500)))fail('Некорректное поле.');
       const saved=corrections.filter(c=>normalize(c.field)===normalize(field.label));
-      if(!review.approved)return {id:field.id,label:String(field.label||'').slice(0,300),key:resolveFieldKey(field),guidance:helpFor(resolveFieldKey(field)),status:'needs_confirmation',reason:review.unresolvedCount?'В карточке есть расхождения. Выберите итоговые значения и подтвердите все данные.':'Данные разобраны. В веб-интерфейсе отметьте «Я проверил все итоговые данные», чтобы разрешить заполнение.'};
+      if(!review.approved)return {id:field.id,label:String(field.label||'').slice(0,300),key:resolveFieldKey(field),guidance:helpFor(resolveFieldKey(field)),status:'needs_confirmation',reason:review.profileStale?'Документы изменились. Проверьте и сохраните основную анкету компании заново.':'Заполните и сохраните основную анкету компании в кабинете документов. Обязательные поля отмечены красным.'};
       const known=resolveFieldKey(field),mapping=!known?db.prepare('SELECT * FROM form_mappings WHERE company_id=? AND host=? AND fingerprint=?').get(company.id,host,fieldFingerprint(field)):null;
       const key=known||(mapping&&mappingAllowed(field,mapping.key)?mapping.key:undefined);
       const proposal=saved.length?{status:'manual',reason:'Для этого поля сохранено исправление. Проверьте его перед ручным заполнением.',corrections:saved.map(c=>c.message)}:suggest(field,facts,{personRole:['director','beneficiary'].includes(req.body.personRole)?req.body.personRole:'contact',mappedKey:mapping?.status==='approved'?key:undefined});
       return {id:field.id,label:String(field.label||'').slice(0,300),key,guidance:helpFor(key),...proposal,...(mapping&&mappingAllowed(field,mapping.key)?{mappingId:mapping.id,mappingKey:mapping.key,mappingStatus:mapping.status,agentComment:mapping.reason}:{})};
     })});
   });
-  app.post('/api/analyze-form',async(req,res)=>{const company=companyFor(req,req.body.companyId);if(req.body.consent!==true)fail('Подтвердите отправку подписей анкеты в OpenAI.');if(!Array.isArray(req.body.fields)||req.body.fields.length>100||req.body.fields.some(f=>!f||typeof f!=='object'||typeof f.id!=='string'||f.id.length>200))fail('До 100 полей за запрос.');const host=requireString(req.body.host,'Домен',253);res.json(await analyzeForm(db,company.id,host,req.body.fields,aiFor(req),aiFetch,{page:req.body.page,reviewApproved:reviewState(db,company.id).approved,availableKeys:factsFor(company.id).filter(f=>!f.conflicted&&[1,2].includes(f.confirmed)).map(f=>f.key)}));});
+  app.post('/api/analyze-form',async(req,res)=>{
+    const company=companyFor(req,req.body.companyId);if(req.body.consent!==true)fail('Подтвердите отправку подписей анкеты в OpenAI.');
+    if(!Array.isArray(req.body.fields)||req.body.fields.length>100||req.body.fields.some(f=>!f||typeof f!=='object'||typeof f.id!=='string'||f.id.length>200))fail('До 100 полей за запрос.');
+    const host=requireString(req.body.host,'Домен',253),before=effectiveReview(db,company.id);
+    const result=await analyzeForm(db,company.id,host,req.body.fields,aiFor(req),aiFetch,{page:req.body.page,evidence:evidenceFor(company.id),reviewApproved:before.approved,availableKeys:factsFor(company.id).filter(f=>!f.conflicted&&[1,2].includes(f.confirmed)).map(f=>f.key)});
+    if(effectiveReview(db,company.id).signature!==before.signature)fail('Анкета или документы изменились во время разбора. Обновите подсказки.',409);res.json(result);
+  });
   app.post('/api/form-mapping-confirm',(req,res)=>{const company=companyFor(req,req.body.companyId);const mapping=db.prepare('SELECT * FROM form_mappings WHERE id=? AND company_id=? AND host=?').get(req.body.mappingId,company.id,req.body.host);if(!mapping||fieldFingerprint(req.body.field)!==mapping.fingerprint||!mappingAllowed(req.body.field,mapping.key))fail('Анкета изменилась. Повторите разбор.',409);db.prepare("UPDATE form_mappings SET status='approved' WHERE id=?").run(mapping.id);res.json({ok:true});});
   app.post('/api/explain',rateLimit({windowMs:60000,limit:10,legacyHeaders:false}),async(req,res)=>{
     const config=aiFor(req);if(!config.AI_API_KEY || !config.AI_MODEL)fail('ИИ-пояснения не подключены. Сверка подтверждённых данных работает без API.',503);
@@ -213,7 +223,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
   app.use(express.static(join(root,'public'),{index:'index.html'}));
   app.use((error,_req,res,_next)=>{
     const status=error instanceof multer.MulterError ? 400 : error.status || 500;
-    res.status(status).json({error:status>=500 ? error.publicMessage || 'Не удалось выполнить операцию. Проверьте сервер; содержимое документов в журнал не выводится.' : error.message});
+    res.status(status).json({error:status>=500 ? error.publicMessage || 'Не удалось выполнить операцию. Проверьте сервер; содержимое документов в журнал не выводится.' : error.message,...(error.fieldErrors?{fieldErrors:error.fieldErrors}:{})});
   });
   return {app,db};
 }
