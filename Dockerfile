@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 FROM node:24-bookworm-slim
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3100 DATA_DIR=/app/data
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3100 DATA_DIR=/app/data RUNTIME_DIR=/app/data/.runtime
 WORKDIR /app
 COPY --chown=node:node package.json package-lock.json ./
 RUN --mount=type=secret,id=proxy_ca \

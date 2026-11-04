@@ -1,6 +1,6 @@
 {
   "name": "registration-assistant",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=2",
-    "check": "node --check server.js && node --check public/app.js && node --check extension/panel.js && node --check extension/background.js"
+    "check": "node --check server.js && node --check public/app.js && node --check extension/panel.js && node --check extension/background.js",
+    "update": "node scripts/update.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "1.1.0",

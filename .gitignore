@@ -4,3 +4,5 @@ data/
 *.log
 backups/
 test-results/
+.runtime/
+.update-state.json

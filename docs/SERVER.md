@@ -47,17 +47,17 @@ docker compose version
 
 ## 5. Передайте архив проекта
 
-Скачайте `registration-assistant-0.2.0.zip` на Windows. В **новом локальном** окне PowerShell передайте файл, указав настоящий путь:
+Скачайте `registration-assistant-0.2.1.zip` на Windows. В **новом локальном** окне PowerShell передайте файл, указав настоящий путь:
 
 ```powershell
-scp "C:\Users\YOUR_NAME\Downloads\registration-assistant-0.2.0.zip" root@SERVER_IP:/root/
+scp "C:\Users\YOUR_NAME\Downloads\registration-assistant-0.2.1.zip" root@SERVER_IP:/root/
 ```
 
 Вернитесь в окно SSH и выполните:
 
 ```sh
 mkdir -p /opt
-unzip /root/registration-assistant-0.2.0.zip -d /opt
+unzip /root/registration-assistant-0.2.1.zip -d /opt
 cd /opt/registration-assistant/deploy
 cp .env.example .env
 chmod 600 .env

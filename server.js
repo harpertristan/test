@@ -2,10 +2,10 @@ import express from 'express';
 import helmet from 'helmet';
 import multer from 'multer';
 import {rateLimit} from 'express-rate-limit';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve,join,extname,basename} from 'node:path';
-import {mkdirSync,writeFileSync,unlinkSync,existsSync} from 'node:fs';
+import {mkdirSync,writeFileSync,unlinkSync,existsSync,readFileSync,rmSync,realpathSync} from 'node:fs';
 import {openDatabase} from './lib/database.js';
 import {extractDocument} from './lib/extraction.js';
 import {FIELDS,suggest,normalize,sensitive} from './lib/fields.js';
@@ -17,7 +17,8 @@ import {reviewState,confirmReview} from './lib/review.js';
 import {compact,comparableValue} from './lib/normalization.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
-export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env} = {}) {
+const VERSION=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version;
+export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env,control} = {}) {
   const app = express();
   const uploadDir = join(dataDir,'uploads'); mkdirSync(uploadDir,{recursive:true,mode:0o700});
   for(const company of db.prepare('SELECT id FROM companies').all())reanalyze(db,company.id);
@@ -25,11 +26,17 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
   if(process.env.TRUST_PROXY === '1') app.set('trust proxy',1);
   app.use(helmet({contentSecurityPolicy:{directives:{'script-src':["'self'"],'img-src':["'self'",'data:'],'frame-ancestors':["'none'"]}},strictTransportSecurity:origin.startsWith('https:') ? undefined : false}));
   app.use(express.json({limit:'300kb'}));
+  app.post('/internal/update-stop',(req,res)=>{
+    const supplied=req.get('X-Assistant-Update')||'',expected=control?.updateToken||'';
+    if(!control||!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)||Buffer.byteLength(supplied)!==Buffer.byteLength(expected)||!timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return res.sendStatus(403);
+    res.once('finish',()=>setImmediate(()=>control.stop()));res.json({ok:true});
+  });
   const loginLimiter = rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:'draft-8',legacyHeaders:false});
   const apiLimiter = rateLimit({windowMs:60*1000,limit:180,standardHeaders:'draft-8',legacyHeaders:false});
   const fileLimiter = rateLimit({windowMs:60*1000,limit:4,standardHeaders:'draft-8',legacyHeaders:false});
   app.use('/api',apiLimiter,(req,res,next) => {
     res.set('Cache-Control','no-store');
+    if(control&&existsSync(join(control.runtimeDir,'update-in-progress'))&&!['GET','HEAD','OPTIONS'].includes(req.method))return res.status(503).json({error:'Устанавливается обновление. Дождитесь завершения.'});
     const requestOrigin = req.get('Origin');
     if(requestOrigin && requestOrigin !== origin && !/^chrome-extension:\/\/[a-p]{32}$/.test(requestOrigin)) return res.status(403).json({error:'Недопустимый источник запроса.'});
     if(requestOrigin?.startsWith('chrome-extension://')) {
@@ -39,7 +46,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     }
     next();
   });
-  app.get('/api/health',(_req,res) => res.json({ok:true,version:'0.2.0'}));
+  app.get('/api/health',(_req,res) => res.json({ok:true,project:'registration-assistant',version:VERSION,...(control?{instanceId:control.instanceId}:{})}));
   app.post('/api/login',loginLimiter,(req,res) => {
     if(req.get('Origin') !== origin || req.get('X-Assistant-Request') !== '1') fail('Войдите через интерфейс приложения.',403);
     const username = requireString(req.body.username,'Логин',100);
@@ -200,12 +207,21 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
 
 if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {process.loadEnvFile();}catch(error){if(error.code!=='ENOENT')throw error;}
-  const {app,db}=createApp();
+  const runtimeDir=resolve(process.env.RUNTIME_DIR||join(root,'.runtime')),instanceFile=join(runtimeDir,'instance.json');
+  mkdirSync(runtimeDir,{recursive:true,mode:0o700});
+  if(existsSync(instanceFile)){
+    let previous;try{previous=JSON.parse(readFileSync(instanceFile,'utf8'));}catch{throw Error('Некорректный файл .runtime/instance.json. Проверьте остановку прежнего экземпляра.');}
+    let alive=false;if(previous.pid!==process.pid)try{process.kill(previous.pid,0);alive=true;}catch(error){if(error.code!=='ESRCH')throw error;}
+    if(alive)throw Error('Экземпляр этой установки уже запущен. Используйте существующее окно или обновлятор.');
+    rmSync(instanceFile);
+  }
+  const control={instanceId:token(),updateToken:token(),runtimeDir,stop:()=>stop()};
+  const {app,db}=createApp({control});let server,closing=false;
+  function stop(){if(closing)return;closing=true;server.close(()=>{db.close();try{if(JSON.parse(readFileSync(instanceFile,'utf8')).instanceId===control.instanceId)rmSync(instanceFile);}catch{}process.exit(0);});setTimeout(()=>process.exit(1),25000).unref();}
   if(!db.prepare('SELECT id FROM users LIMIT 1').get()) {console.error('Сначала создайте пользователя: node scripts/create-user.js');db.close();process.exitCode=1;}
   else {
-    const server=app.listen(Number(process.env.PORT||3100),process.env.HOST||'127.0.0.1',()=>console.log('Помощник регистраций запущен. Данные и значения полей в журнал не записываются.'));
-    let closing=false;
-    const stop=()=>{if(closing)return;closing=true;server.close(()=>{db.close();process.exit(0);});setTimeout(()=>process.exit(1),25000).unref();};
+    const port=Number(process.env.PORT||3100),host=process.env.HOST||'127.0.0.1';
+    server=app.listen(port,host,()=>{writeFileSync(instanceFile,JSON.stringify({root:realpathSync(root),pid:process.pid,port,host,dataDir:resolve(process.env.DATA_DIR||'./data'),instanceId:control.instanceId,updateToken:control.updateToken}),{mode:0o600});console.log('Помощник регистраций запущен. Данные и значения полей в журнал не записываются.');});
     process.on('SIGTERM',stop);process.on('SIGINT',stop);
   }
 }
