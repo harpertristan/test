@@ -1,7 +1,7 @@
 // Standalone updater: Node.js built-ins only, so it can upgrade older installs.
 import {createHash,randomUUID} from 'node:crypto';
 import {inflateRawSync} from 'node:zlib';
-import {existsSync,readFileSync,writeFileSync,mkdirSync,mkdtempSync,readdirSync,lstatSync,realpathSync,cpSync,renameSync,rmSync,openSync,closeSync,chmodSync} from 'node:fs';
+import {existsSync,readFileSync,writeFileSync,mkdirSync,mkdtempSync,readdirSync,lstatSync,realpathSync,readlinkSync,cpSync,renameSync,rmSync,rmdirSync,openSync,closeSync,chmodSync} from 'node:fs';
 import {resolve,dirname,join,relative,basename,isAbsolute} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -14,6 +14,62 @@ const MAX_ZIP=32*1024*1024,MAX_UNPACKED=128*1024*1024;
 const protectedNames=new Set(['data','.env','.git','.runtime','node_modules','backups','test-results','.update-state.json']);
 const allowedHosts=new Set(['github.com','raw.githubusercontent.com','codeload.github.com','objects.githubusercontent.com','release-assets.githubusercontent.com']);
 const delay=milliseconds=>new Promise(done=>setTimeout(done,milliseconds));
+async function fileOperation(operation){
+  for(let attempt=0;;attempt++){
+    try{return operation();}catch(error){if(!['EPERM','EACCES','EBUSY','ENOTEMPTY'].includes(error.code)||attempt>=7)throw error;await delay(150*(attempt+1));}
+  }
+}
+function optionalStat(path){try{return lstatSync(path);}catch(error){if(error.code==='ENOENT')return null;throw error;}}
+async function removeEntry(path){
+  const stat=optionalStat(path);if(!stat)return;
+  if(stat.isDirectory()&&!stat.isSymbolicLink()){
+    for(const entry of readdirSync(path))await removeEntry(join(path,entry));
+    try{await fileOperation(()=>rmdirSync(path));}catch(error){
+      // OneDrive can hold an empty directory open. An empty stale directory has
+      // no package contents and cannot change module resolution.
+      if(!['EPERM','EACCES','EBUSY','ENOTEMPTY'].includes(error.code)||readdirSync(path).length)throw error;
+    }
+  }else await fileOperation(()=>rmSync(path,{force:true}));
+}
+function directorySignature(root){
+  const result=[];
+  function walk(path,prefix=''){
+    for(const entry of readdirSync(path).sort()){
+      const full=join(path,entry),name=prefix+entry,stat=lstatSync(full);
+      if(stat.isSymbolicLink())result.push([name,'link',readlinkSync(full)]);
+      else if(stat.isDirectory())walk(full,name+'/');
+      else if(stat.isFile())result.push([name,'file',sha256(readFileSync(full))]);
+      else throw Error('Неподдерживаемый файл в папке зависимостей.');
+    }
+  }
+  walk(root);return JSON.stringify(result);
+}
+export async function synchronizeDirectory(source,destination){
+  if(lstatSync(source).isSymbolicLink()||!lstatSync(source).isDirectory())throw Error('Папка для обновления должна быть обычным каталогом.');
+  const destinationStat=optionalStat(destination);if(destinationStat&&(destinationStat.isSymbolicLink()||!destinationStat.isDirectory()))throw Error('Папка назначения не является обычным каталогом.');
+  mkdirSync(destination,{recursive:true});
+  async function synchronize(from,to){
+    const names=new Set(readdirSync(from));
+    for(const entry of readdirSync(to))if(!names.has(entry))await removeEntry(join(to,entry));
+    for(const entry of names){
+      const input=join(from,entry),output=join(to,entry),stat=lstatSync(input),existing=optionalStat(output);
+      if(stat.isDirectory()&&!stat.isSymbolicLink()){
+        if(existing&&(!existing.isDirectory()||existing.isSymbolicLink()))await removeEntry(output);
+        mkdirSync(output,{recursive:true});await synchronize(input,output);
+      }else if(stat.isSymbolicLink()){
+        if(existing?.isSymbolicLink()&&readlinkSync(input)===readlinkSync(output))continue;
+        if(existing)await removeEntry(output);
+        await fileOperation(()=>cpSync(input,output,{dereference:false,verbatimSymlinks:true}));
+      }else if(stat.isFile()){
+        if(existing?.isFile()&&!existing.isSymbolicLink()&&sha256(readFileSync(input))===sha256(readFileSync(output)))continue;
+        if(existing&&(!existing.isFile()||existing.isSymbolicLink()))await removeEntry(output);
+        await fileOperation(()=>cpSync(input,output,{force:true}));
+      }else throw Error('Неподдерживаемый файл в папке зависимостей.');
+    }
+  }
+  await synchronize(source,destination);
+  if(directorySignature(source)!==directorySignature(destination))throw Error('Проверка скопированной папки не прошла.');
+}
 const loopbackAgent=new Agent({keepAlive:false});
 function localRequest(settings,path,{method='GET',headers={},timeout=3000}={}){
   // Local control never leaves this machine, including on systems with an HTTP
@@ -31,7 +87,7 @@ export function validateRelease(value){
 export async function download(url,maxBytes,fetcher=fetch){
   for(let redirects=0;redirects<6;redirects++){
     const parsed=new URL(url);if(parsed.protocol!=='https:'||!allowedHosts.has(parsed.hostname)||parsed.username||parsed.password)throw Error('Недопустимый адрес загрузки обновления.');
-    const response=await fetcher(parsed.href,{redirect:'manual',signal:AbortSignal.timeout(60000)});
+    const response=await fetcher(parsed.href,{redirect:'manual',headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(60000)});
     if([301,302,303,307,308].includes(response.status)){const location=response.headers.get('location');if(!location)throw Error('Некорректное перенаправление GitHub.');url=new URL(location,parsed).href;continue;}
     if(!response.ok)throw Error(`GitHub вернул HTTP ${response.status}. Файлы приложения не изменены.`);
     const chunks=[];let length=0;
@@ -139,15 +195,15 @@ function saveCodeBackup(target,backup,names){
   for(const name of names){safeRelative(name);assertNoLinks(target,name);const source=underRoot(target,name);if(existsSync(source)){if(!lstatSync(source).isFile())throw Error('Вместо файла программы обнаружена папка.');const destination=underRoot(join(backup,'code'),name);mkdirSync(dirname(destination),{recursive:true,mode:0o700});cpSync(source,destination);existing.push(name);}}
   return existing;
 }
-function restore(target,backup,names,existing,settings,hadModules){
+async function restore(target,backup,names,existing,settings,hadModules){
   const saved=new Set(existing);
   for(const name of names){const destination=underRoot(target,name);if(saved.has(name)){mkdirSync(dirname(destination),{recursive:true});cpSync(underRoot(join(backup,'code'),name),destination);}else rmSync(destination,{force:true});}
-  if(existsSync(join(backup,'node_modules'))){rmSync(join(target,'node_modules'),{recursive:true,force:true});renameSync(join(backup,'node_modules'),join(target,'node_modules'));}
-  else if(!hadModules)rmSync(join(target,'node_modules'),{recursive:true,force:true});
-  if(existsSync(join(backup,'data'))){rmSync(settings.dataDir,{recursive:true,force:true});cpSync(join(backup,'data'),settings.dataDir,{recursive:true});}
+  if(existsSync(join(backup,'node_modules')))await synchronizeDirectory(join(backup,'node_modules'),join(target,'node_modules'));
+  else if(!hadModules)await removeEntry(join(target,'node_modules'));
+  if(existsSync(join(backup,'data')))await synchronizeDirectory(join(backup,'data'),settings.dataDir);
   if(existsSync(join(backup,'previous-state.json')))cpSync(join(backup,'previous-state.json'),join(target,'.update-state.json'));else rmSync(join(target,'.update-state.json'),{force:true});
 }
-export async function updateInstallation({target,start=false,noStart=false,fetcher=fetch,install=installDependencies,verify=verifyStage,log=console.log,server={inspect:inspectServer,stop:stopServer,start:startServer},onApplied}={}){
+export async function updateInstallation({target,start=false,noStart=false,fetcher=fetch,install=installDependencies,verify=verifyStage,log=console.log,server={inspect:inspectServer,stop:stopServer,start:startServer},onApplied,renameFile=renameSync,cleanupStage=path=>rmSync(path,{recursive:true,force:true,maxRetries:4,retryDelay:200})}={}){
   target=realpathSync(resolve(target));const packageFile=join(target,'package.json'),current=readJson(packageFile);
   if(current.name!=='registration-assistant'||!/^\d+\.\d+\.\d+$/.test(current.version))throw Error('Выберите папку помощника с package.json и Start-Windows.cmd.');
   const runtime=join(target,'.runtime');mkdirSync(runtime,{recursive:true,mode:0o700});
@@ -173,12 +229,13 @@ export async function updateInstallation({target,start=false,noStart=false,fetch
     backup=join(backupRoot,new Date().toISOString().replace(/[:.]/g,'-')+'-'+randomUUID().slice(0,8));mkdirSync(backup,{mode:0o700});
     if(backup.startsWith(settings.dataDir+'/')||backup.startsWith(settings.dataDir+'\\'))throw Error('Резервная копия должна находиться вне папки данных.');
     log('Сохраняем резервную копию…');existing=saveCodeBackup(target,backup,names);copyPrivate(settings.dataDir,join(backup,'data'));copyPrivate(join(target,'.env'),join(backup,'config','.env'));copyPrivate(join(target,'deploy','.env'),join(backup,'config','deploy.env'));copyPrivate(join(target,'.update-state.json'),join(backup,'previous-state.json'));
+    hadModules=existsSync(join(target,'node_modules'));if(hadModules)await synchronizeDirectory(join(target,'node_modules'),join(backup,'node_modules'));
     writeFileSync(join(backup,'backup.json'),JSON.stringify({target,from:current.version,to:release.version,files:names,existing,dataDir:settings.dataDir},null,2),{mode:0o600});
     writeFileSync(join(runtime,'update-journal.json'),JSON.stringify({backup,from:current.version,to:release.version}),{mode:0o600});writeFileSync(join(runtime,'update-in-progress'),'1',{mode:0o600});
-    applied=true;hadModules=existsSync(join(target,'node_modules'));if(hadModules)renameSync(join(target,'node_modules'),join(backup,'node_modules'));
-    for(const name of nextNames){const destination=underRoot(target,name),source=underRoot(stage,name);if(existsSync(destination)&&sha256(readFileSync(destination))===sha256(readFileSync(source)))continue;mkdirSync(dirname(destination),{recursive:true});const temporary=destination+'.update-'+randomUUID();cpSync(source,temporary);renameSync(temporary,destination);}
+    applied=true;
+    for(const name of nextNames){const destination=underRoot(target,name),source=underRoot(stage,name);if(existsSync(destination)&&sha256(readFileSync(destination))===sha256(readFileSync(source)))continue;mkdirSync(dirname(destination),{recursive:true});const temporary=destination+'.update-'+randomUUID();cpSync(source,temporary);await fileOperation(()=>renameFile(temporary,destination));}
     for(const name of previous.filter(name=>!nextNames.includes(name)))rmSync(underRoot(target,name),{force:true});
-    if(existsSync(join(stage,'node_modules')))renameSync(join(stage,'node_modules'),join(target,'node_modules'));
+    if(existsSync(join(stage,'node_modules'))){log('Обновляем файлы зависимостей без переноса папки…');await synchronizeDirectory(join(stage,'node_modules'),join(target,'node_modules'));}
     await onApplied?.(target);
     if(!noStart&&(start||wasRunning))await server.start(target,settings,release.version);
     writeFileSync(join(target,'.update-state.json'),JSON.stringify({version:release.version,sha256:release.sha256,files:nextNames},null,2),{mode:0o600});
@@ -188,11 +245,14 @@ export async function updateInstallation({target,start=false,noStart=false,fetch
   }catch(error){
     if(applied){
       log('Проверка обновления не прошла. Возвращаем предыдущую версию…');
-      try{const state=installationSettings(target);if(await server.inspect(target,state))await server.stop(target,state);restore(target,backup,names,existing,settings,hadModules);rmSync(join(runtime,'update-in-progress'),{force:true});rmSync(join(runtime,'update-journal.json'),{force:true});if(wasRunning&&!noStart)await server.start(target,settings,current.version);log('Предыдущая версия и данные восстановлены.');}
+      try{const state=installationSettings(target);if(await server.inspect(target,state))await server.stop(target,state);await restore(target,backup,names,existing,settings,hadModules);rmSync(join(runtime,'update-in-progress'),{force:true});rmSync(join(runtime,'update-journal.json'),{force:true});if(wasRunning&&!noStart)await server.start(target,settings,current.version);log('Предыдущая версия и данные восстановлены.');}
       catch(rollback){throw Error(`Обновление не завершено, автоматический откат требует проверки. Копия: ${backup}. ${rollback.message}`,{cause:error});}
     }else if(stopped&&wasRunning&&!noStart){try{await server.start(target,settings,current.version);}catch{/* preserve the original diagnosis and backup */}}
     throw error;
-  }finally{if(stage)rmSync(stage,{recursive:true,force:true});if(lockDescriptor!==undefined)closeSync(lockDescriptor);rmSync(lock,{force:true});}
+  }finally{
+    try{if(stage)await cleanupStage(stage);}catch{log(`Windows не дала удалить временную папку: ${stage}. Её можно удалить позже; это не отменяет результат обновления.`);}
+    finally{if(lockDescriptor!==undefined)closeSync(lockDescriptor);try{await fileOperation(()=>rmSync(lock,{force:true}));}catch{log('Windows удерживает .runtime/update.lock. Перед следующим обновлением проверьте, что обновлятор завершён.');}}
+  }
 }
 function chooseTarget(){
   try{if(readJson(join(process.cwd(),'package.json')).name==='registration-assistant')return process.cwd();}catch{}

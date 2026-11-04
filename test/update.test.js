@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,readdirSync,existsSync,rmSync,cpSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,readdirSync,existsSync,rmSync,cpSync,symlinkSync,lstatSync,renameSync,readlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {createServer} from 'node:net';
 import {createServer as createHttpServer} from 'node:http';
 import {once} from 'node:events';
-import {updateInstallation,unpackArchive,sha256,MANIFEST_URL,startServer,stopServer,installationSettings,inspectServer} from '../scripts/update.mjs';
+import {updateInstallation,unpackArchive,sha256,MANIFEST_URL,startServer,stopServer,installationSettings,inspectServer,synchronizeDirectory} from '../scripts/update.mjs';
 import {openDatabase} from '../lib/database.js';
 import {hashPassword} from '../lib/security.js';
 
@@ -33,6 +33,21 @@ test('checked update preserves private data, settings and unknown files and reta
   assert.equal(readFileSync(join(target,'records','state.sqlite'),'utf8'),'old database');assert.match(readFileSync(join(target,'.env'),'utf8'),/synthetic-local-test-value/);assert.equal(readFileSync(join(target,'personal-note.txt'),'utf8'),'operator local file');
   assert.equal(readFileSync(join(result.backup,'data','state.sqlite'),'utf8'),'old database');assert.equal(readFileSync(join(result.backup,'node_modules','marker'),'utf8'),'old dependencies');
   assert.equal(existsSync(join(target,'.runtime','update-in-progress')),false);assert.equal(existsSync(join(target,'.runtime','update.lock')),false);
+});
+test('OneDrive-style dependency directory locks do not require any directory rename',async t=>{
+  const {target}=setup(t),source=await release(),inode=lstatSync(join(target,'node_modules')).ino;let calls=0;
+  const result=await updateInstallation({target,fetcher:source.fetcher,install,verify:async()=>{},server:stoppedServer,log:()=>{},renameFile:(from,to)=>{calls++;if(lstatSync(from).isDirectory())throw Object.assign(Error('OneDrive directory is locked'),{code:'EPERM'});renameSync(from,to);}});
+  assert.equal(result.updated,true);assert.ok(calls>0);assert.equal(lstatSync(join(target,'node_modules')).ino,inode);assert.equal(readFileSync(join(target,'node_modules','marker'),'utf8'),'new dependencies');assert.equal(readFileSync(join(result.backup,'node_modules','marker'),'utf8'),'old dependencies');
+});
+test('dependency synchronization removes obsolete packages and preserves relative bin links',async t=>{
+  const {temp}=setup(t),source=join(temp,'source'),destination=join(temp,'destination');mkdirSync(join(source,'.bin'),{recursive:true});mkdirSync(join(source,'package'));writeFileSync(join(source,'package','cli.js'),'new CLI');symlinkSync('../package/cli.js',join(source,'.bin','tool'));
+  mkdirSync(join(destination,'obsolete'),{recursive:true});writeFileSync(join(destination,'obsolete','old.js'),'stale');
+  await synchronizeDirectory(source,destination);assert.equal(existsSync(join(destination,'obsolete','old.js')),false);assert.equal(readlinkSync(join(destination,'.bin','tool')),'../package/cli.js');assert.equal(readFileSync(join(destination,'.bin','tool'),'utf8'),'new CLI');
+});
+test('a locked staging folder after success does not turn success into failure or leave the updater locked',async t=>{
+  const {target}=setup(t),source=await release();
+  const result=await updateInstallation({target,fetcher:source.fetcher,install,verify:async()=>{},server:stoppedServer,log:()=>{},cleanupStage:()=>{throw Object.assign(Error('OneDrive scan'),{code:'EPERM'});}});
+  assert.equal(result.updated,true);assert.equal(existsSync(join(target,'.runtime','update.lock')),false);assert.equal(readFileSync(join(target,'node_modules','marker'),'utf8'),'new dependencies');
 });
 test('checksum failure and dependency failure leave old code and running service untouched',async t=>{
   const {target}=setup(t),source=await release();let stops=0;

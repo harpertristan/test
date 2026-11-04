@@ -12,7 +12,7 @@ import {unpackArchive,updateInstallation,MANIFEST_URL,sha256,stopServer,installa
 import JSZip from 'jszip';
 
 const directory=mkdtempSync(join(tmpdir(),'assistant-upgrade-e2e-')),target=join(directory,'assistant with spaces');mkdirSync(target);
-const source=readFileSync(resolve('registration-assistant-0.2.0.zip')),archive=readFileSync(resolve('registration-assistant-0.2.1.zip'));unpackArchive(source,target);
+const source=readFileSync(resolve('registration-assistant-0.2.0.zip')),archive=readFileSync(resolve(`registration-assistant-${JSON.parse(readFileSync(resolve('package.json'),'utf8')).version}.zip`));unpackArchive(source,target);
 const version=JSON.parse(readFileSync(resolve('package.json'),'utf8')).version;
 const listener=createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(done=>listener.close(done));
 const env=`PORT=${port}\nDATA_DIR=records\nPUBLIC_ORIGIN=http://127.0.0.1:${port}\nAI_API_KEY=synthetic-test-value\n`;
@@ -31,7 +31,7 @@ try{
   const instance=installationSettings(target).instance.instanceId;
   const repeated=await updateInstallation({target,start:true,fetcher:async url=>new Response(url===MANIFEST_URL?JSON.stringify(manifest):archive)});assert.equal(repeated.updated,false);assert.equal(installationSettings(target).instance.instanceId,instance);
   // Rehearse the next update too: this time a real managed server is running.
-  const future=await JSZip.loadAsync(archive),futureVersion='0.2.2';
+  const components=version.split('.').map(Number),futureVersion=`${components[0]}.${components[1]}.${components[2]+1}`,future=await JSZip.loadAsync(archive);
   const nextPackage=JSON.parse(await future.file('registration-assistant/package.json').async('string'));nextPackage.version=futureVersion;future.file('registration-assistant/package.json',JSON.stringify(nextPackage));
   const nextLock=JSON.parse(await future.file('registration-assistant/package-lock.json').async('string'));nextLock.version=futureVersion;nextLock.packages[''].version=futureVersion;future.file('registration-assistant/package-lock.json',JSON.stringify(nextLock));
   const futureArchive=await future.generateAsync({type:'nodebuffer',compression:'DEFLATE'}),futureManifest={...manifest,version:futureVersion,archive:`https://github.com/harpertristan/test/raw/refs/heads/registration-assistant/registration-assistant-${futureVersion}.zip`,bytes:futureArchive.length,sha256:sha256(futureArchive)};
