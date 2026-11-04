@@ -115,7 +115,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
         const status = pages.some(p=>p.text.trim().length>20) ? 'extracted' : 'needs_ocr';
         writeFileSync(join(uploadDir,id),file.buffer,{mode:0o600,flag:'wx'});
         db.prepare('INSERT INTO documents VALUES(?,?,?,?,?)').run(id,req.params.companyId,filename,JSON.stringify(pages),status);
-        results.push({id,filename,status});
+        results.push({id,filename,status,pageCount:pages.length});
       } catch(error) {if(existsSync(join(uploadDir,id)))unlinkSync(join(uploadDir,id));results.push({filename,status:'error',error:error.message});}
     }
     reanalyze(db,req.params.companyId);

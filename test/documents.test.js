@@ -30,3 +30,12 @@ test('unsupported and corrupt documents fail rather than returning invented data
   await assert.rejects(extractDocument(Buffer.from('bad'),'invalid.pdf'));
   await assert.rejects(extractDocument(Buffer.from('bad'),'script.exe'));
 });
+
+test('recognizes all 30 scanned PDF pages including a unique identifier on the final page',{timeout:180000},async()=>{
+  const {makeScannedPdf}=await import('../scripts/fixtures/scanned-pdf.js');
+  const texts=Array.from({length:30},(_,index)=>index===29?'FINAL PAGE COMPANY NUMBER 87654321':`PAGE ${index+1} EXAMPLE LIMITED`);
+  const pages=await extractDocument(makeScannedPdf(texts),'thirty-page-scan.pdf');
+  assert.equal(pages.length,30);assert.deepEqual(pages.map(page=>page.page),Array.from({length:30},(_,i)=>i+1));
+  for(const page of pages)assert.ok(page.text.trim().length>0,`page ${page.page} must be read`);
+  assert.match(pages[29].text,/87654321/);assert.match(pages[29].text,/FINAL PAGE/);
+});
