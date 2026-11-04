@@ -35,7 +35,7 @@ try {
   const options=await browser.newPage();await options.goto(`chrome-extension://${extensionId}/options.html`);await options.locator('#origin').fill(origin);await options.locator('#token').fill(token);await options.locator('form button').click();await options.getByText('Подключено:',{exact:false}).waitFor({timeout:15000});
   console.log('PASS: extension connected to authenticated server.');
   const bank=await browser.newPage();await bank.goto(origin+'/fixture');
-  await worker.evaluate(async base=>{const tabs=await chrome.tabs.query({});const tab=tabs.find(t=>t.url===base+'/fixture');await chrome.scripting.executeScript({target:{tabId:tab.id},files:['panel.js']});},origin);
+  await worker.evaluate(async base=>{const tabs=await chrome.tabs.query({});const tab=tabs.find(t=>t.url===base+'/fixture');await chrome.scripting.executeScript({target:{tabId:tab.id},files:['dom.js','panel.js']});},origin);
   // The panel deliberately uses a closed shadow root. Test its controls through
   // the extension's isolated world, leaving page scripts unable to read it.
   const tabId=await worker.evaluate(async base=>(await chrome.tabs.query({})).find(t=>t.url===base+'/fixture').id,origin);
@@ -44,7 +44,7 @@ try {
   await bank.goto(origin+'/fixture');
   await worker.evaluate(async tabId=>{
     await chrome.scripting.executeScript({target:{tabId},func:()=>{const original=Element.prototype.attachShadow;Element.prototype.attachShadow=function(options){const root=original.call(this,options);if(this.hasAttribute('data-registration-assistant'))globalThis.__testPanelRoot=root;return root;};}});
-    await chrome.scripting.executeScript({target:{tabId},files:['panel.js']});
+    await chrome.scripting.executeScript({target:{tabId},files:['dom.js','panel.js']});
   },tabId);
   async function panelEval(action){return worker.evaluate(async ({tabId,action})=>{const [result]=await chrome.scripting.executeScript({target:{tabId},func:action=>{
     const root=globalThis.__testPanelRoot;

@@ -4,11 +4,7 @@ import JSZip from 'jszip';
 import {createCanvas} from '@napi-rs/canvas';
 import {extractDocument} from '../lib/extraction.js';
 
-export function makePdf(text='Company name: Example Limited') {
-  const content=`BT /F1 18 Tf 40 740 Td (${text}) Tj ET`;
-  const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`];
-  let pdf='%PDF-1.4\n';const offsets=[0];objects.forEach((object,index)=>{offsets.push(Buffer.byteLength(pdf));pdf+=`${index+1} 0 obj\n${object}\nendobj\n`;});const xref=Buffer.byteLength(pdf);pdf+=`xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;return Buffer.from(pdf);
-}
+import {makePdf} from '../scripts/fixtures/pdf.js';
 test('extracts actual text PDF with page provenance',async()=>{
   const pages=await extractDocument(makePdf(),'registration.pdf');assert.equal(pages[0].page,1);assert.match(pages[0].text,/Company name: Example Limited/);
 });

@@ -34,7 +34,7 @@ test('field resolver handles synonyms, camelCase, optional markers and questions
   for(const label of ['Last name','last_name','lastName','Surname','Family name'])assert.equal(resolveFieldKey({label}),'contact_last_name',label);
   assert.equal(resolveFieldKey({label:'',name:'companyWebsite'}),'website');
   assert.equal(resolveFieldKey({label:'Contact detail',autocomplete:'given-name'}),'contact_first_name');
-  assert.equal(resolveFieldKey({label:'Country of tax residence',name:'country'}),undefined);
+  assert.equal(resolveFieldKey({label:'Country of tax residence',name:'country'}),'tax_residence_country');
   assert.equal(resolveFieldKey({label:'Personal email',name:'companyEmail'}),undefined);
 });
 test('automatic facts fill the screenshot fields and normalized country options',()=>{

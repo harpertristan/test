@@ -1,0 +1,48 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync,mkdirSync,readFileSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {once} from 'node:events';
+import {createApp} from '../server.js';
+import {hashPassword} from '../lib/security.js';
+import {notebook} from './fixtures/notebook.js';
+import {makePdf} from './fixtures/pdf.js';
+const directory=mkdtempSync(join(tmpdir(),'assistant-company-form-')),origin='http://127.0.0.1:3198';let lastAgentBody;
+const aiFetch=async(_url,options)=>{const body=JSON.parse(options.body);if(body.messages[0].content.includes('Сопоставь поля')){lastAgentBody=JSON.stringify(body);const input=JSON.parse(body.messages[1].content);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:input.fields.filter(field=>field.label.includes('Organisation designation')).map(field=>({id:field.id,key:'company_name',explanation:'Это название организации для заявки; используйте юридическое название из карточки.'}))})}}]})};}return {ok:true,json:async()=>({choices:[{message:{content:'OK'}}]})};};
+const {app,db}=createApp({dataDir:directory,origin,ai:{},aiFetch});db.prepare('INSERT INTO users VALUES(1,?,?)').run('test-user',hashPassword('synthetic-company-form-password'));
+app.get('/company-fixture',(_req,res)=>res.sendFile(resolve('scripts/fixtures/company-details.html')));for(const name of ['dom.js','panel.js'])app.get('/fixture-'+name,(_req,res)=>res.sendFile(resolve('extension',name)));
+const server=app.listen(3198,'127.0.0.1');await once(server,'listening');let browser,cookie;
+async function api(path,body){const response=await fetch(origin+'/api'+path,{method:body?'POST':'GET',headers:{Origin:origin,'X-Assistant-Request':'1',...(cookie?{Cookie:cookie}:{}),...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});assert.ok(response.ok,`${path}: ${response.status} ${await response.clone().text()}`);return {response,data:await response.json()};}
+try{
+  cookie=(await api('/login',{username:'test-user',password:'synthetic-company-form-password'})).response.headers.get('set-cookie').split(';')[0];
+  const company=(await api('/companies',{name:'EXAMPLE GOODS LTD'})).data;
+  await api(`/companies/${company.id}/notes`,{title:'Synthetic notebook',text:notebook+'\nCompany legal form: Private company limited by shares\nCountry of tax residence: United Kingdom\nCompany phone: +44 20 7946 0018\nCompany email: company@example.com\nOperating address\n77 Sample Avenue, Oxford, England, OX1 1AA\n'});
+  const upload=new FormData();upload.append('documents',new Blob([makePdf('VAT Registration Number GB123 4567 89')]),'synthetic-vat-certificate.pdf');await api(`/companies/${company.id}/documents`,upload);
+  const review=(await api(`/companies/${company.id}/review`)).data;assert.equal(review.unresolvedCount,0);await api(`/companies/${company.id}/review`,{confirmed:true,signature:review.signature});
+  const token=(await api('/extension-token',{})).data.token;
+  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const context=await browser.newContext(),page=await context.newPage();
+  const errors=[];context.on('page',p=>p.on('pageerror',error=>errors.push(error.message)));page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(origin);await page.locator('#loginForm [name=username]').fill('test-user');await page.locator('#loginForm [name=password]').fill('synthetic-company-form-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
+  await page.getByText('OpenAI: ключ и модель',{exact:true}).click();await page.locator('#aiSettingsForm [name=apiKey]').fill('synthetic-openai-key-for-browser-only');await page.locator('#aiSettingsForm [name=model]').fill('test-model');await page.locator('#aiSettingsForm button').click();await page.locator('#aiStatus').filter({hasText:'OpenAI настроен'}).waitFor();assert.equal(await page.locator('#aiSettingsForm [name=apiKey]').inputValue(),'');await page.locator('#testAI').click();await page.locator('#message').filter({hasText:'OpenAI отвечает'}).waitFor();
+  const bank=await context.newPage();bank.on('dialog',dialog=>dialog.accept());
+  await bank.addInitScript(({origin,token})=>{const original=Element.prototype.attachShadow;Element.prototype.attachShadow=function(options){const root=original.call(this,options);if(this.hasAttribute('data-registration-assistant'))window.__panel=root;if(this.hasAttribute('data-registration-assistant-overlay'))window.__overlay=root;return root;};window.chrome={runtime:{sendMessage:async message=>{if(message.type!=='api')return {ok:true};const response=await fetch(origin+'/api'+message.path,{method:message.method||'GET',credentials:'omit',headers:{Authorization:'Bearer '+token,...(message.body?{'Content-Type':'application/json'}:{})},body:message.body?JSON.stringify(message.body):undefined});const data=await response.json();return response.ok?{ok:true,data}:{ok:false,error:data.error};}}};},{origin,token});
+  await bank.goto(origin+'/company-fixture');await bank.locator('#email').fill('operator-private@example.net');await bank.evaluate(()=>{window.__submissions=0;document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();window.__submissions++;});});
+  await bank.addScriptTag({url:origin+'/fixture-dom.js'});await bank.addScriptTag({url:origin+'/fixture-panel.js'});await bank.waitForFunction(()=>window.__panel.querySelector('select').options.length===2);await bank.evaluate(()=>{const select=window.__panel.querySelector('select');select.selectedIndex=1;select.dispatchEvent(new Event('change'));});
+  await bank.waitForFunction(()=>window.__overlay.querySelectorAll('.pin').length>10);
+  const descriptors=await bank.evaluate(()=>Object.fromEntries(['regLine1','regCity','regPost','regCountry','opLine1','opCity','opPost','opCountry','dial','phone'].map(id=>[id,RegistrationDOM.describe(document.getElementById(id),id)])));
+  assert.equal(descriptors.regPost.caption,'Postcode');assert.equal(descriptors.regPost.addressKind,'registered');assert.equal(descriptors.opPost.addressKind,'operating');assert.equal(descriptors.dial.phonePart,'dial');assert.equal(descriptors.phone.phonePart,'national');
+  await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());
+  await bank.waitForFunction(()=>document.getElementById('opCountry').value==='GB');
+  for(const [id,value] of Object.entries({company:'EXAMPLE GOODS LTD',legal:'private',web:'https://example.com',regLine1:'8 Example Road',regLine2:'Test Town',regCity:'Example City',regPost:'AB1 2CD',regCountry:'GB',opLine1:'77 Sample Avenue',opCity:'Oxford',opPost:'OX1 1AA',opCountry:'GB',date:'10-03-2025',vat:'GB123456789',dial:'+44',phone:'2079460018',tax:'',taxCountry:'MT',email:'operator-private@example.net',lei:''}))assert.equal(await bank.locator('#'+id).inputValue(),value,id);
+  assert.equal(await bank.locator('#same').isChecked(),false);assert.equal(await bank.evaluate(()=>window.__submissions),0);
+  await bank.locator('#regPost').focus();assert.ok(await bank.evaluate(()=>window.__overlay.textContent.includes('Почтовый индекс юридического адреса')));
+  await bank.locator('#taxCountry').selectOption('GB');await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Tax number'&&card.querySelector('.value')));
+  await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());await bank.waitForFunction(()=>document.getElementById('tax').value==='1234567890');
+  await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Агент: разобрать анкету').click());await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('button')].some(button=>button.textContent==='Подтвердить назначение поля'));
+  assert.equal(lastAgentBody.includes('operator-private@example.net'),false);assert.equal(lastAgentBody.includes('GB123456789'),false);
+  await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Подтвердить назначение поля').click());await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Organisation designation for this application'&&card.querySelector('.value')));
+  await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());await bank.waitForFunction(()=>document.getElementById('unusual').value==='EXAMPLE GOODS LTD');
+  assert.equal(await bank.evaluate(()=>window.__submissions),0);mkdirSync('test-results',{recursive:true});await bank.screenshot({path:'test-results/company-form-overlay.png',fullPage:true});assert.deepEqual(errors,[]);
+  console.log('PASS: sample company form, captions below inputs, distinct addresses, postcode, company/trading name, VAT PDF, tax-country guard, date, split phone, overlay and confirmed OpenAI form mapping. API and extension runtime simulated.');
+}finally{await browser?.close();await new Promise(done=>server.close(done));db.close();rmSync(directory,{recursive:true,force:true});}

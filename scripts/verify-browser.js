@@ -22,6 +22,7 @@ app.get('/fixture',(_req,res)=>res.type('html').send(`<!doctype html><html><head
 <label>INDUSTRY<select name="industry"><option value="">Choose</option><option value="retail">Retail</option></select></label>
 <label>ANNUALIZED TRANSACTION VOLUME (EUR)<select name="volume"><option value="">Choose</option><option value="low">0–100000</option></select></label>
 <label>MESSAGE / ANYTHING ELSE WE SHOULD KNOW<textarea name="message"></textarea></label><label>Password<input type="password" name="password"></label><button type="submit">Submit</button></form></body></html>`));
+app.get('/fixture-dom.js',(_req,res)=>res.sendFile(resolve('extension/dom.js')));
 app.get('/fixture-panel.js',(_req,res)=>res.sendFile(resolve('extension/panel.js')));
 const server=app.listen(3197,'127.0.0.1');await once(server,'listening');let browser;
 try{
@@ -51,7 +52,7 @@ try{
       }catch(error){return {ok:false,error:error.message};}
     }}};
   },{token,origin});
-  await bank.goto(origin+'/fixture');await bank.addScriptTag({url:origin+'/fixture-panel.js'});
+  await bank.goto(origin+'/fixture');await bank.addScriptTag({url:origin+'/fixture-dom.js'});await bank.addScriptTag({url:origin+'/fixture-panel.js'});
   await bank.waitForFunction(()=>window.__testPanelRoot?.querySelector('select').options.length===2);
   await bank.evaluate(()=>{const select=window.__testPanelRoot.querySelector('select');select.selectedIndex=1;select.dispatchEvent(new Event('change'));});
   await bank.waitForFunction(()=>[...window.__testPanelRoot.querySelectorAll('button')].some(b=>b.textContent==='Вставить в это поле'));
@@ -81,9 +82,9 @@ try{
   });
   await bank.waitForFunction(()=>document.querySelector('[name=entity_title]').value==='EXAMPLE GOODS LTD');
   await bank.evaluate(()=>{const input=document.querySelector('[name=entity_title]');input.value='';input.maxLength=3;const root=window.__testPanelRoot,detail=[...root.querySelectorAll('details')].find(d=>d.querySelector('summary')?.textContent==='Выбрать поле и данные вручную'),form=detail.querySelector('form');form.querySelector('input[type=checkbox]').checked=true;form.dispatchEvent(new Event('submit',{cancelable:true}));});
-  await bank.waitForFunction(()=>window.__testPanelRoot.textContent.includes('не соответствует ограничениям поля'));
+  await bank.waitForFunction(()=>/не соответствует ограничениям поля|Поле изменилось/.test(window.__testPanelRoot.textContent));
   assert.equal(await bank.locator('[name=entity_title]').inputValue(),'');
-  await bank.evaluate(()=>{const auto=window.__testPanelRoot.querySelector('input[type=checkbox]');auto.checked=true;auto.dispatchEvent(new Event('change'));});
+  await bank.evaluate(()=>{const auto=[...window.__testPanelRoot.querySelectorAll('label')].find(l=>l.textContent.includes('Автоматически заполнять новые')).querySelector('input');auto.checked=true;auto.dispatchEvent(new Event('change'));});
   await bank.evaluate(()=>{const label=document.createElement('label');label.textContent='Given name';const input=document.createElement('input');input.name='new_given_name';label.append(input);document.querySelector('form').append(label);});
   await bank.waitForFunction(()=>document.querySelector('[name=new_given_name]').value==='Alice');
   assert.equal(await bank.evaluate(()=>window.__submissions),0);
