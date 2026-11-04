@@ -57,14 +57,14 @@ $('analyzeAI').addEventListener('click',safe(async()=>{if(!confirm('Текст �
 function buildStructuredForm(){
   const area=$('structuredInputs');area.replaceChildren();
   for(const [key,title] of Object.entries(fields)){
-    if(['phone_dial_code','phone_national','phone_country'].includes(key))continue;
+    if(['company_email','company_phone','phone_dial_code','phone_national','phone_country'].includes(key))continue;
     const label=node('label',title),input=node(/description|purpose|funds_source/.test(key)?'textarea':'input');input.name=key;input.maxLength=2000;
     if(/(?:_on|_birth_date|_expiry)$/.test(key))input.type='date';
     if(key==='website')input.type='url';if(key==='company_email')input.type='email';if(key==='company_phone'){input.type='tel';input.placeholder='+44 …';}
     label.append(input);area.append(label);
   }
 }
-function structuredText(blank=false){return Object.entries(fields).filter(([key])=>!['phone_dial_code','phone_national','phone_country'].includes(key)).map(([key,title])=>title+': '+(blank?'':String($('structuredForm').elements.namedItem(key)?.value||'').replace(/\s+/g,' ').trim())).join('\n');}
+function structuredText(blank=false){return Object.entries(fields).filter(([key])=>!['company_email','company_phone','phone_dial_code','phone_national','phone_country'].includes(key)).map(([key,title])=>title+': '+(blank?'':String($('structuredForm').elements.namedItem(key)?.value||'').replace(/\s+/g,' ').trim())).join('\n');}
 function downloadNotebook(blank=false){const url=URL.createObjectURL(new Blob(['\uFEFF'+structuredText(blank)],{type:'text/plain;charset=utf-8'})),link=node('a');link.href=url;link.download=blank?'company-template.txt':'company-info.txt';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('downloadNotebook').addEventListener('click',()=>downloadNotebook());$('downloadBlankNotebook').addEventListener('click',()=>downloadNotebook(true));
 $('structuredForm').addEventListener('submit',safe(async()=>{const values=Object.fromEntries(new FormData($('structuredForm')));await api(`/companies/${companyId}/structured`,{method:'POST',body:{values}});$('structuredForm').reset();await selectCompany();message('Анкета сохранена. Сверьте итоговые значения и разрешите расхождения, затем подтвердите всю карточку.');}));

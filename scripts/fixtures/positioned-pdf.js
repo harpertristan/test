@@ -1,0 +1,12 @@
+// Synthetic PDF with separately positioned left labels and right values.
+export function positionedPdf(pages){
+ const escape=text=>text.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');const objects=[null,null,Buffer.from('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')],kids=[];
+ for(const rows of pages){const pageId=objects.length+1,streamId=pageId+1;kids.push(`${pageId} 0 R`);const content=rows.flatMap(([left,right],i)=>[[40,left],[235,right]].filter(([,text])=>text).map(([x,text])=>`BT /F1 11 Tf ${x} ${750-i*24} Td (${escape(text)}) Tj ET`)).join('\n');objects.push(Buffer.from(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 650 820] /Resources << /Font << /F1 3 0 R >> >> /Contents ${streamId} 0 R >>`),Buffer.from(`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`));}
+ objects[0]=Buffer.from('<< /Type /Catalog /Pages 2 0 R >>');objects[1]=Buffer.from(`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages.length} >>`);const chunks=[Buffer.from('%PDF-1.4\n')],offsets=[];let length=chunks[0].length;objects.forEach((obj,i)=>{offsets.push(length);const chunk=Buffer.concat([Buffer.from(`${i+1} 0 obj\n`),obj,Buffer.from('\nendobj\n')]);chunks.push(chunk);length+=chunk.length;});chunks.push(Buffer.from(`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')}trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${length}\n%%EOF`));return Buffer.concat(chunks);
+}
+export const registryPages=[
+ [['Companies House',''],['CERTIFICATE OF INCORPORATION',''],['Company Name:','EXAMPLE GOODS LTD'],['Company Number:','01234567'],['Registrar of Companies for England and Wales',''],['a private company limited by shares',''],['Incorporated on 3 November 2026','']],
+ [['Companies House IN01',''],['Registered Office:',''],['Proposed Registered','EXAMPLE HOUSE 1 SAMPLE STREET'],['Office Address:','SAMPLE VILLAGE'],['','BRISTOL'],['','ENGLAND BS1 1AA'],['Sic Codes:','47910'],['Principal activity description:','Retail sale via mail order houses or via Internet']],
+ [['Companies House IN01',''],['Director 1',''],['Full Forenames:','Alice'],['Surname:','Example'],['Service address:','EXAMPLE HOUSE 1 SAMPLE STREET'],['','BRISTOL ENGLAND BS1 1AA']]
+];
+export const personalBillPages=[[['Utility bill Elektrum',''],['Provider address:','8 Provider Road, Riga, LV-1000, Latvija'],['Client:','Alice Example'],['Address:','Sample iela 12-3, Riga, LV-1050, Latvija'],['Summa apmaksai','93.04']]];

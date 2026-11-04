@@ -62,7 +62,7 @@ try{
   assert.equal(await bank.locator('[name=firstName]').inputValue(),'Alice');assert.equal(await bank.locator('[name=last_name]').inputValue(),'Example');
   assert.equal(await bank.locator('[name=company_name]').inputValue(),'EXAMPLE GOODS LTD');assert.equal(await bank.locator('[name=website]').inputValue(),'https://example.com');
   assert.equal(await bank.locator('[name=incorporation_country]').inputValue(),'GB');
-  for(const [name,value] of [['work_email','company@example.com'],['phone_number','2079460018'],['dial_code','+44'],['industry','retail']])assert.equal(await bank.locator(`[name=${name}]`).inputValue(),value);
+  for(const [name,value] of [['work_email',''],['phone_number',''],['dial_code',''],['industry','retail']])assert.equal(await bank.locator(`[name=${name}]`).inputValue(),value);
   for(const name of ['volume','password'])assert.equal(await bank.locator(`[name=${name}]`).inputValue(),'');
   assert.equal(await bank.locator('[name=no_website]').isChecked(),false);assert.equal(await bank.evaluate(()=>window.__submissions),0);
   await bank.locator('[name=website]').fill('https://user-entered.example');

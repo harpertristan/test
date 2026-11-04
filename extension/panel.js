@@ -140,6 +140,7 @@
     const field=fieldMap.get(proposal.id)?.field;if(field?.options?.length){const choices=element('details'),list=element('div');choices.append(element('summary','Варианты ответа'));for(const option of field.options)list.append(element('p',(option.selected===true?'✓ ':'')+option.text+(option.disabled?' — недоступно':'')));choices.append(list);fieldDetail.append(choices);}
     if(proposal.status==='suggested'){
       fieldDetail.append(element('h4','Данные для этого поля'),element('p',proposal.value,'detail-value'),element('h4','Источник'),element('p',`${proposal.source} · страница / блок ${proposal.page}`,'source'),element('p',proposal.quote,'detail-source'));
+      if(proposal.documentSources?.length){const proof=element('details');proof.append(element('summary','Подтверждающие документы'));for(const source of proposal.documentSources)proof.append(element('p',`${source.filename} · стр. ${source.page}`,'source'),element('p',source.quote,'detail-source'));fieldDetail.append(proof);}
       const insert=element('button','Вставить после проверки');insert.addEventListener('click',safe(async()=>{await applyProposal(proposal,true);await scan(true);}));fieldDetail.append(insert);
     }
     fieldDetail.append(element('h4','Что проверить'),element('p',proposal.reason));for(const correction of proposal.corrections||[])fieldDetail.append(element('p',correction,'rules'));
