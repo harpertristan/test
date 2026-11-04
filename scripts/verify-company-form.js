@@ -6,10 +6,11 @@ import {tmpdir} from 'node:os';
 import {once} from 'node:events';
 import {createApp} from '../server.js';
 import {hashPassword} from '../lib/security.js';
+import {resolveFieldKey} from '../lib/fields.js';
 import {notebook} from './fixtures/notebook.js';
 import {makePdf} from './fixtures/pdf.js';
-const directory=mkdtempSync(join(tmpdir(),'assistant-company-form-')),origin='http://127.0.0.1:3198';let lastAgentBody;
-const aiFetch=async(_url,options)=>{const body=JSON.parse(options.body);if(body.messages[0].content.includes('Сопоставь поля')){lastAgentBody=JSON.stringify(body);const input=JSON.parse(body.messages[1].content);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:input.fields.filter(field=>field.label.includes('Organisation designation')).map(field=>({id:field.id,key:'company_name',explanation:'Это название организации для заявки; используйте юридическое название из карточки.'}))})}}]})};}return {ok:true,json:async()=>({choices:[{message:{content:'OK'}}]})};};
+const directory=mkdtempSync(join(tmpdir(),'assistant-company-form-')),origin='http://127.0.0.1:3198';let lastAgentBody,agentCalls=0;
+const aiFetch=async(_url,options)=>{const body=JSON.parse(options.body);if(body.messages[0].content.includes('Сопоставь поля')){agentCalls++;await new Promise(resolve=>setTimeout(resolve,600));lastAgentBody=JSON.stringify(body);const input=JSON.parse(body.messages[1].content);return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:input.fields.map(field=>({id:field.id,key:field.label.includes('Organisation designation')?'company_name':resolveFieldKey(field)||null,explanation:'ИИ объясняет поле: '+field.label+'. Используйте соответствующие сведения из документов; отсутствующие данные нужно предоставить отдельно.'}))})}}]})};}return {ok:true,json:async()=>({choices:[{message:{content:'OK'}}]})};};
 const {app,db}=createApp({dataDir:directory,origin,ai:{},aiFetch});db.prepare('INSERT INTO users VALUES(1,?,?)').run('test-user',hashPassword('synthetic-company-form-password'));
 app.get('/company-fixture',(_req,res)=>res.sendFile(resolve('scripts/fixtures/company-details.html')));for(const name of ['dom.js','panel.js'])app.get('/fixture-'+name,(_req,res)=>res.sendFile(resolve('extension',name)));
 const server=app.listen(3198,'127.0.0.1');await once(server,'listening');let browser,cookie;
@@ -30,6 +31,17 @@ try{
   await bank.goto(origin+'/company-fixture');await bank.locator('#email').fill('operator-private@example.net');await bank.evaluate(()=>{window.__submissions=0;document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();window.__submissions++;});});
   await bank.addScriptTag({url:origin+'/fixture-dom.js'});await bank.addScriptTag({url:origin+'/fixture-panel.js'});await bank.waitForFunction(()=>window.__panel.querySelector('select').options.length===2);await bank.evaluate(()=>{const select=window.__panel.querySelector('select');select.selectedIndex=1;select.dispatchEvent(new Event('change'));});
   await bank.waitForFunction(()=>window.__overlay.querySelectorAll('.pin').length>10);
+  await bank.locator('#lei').focus();
+  await bank.waitForFunction(()=>window.__panel.textContent.includes('ИИ разобрал'));
+  await bank.waitForFunction(()=>window.__overlay.querySelector('.tip .ai-note')?.textContent.includes('ИИ объясняет поле: LEI'));
+  assert.ok(agentCalls>=1,'AI must run automatically, without clicking analysis');
+  assert.equal(await bank.evaluate(()=>[...window.__panel.querySelectorAll('.card')].every(card=>card.querySelector('.ai-note')?.textContent.includes('ИИ объясняет поле:'))),true);
+  const stableCalls=agentCalls;await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Обновить поля').click());
+  await bank.waitForFunction(()=>window.__panel.querySelectorAll('.card .ai-note').length>10);
+  await bank.locator('#lei').focus();assert.ok(await bank.evaluate(()=>window.__overlay.querySelector('.tip .ai-note')?.textContent.includes('ИИ объясняет поле: LEI')));
+  assert.ok(await bank.evaluate(()=>window.__overlay.querySelector('.tip').textContent.includes('20-символьный')));
+  assert.equal(agentCalls,stableCalls,'unchanged fields must reuse the analysis');
+
   const descriptors=await bank.evaluate(()=>Object.fromEntries(['regLine1','regCity','regPost','regCountry','opLine1','opCity','opPost','opCountry','dial','phone'].map(id=>[id,RegistrationDOM.describe(document.getElementById(id),id)])));
   assert.equal(descriptors.regPost.caption,'Postcode');assert.equal(descriptors.regPost.addressKind,'registered');assert.equal(descriptors.opPost.addressKind,'operating');assert.equal(descriptors.dial.phonePart,'dial');assert.equal(descriptors.phone.phonePart,'national');
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());
@@ -43,6 +55,13 @@ try{
   assert.equal(lastAgentBody.includes('operator-private@example.net'),false);assert.equal(lastAgentBody.includes('GB123456789'),false);
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Подтвердить назначение поля').click());await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Organisation designation for this application'&&card.querySelector('.value')));
   await bank.evaluate(()=>[...window.__panel.querySelectorAll('button')].find(button=>button.textContent==='Заполнить найденные пустые поля').click());await bank.waitForFunction(()=>document.getElementById('unusual').value==='EXAMPLE GOODS LTD');
+  const previousCalls=agentCalls;
+  await bank.evaluate(()=>{const label=document.createElement('label');label.textContent='Additional service question';const input=document.createElement('input');input.name='additional_service';label.append(input);document.querySelector('form').append(label);});
+  await bank.waitForFunction(()=>[...window.__panel.querySelectorAll('.card')].some(card=>card.querySelector('h3')?.textContent==='Additional service question'&&card.querySelector('.ai-note')?.textContent.includes('ИИ объясняет поле:')));
+  assert.ok(agentCalls>previousCalls,'new fields must trigger automatic AI explanations');
+  await bank.locator('[name=additional_service]').focus();
+  await bank.evaluate(()=>[...window.__panel.querySelectorAll('.card')].find(card=>card.querySelector('h3')?.textContent==='Additional service question').querySelector('button').click());
+  await bank.waitForFunction(()=>window.__overlay.querySelector('.tip .ai-note')?.textContent==='OK');
   assert.equal(await bank.evaluate(()=>window.__submissions),0);mkdirSync('test-results',{recursive:true});await bank.screenshot({path:'test-results/company-form-overlay.png',fullPage:true});assert.deepEqual(errors,[]);
-  console.log('PASS: sample company form, captions below inputs, distinct addresses, postcode, company/trading name, VAT PDF, tax-country guard, date, split phone, overlay and confirmed OpenAI form mapping. API and extension runtime simulated.');
+  console.log('PASS: sample company form, captions below inputs, distinct addresses, postcode, company/trading name, VAT PDF, tax-country guard, date, split phone, overlay, automatic AI explanations for every field, dynamic-field analysis, cached unchanged form, synchronised field explanation and confirmed OpenAI form mapping. API and extension runtime simulated.');
 }finally{await browser?.close();await new Promise(done=>server.close(done));db.close();rmSync(directory,{recursive:true,force:true});}

@@ -1,7 +1,8 @@
 (()=>{
   const normalize=value=>String(value||'').replace(/([a-z\d])([A-Z])/g,'$1 $2').toLowerCase().replace(/[^a-zа-яё0-9]+/gi,' ').replace(/\s+/g,' ').trim();
   function text(node){if(!node)return '';const copy=node.cloneNode(true);copy.querySelectorAll?.('input,select,textarea,button,script,style').forEach(control=>control.remove());return copy.textContent.replace(/\s+/g,' ').trim().slice(0,350);}
-  function labels(control){return [...(control.labels||[])].map(text).join(' ').replace(/\s*\*\s*$/,'').trim()||control.getAttribute('aria-label')||(control.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>text(document.getElementById(id))).join(' ').trim();}
+  function labelText(node){const copy=node.cloneNode(true);copy.querySelectorAll('small,.help-block,.form-text,[class*="description"]').forEach(n=>n.remove());return text(copy);}
+  function labels(control){return [...(control.labels||[])].map(labelText).join(' ').replace(/\s*\*\s*$/,'').trim()||control.getAttribute('aria-label')||(control.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>text(document.getElementById(id))).join(' ').trim();}
   const captionPattern=/^(?:address\s*line\s*[12]|line\s*[12]|town\s*[/ ]\s*city|town|city|post\s*code|postal\s*code|zip(?:\s*code)?|country(?:\s*code)?|dial(?:l?ing)?\s*code|phone\s*number|tin|vat|mm[-/]dd[-/]yyyy|dd[-/.]mm[-/.]yyyy)\s*\*?$/i;
   function caption(control){
     const candidates=(control.getAttribute('aria-describedby')||'').split(/\s+/).map(id=>text(document.getElementById(id)));

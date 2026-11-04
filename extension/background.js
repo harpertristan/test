@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
       const current=await chrome.tabs.get(sender.tab.id);
       if(message.body?.host!==new URL(current.url).hostname)throw Error('Страница изменилась. Обновите панель.');
     }
-    const response=await fetch(origin+'/api'+path,{method,credentials:'omit',headers:{Authorization:'Bearer '+token,...(message.body?{'Content-Type':'application/json'}:{})},body:message.body?JSON.stringify(message.body):undefined,signal:AbortSignal.timeout(path==='/analyze-form'?60000:25000)});
+    const response=await fetch(origin+'/api'+path,{method,credentials:'omit',headers:{Authorization:'Bearer '+token,...(message.body?{'Content-Type':'application/json'}:{})},body:message.body?JSON.stringify(message.body):undefined,signal:AbortSignal.timeout(path==='/analyze-form'?60000:path==='/explain'?40000:25000)});
     const data=await response.json().catch(()=>({error:'Сервер вернул непонятный ответ.'}));
     if(!response.ok)throw Error(data.error||'Ошибка подключения.');
     return {data};

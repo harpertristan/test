@@ -47,3 +47,10 @@ test('form agent receives only field metadata, rejects unsafe remapping and requ
   assert.equal(JSON.stringify(body).includes('must not be sent'),false);const mapping=db.prepare('SELECT * FROM form_mappings').get();assert.equal(mapping.key,'company_name');assert.equal(mapping.status,'suggested');assert.equal(mapping.fingerprint,fieldFingerprint(fields[0]));assert.equal(db.prepare('SELECT count(*) n FROM form_mappings').get().n,1);
   assert.equal(mappingAllowed({label:'Country of tax residence'},'country'),false);assert.equal(mappingAllowed({label:'Address line 1',caption:'Address line 1',addressKind:'operating'},'registered_address_line1'),false);
 });
+
+test('LEI and other labels tolerate attached explanatory captions without matching unrelated questions',()=>{
+ assert.equal(resolveFieldKey({label:'LEI code (optional) This is required to make use of Investment Services'}),'lei_code');
+ assert.equal(resolveFieldKey({label:'Company or Trading name *'}),'company_name');
+ assert.equal(resolveFieldKey({label:'VAT number This is required for tax registration'}),'vat_number');
+ assert.equal(resolveFieldKey({label:'VAT number of a different company'}),undefined);
+});
