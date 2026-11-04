@@ -9,13 +9,13 @@
   function element(tag,text,className){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;}
   const panel=element('section',undefined,'panel'),header=element('header'),title=element('h2','Помощник регистраций'),close=element('button','×','quiet'),main=element('main'),status=element('p','','status'),companySelect=element('select'),cards=element('div'),manual=element('div');
   const agentButton=element('button','Агент: разобрать анкету','quiet'),aiSettings=element('button','Настроить OpenAI','quiet'),overlayLabel=element('label'),overlayToggle=element('input'),assessment=element('p','','note');overlayToggle.type='checkbox';overlayToggle.checked=true;overlayToggle.style.width='auto';overlayLabel.append(overlayToggle,document.createTextNode(' Подсказки прямо у полей'));
-  const aiAutoLabel=element('label'),aiAutoToggle=element('input'),aiState=element('p','','note');aiAutoToggle.type='checkbox';aiAutoToggle.checked=true;aiAutoToggle.style.width='auto';aiAutoLabel.append(aiAutoToggle,document.createTextNode(' ИИ читает и объясняет каждое поле'));aiState.textContent='OpenAI получает подписи и структуру полей, без введённых значений и документов.';
+  const aiAutoLabel=element('label'),aiAutoToggle=element('input'),aiState=element('p','','note'),pageAdvice=element('p','','note'),coverage=element('p','','status');aiAutoToggle.type='checkbox';aiAutoToggle.checked=true;aiAutoToggle.style.width='auto';aiAutoLabel.append(aiAutoToggle,document.createTextNode(' ИИ читает и объясняет каждое поле'));aiState.textContent='OpenAI получает вопросы, варианты и отмеченные ответы. Текст введённых реквизитов и документы не передаются.';
   const fillButton=element('button','Заполнить найденные пустые поля'),autoLabel=element('label'),autoToggle=element('input'),roleSelect=element('select');
   autoToggle.type='checkbox';autoToggle.style.width='auto';autoLabel.append(autoToggle,document.createTextNode(' Автоматически заполнять новые пустые поля'));
   for(const [value,text] of [['contact','Контактное лицо из блокнота'],['director','Директор'],['beneficiary','Бенефициар']]){const option=element('option',text);option.value=value;roleSelect.append(option);}
   const roleLabel=element('label','Чьи сведения использовать');roleLabel.append(roleSelect);
-  const settings=element('button','Подключение','quiet'),refresh=element('button','Обновить поля','quiet'),companyLabel=element('label','Рабочая компания'),intro=element('p','Сведения берутся из карточки компании. Заполните найденное одной кнопкой или включите автозаполнение пустых полей.','note');
-  companyLabel.append(companySelect);header.append(title,close);main.append(intro,settings,refresh,companyLabel,roleLabel,aiAutoLabel,agentButton,aiSettings,aiState,overlayLabel,assessment,fillButton,autoLabel,status,cards,manual);panel.append(header,main,element('div','Пароли, подтверждения, подписи и отправка анкеты — у вас.','bottom'));shadow.append(panel);document.documentElement.append(host);
+  const settings=element('button','Подключение','quiet'),refresh=element('button','Обновить поля','quiet'),companyLabel=element('label','Рабочая компания'),intro=element('p','ИИ объясняет вопросы и варианты ответа. Подтверждённые реквизиты можно вставить в обычные поля; выбор ответов и отправка остаются у вас.','note');
+  companyLabel.append(companySelect);header.append(title,close);main.append(intro,settings,refresh,companyLabel,roleLabel,aiAutoLabel,agentButton,aiSettings,aiState,pageAdvice,coverage,overlayLabel,assessment,fillButton,autoLabel,status,cards,manual);panel.append(header,main,element('div','Пароли, подтверждения, подписи и отправка анкеты — у вас.','bottom'));shadow.append(panel);document.documentElement.append(host);
   let visible=true,active=true,companyId='',facts=[],fieldTitles={},fieldMap=new Map(),version=0,timer,lastSignature='',pageKey=location.href,lastProposals=[],filling=false,lastReview=null,polling=false,ticks=0,agentEnabled=false,pendingScan=false;const agentAdvice=new Map();let agentBusy=false,lastAIRequest='',agentTimer;
   const toggle=()=>{visible=!visible;host.style.setProperty('display',visible?'block':'none','important');if(visible)void scan(true);else clearOverlay();};
   globalThis.__registrationAssistant={toggle};close.addEventListener('click',toggle);
@@ -28,11 +28,11 @@
   const labelFor=DOM.label,describe=DOM.describe;
   function isSensitive(el,label){return el.type==='password'||/password|passcode|one.?time|verification code|security code|cvv|cvc|\bpin\b|\botp\b|card number|парол|код подтверждения/i.test(label+' '+el.name+' '+el.id+' '+el.autocomplete);}
   const eligible=el=>DOM.eligible(el)&&!isSensitive(el,labelFor(el));
-  function collect(){fieldMap=new Map();const list=[];for(const el of document.querySelectorAll('input,select,textarea')){if(list.length>=100)break;if(!eligible(el))continue;const id=String(list.length),field=describe(el,id);if(!field.label)continue;fieldMap.set(id,{el,field});list.push(field);}return list;}
+  function collect(){fieldMap=new Map();const list=[];for(const {el,field} of DOM.entries()){if(isSensitive(el,field.label))continue;fieldMap.set(field.id,{el,field});list.push(field);}return list;}
   async function scan(force=false){
     if(!visible||!active)return;
     if(location.href!==pageKey){autoToggle.checked=false;lastProposals=[];pageKey=location.href;lastSignature='';version++;cards.replaceChildren();manual.replaceChildren();}
-    const fields=collect(),signature=companyId+':'+roleSelect.value+':'+pageKey+':'+JSON.stringify(fields);
+    const fields=collect(),pageInfo=DOM.pageContext();coverage.textContent=pageInfo.unreadEmbeddedFrames||pageInfo.openShadowRoots?`Непрочитанные блоки: iframe — ${pageInfo.unreadEmbeddedFrames}, открытые Shadow DOM — ${pageInfo.openShadowRoots}. Подсказки относятся только к доступным вопросам. Закрытые компоненты могут быть недоступны.`:'';const signature=companyId+':'+roleSelect.value+':'+pageKey+':'+JSON.stringify(fields);
     if(!force&&signature===lastSignature)return;lastSignature=signature;
     const current=++version;cards.replaceChildren();manual.replaceChildren();
     if(!companyId){say('Выберите компанию.');return;}
@@ -51,7 +51,7 @@
       for(const correction of proposal.corrections||[])card.append(element('p',correction,'rules'));
       const explain=element('button','Объяснить по-русски','quiet');explain.addEventListener('click',safe(async()=>{explain.disabled=true;try{say('Получаем пояснение. Провайдеру передаётся только текст вопроса.');const key=adviceKey(fieldMap.get(proposal.id)?.field);const result=await api('/explain',{label:proposal.label});if(key!==adviceKey(fieldMap.get(proposal.id)?.field))return;agentAdvice.set(key,result.explanation);updateAdvice();say('Пояснение появилось в панели и у поля.');}finally{explain.disabled=false;}}));card.append(explain);const aiNote=card.querySelector('.ai-note');if(aiNote)card.querySelector('h3').after(aiNote);cards.append(card);
     }
-    const ready=proposals.filter(p=>p.status==='suggested').length;assessment.textContent=`Распознано назначение: ${proposals.filter(p=>p.key).length} из ${proposals.length}. Готовы данные для ${ready} полей. ${lastReview?.approved?'Недостающие сведения указаны в карточках ниже.':'Подтвердите итоговые данные в окне документов, чтобы разрешить вставку.'} Save / Next помощник не нажимает.`;renderOverlay(proposals);
+    const ready=proposals.filter(p=>p.status==='suggested').length;assessment.textContent=`Сопоставлено с реквизитами карточки: ${proposals.filter(p=>p.key).length} из ${proposals.length}. Готовы данные для ${ready} полей. ${lastReview?.approved?'Недостающие сведения указаны в карточках ниже.':'Подтвердите итоговые данные в окне документов, чтобы разрешить вставку.'} Save / Next помощник не нажимает.`;renderOverlay(proposals);
     renderManualPicker(fields);
     const title=element('h3','Указать ошибку помощнику'),form=element('form'),select=element('select'),text=element('textarea'),button=element('button','Сохранить исправление');
     form.className='correction-form';
@@ -67,7 +67,7 @@
     if(companyId!==selectedCompany||location.href!==currentPage||version!==capturedVersion||roleSelect.value!==personRole||!entry.el.isConnected||!eligible(entry.el)||!sameField(describe(entry.el,proposal.id),entry.field))throw Error('Компания, роль или страница изменилась. Вставка остановлена.');
     if(verified.status!=='suggested'||verified.factId!==proposal.factId||verified.value!==proposal.value||verified.optionValue!==proposal.optionValue)throw Error('Источник или правило изменилось. Обновите панель.');
     const el=entry.el;
-    if(['checkbox','radio','password','file'].includes(el.type))return false;
+    if(['checkbox','radio','password','file','choice-group','custom-select'].includes(el.type))return false;
     if(!blank(el)){if(!overwrite)return false;if(!confirm(`Заменить значение поля «${proposal.label}» на «${proposal.value}» для компании «${companySelect.selectedOptions[0]?.textContent}»?`))return false;}
     writeValue(el,proposal.optionValue??proposal.value);return true;
   }
@@ -80,14 +80,14 @@
   autoToggle.addEventListener('change',safe(async()=>{if(autoToggle.checked){await scan(true);await fillEmpty();}}));
   roleSelect.addEventListener('change',()=>{autoToggle.checked=false;lastSignature='';void scan(true);});
   function blank(el){return !el.value?.trim()||(el.tagName==='SELECT'&&/^(?:please select|please choose|select(?: a| an)?|choose|code$|--)/i.test(el.selectedOptions[0]?.textContent.trim()||''));}
-  function sameField(a,b){const clean=value=>{const result={...value};delete result.taxCountry;return result;};return JSON.stringify(clean(a))===JSON.stringify(clean(b));}
+  function sameField(a,b){const clean=value=>{const result={...value};delete result.taxCountry;if(result.options)result.options=result.options.map(({selected,...option})=>option);return result;};return JSON.stringify(clean(a))===JSON.stringify(clean(b));}
   function adviceKey(field){if(!field)return '';const copy={...field};delete copy.id;return companyId+':'+roleSelect.value+':'+pageKey+':'+JSON.stringify(copy);}
   function adviceFor(proposal){return agentAdvice.get(adviceKey(fieldMap.get(proposal.id)?.field))||proposal.agentComment||'';}
   function updateAdvice(){
     for(const card of cards.querySelectorAll('.card')){const proposal=lastProposals.find(p=>p.id===card.dataset.fieldId),value=proposal&&adviceFor(proposal);if(!value)continue;let note=card.querySelector('.ai-note');if(!note){note=element('p','','note ai-note');card.querySelector('h3').after(note);}note.textContent=value;}
     if(tip){const proposal=lastProposals.find(p=>p.id===tip.dataset.fieldId),value=proposal&&adviceFor(proposal);if(value){let note=tip.querySelector('.ai-note');if(!note){note=element('p','','ai-note');tip.querySelector('strong').after(note);}note.textContent=value;}}
   }
-  function agentSignature(fields){return fields.map(field=>adviceKey(field)).join('|')+':'+(lastReview?.signature||'')+':'+lastReview?.approved;}
+  function agentSignature(fields){return fields.map(field=>adviceKey(field)).join('|')+':'+(lastReview?.signature||'')+':'+lastReview?.approved+':'+JSON.stringify(DOM.pageContext());}
   function queueAgent(){if(!aiAutoToggle.checked||!agentEnabled||!companyId||!visible||agentBusy||filling)return;clearTimeout(agentTimer);agentTimer=setTimeout(()=>void safe(()=>runAgent(false))(),350);}
   async function runAgent(force=false){
     if(agentBusy)return;
@@ -98,10 +98,10 @@
     if(!fields.length||(!force&&signature===lastAIRequest))return;
     lastAIRequest=signature;agentBusy=true;agentButton.disabled=true;aiState.textContent=`ИИ читает ${fields.length} полей. Пояснения появятся автоматически…`;
     try{
-      const result=await api('/analyze-form',{companyId,host:location.hostname,fields,consent:true});
+      const result=await api('/analyze-form',{companyId,host:location.hostname,fields,page:DOM.pageContext(),consent:true});
       if(companyId!==selectedCompany||pageKey!==selectedPage||roleSelect.value!==selectedRole||agentSignature(collect())!==signature)return;
       for(const field of fields){const item=result.advice.find(item=>item.id===field.id);agentAdvice.set(adviceKey(field),item?.reason||'ИИ не вернул пояснение этого поля. Нажмите «Объяснить по-русски» или повторите разбор анкеты.');}
-      updateAdvice();aiState.textContent=`ИИ разобрал ${result.advice.length} из ${fields.length} полей. Нажмите значок у поля или переведите в него курсор, чтобы прочитать пояснение.`;
+      updateAdvice();pageAdvice.textContent=result.pageExplanation||'';aiState.textContent=`ИИ разобрал ${result.advice.length} из ${fields.length} полей. Нажмите значок у поля или переведите в него курсор, чтобы прочитать пояснение.`;
       if(filling)pendingScan=true;else await scan(true);
     }catch(error){aiState.textContent='ИИ-подсказки: '+error.message;}
     finally{agentBusy=false;agentButton.disabled=false;if(aiAutoToggle.checked&&agentSignature(collect())!==lastAIRequest)queueAgent();}
@@ -110,11 +110,19 @@
   agentButton.addEventListener('click',safe(()=>runAgent(true)));
   const overlayHost=document.createElement('div');overlayHost.setAttribute('data-registration-assistant-overlay','');overlayHost.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2147483646;';
   const overlayRoot=overlayHost.attachShadow({mode:'closed'}),overlayStyle=document.createElement('style');overlayStyle.textContent='*{box-sizing:border-box}.pin{position:fixed;pointer-events:auto;border:0;border-radius:12px;padding:2px 7px;font:12px Segoe UI,Arial;color:white;background:#22674c;cursor:pointer}.warn{background:#946300}.tip{position:fixed;pointer-events:auto;width:350px;max-width:calc(100vw - 24px);max-height:350px;overflow:auto;background:white;color:#17302e;border:1px solid #aac3b3;border-radius:12px;padding:14px;box-shadow:0 8px 30px #0003;font:13px/1.5 Segoe UI,Arial;overflow-wrap:anywhere}.tip p{margin:8px 0}.tip .ai-note{background:#edf4ec;border-radius:8px;padding:10px}.tip button{border:0;border-radius:6px;padding:7px 10px;margin:4px;background:#e7eee7;color:#21523e;cursor:pointer}.tip strong{display:block}';overlayRoot.append(overlayStyle);document.documentElement.append(overlayHost);
-  let badges=[],tip=null,marks=[];
+  let badges=[],tip=null,marks=[],activeOverlay=null;
   function clearOverlay(){for(const badge of badges)badge.node.remove();badges=[];tip?.remove();tip=null;for(const mark of marks){if(mark.el.style.outline===mark.ours){mark.el.style.outline=mark.outline;mark.el.style.outlineOffset=mark.offset;}}marks=[];}
-  function positionOverlays(){for(const badge of badges){const rect=badge.el.getBoundingClientRect(),show=rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth;badge.node.hidden=!show;badge.node.style.left=Math.max(2,Math.min(innerWidth-35,rect.right+(['checkbox','radio'].includes(badge.el.type)?6:-28)))+'px';badge.node.style.top=Math.max(2,rect.top-10)+'px';}}
+  function clippedRect(el){
+    const rect=el.getBoundingClientRect();let left=Math.max(0,rect.left),top=Math.max(0,rect.top),right=Math.min(innerWidth,rect.right),bottom=Math.min(innerHeight,rect.bottom);
+    for(let parent=el.parentElement;parent&&parent!==document.documentElement;parent=parent.parentElement){const style=getComputedStyle(parent),bounds=parent.getBoundingClientRect();if(/auto|scroll|hidden|clip/.test(style.overflowY)){top=Math.max(top,bounds.top);bottom=Math.min(bottom,bounds.bottom);}if(/auto|scroll|hidden|clip/.test(style.overflowX)){left=Math.max(left,bounds.left);right=Math.min(right,bounds.right);}}
+    return {left,top,right,bottom,visible:right>left&&bottom>top};
+  }
+  function positionOverlays(){
+    for(const badge of badges){const rect=clippedRect(badge.el),show=visible&&overlayToggle.checked&&rect.visible&&badge.el===activeOverlay;badge.node.hidden=!show;if(!show)continue;const panelLeft=host.getBoundingClientRect().left,top=Math.max(2,Math.min(innerHeight-24,rect.top));const positions=[rect.right+6,rect.left-28].filter(left=>left>=2&&left+24<Math.min(innerWidth-2,panelLeft-2));const left=positions.find(left=>[[left+1,top+1],[left+23,top+1],[left+1,top+19],[left+23,top+19]].every(([x,y])=>{const node=document.elementFromPoint(x,y);return !node||node===overlayHost||node===document.body||node===document.documentElement||node.contains(badge.el);}));if(left===undefined){badge.node.hidden=true;continue;}badge.node.style.left=left+'px';badge.node.style.top=top+'px';}
+    if(tip?.__target&&!clippedRect(tip.__target).visible){tip.remove();tip=null;}
+  }
   function showTip(proposal,el){
-    tip?.remove();tip=element('aside',undefined,'tip');tip.dataset.fieldId=proposal.id;tip.__target=el;const rect=el.getBoundingClientRect();tip.style.left=Math.max(8,Math.min(innerWidth-370,rect.left))+'px';tip.style.top=Math.max(8,Math.min(innerHeight-360,rect.bottom+6))+'px';
+    activeOverlay=el;positionOverlays();tip?.remove();tip=element('aside',undefined,'tip');tip.dataset.fieldId=proposal.id;tip.__target=el;const rect=el.getBoundingClientRect();tip.style.left=Math.max(8,Math.min(innerWidth-370,rect.left))+'px';tip.style.top=Math.max(8,Math.min(innerHeight-360,rect.bottom+6))+'px';
     const close=element('button','×');close.addEventListener('click',()=>{tip?.remove();tip=null;});tip.append(close,element('strong',proposal.label),element('p',proposal.guidance||''),element('p',proposal.reason));
     if(agentEnabled&&!adviceFor(proposal))tip.append(element('p',agentBusy?'ИИ читает это поле — пояснение появится автоматически.':aiState.textContent,'ai-note'));
     if(proposal.status==='suggested'){tip.append(element('strong',proposal.value),element('p',`${proposal.source} · стр. / блок ${proposal.page}`),element('p',proposal.quote));if(!blank(el))tip.append(element('p','На сайте уже есть значение. Автоматический режим его не заменяет; сверьте его с предложением.'));const insert=element('button','Вставить после проверки');insert.addEventListener('click',safe(async()=>{await applyProposal(proposal,true);await scan(true);}));tip.append(insert);}
@@ -123,11 +131,15 @@
     const inPanel=element('button','Показать в панели');inPanel.addEventListener('click',()=>{const card=[...cards.children].find(node=>node.dataset.fieldId===proposal.id);card?.scrollIntoView({block:'center',behavior:'smooth'});});tip.append(inPanel);const aiNote=tip.querySelector('.ai-note');if(aiNote)tip.querySelector('strong').after(aiNote);overlayRoot.append(tip);
   }
   function renderOverlay(proposals){const previousTarget=tip?.__target;clearOverlay();if(!overlayToggle.checked||!visible)return;
-    for(const proposal of proposals){const entry=fieldMap.get(proposal.id);if(!entry)continue;const differs=proposal.status==='suggested'&&!blank(entry.el)&&entry.el.value!==(proposal.optionValue??proposal.value),color=proposal.status==='suggested'&&!differs?'#3d9370':'#bc8a37',old=entry.el.style.outline,offset=entry.el.style.outlineOffset;entry.el.style.outline='2px solid '+color;entry.el.style.outlineOffset='2px';marks.push({el:entry.el,outline:old,offset,ours:entry.el.style.outline});const badge=element('button',differs?'≠':proposal.status==='suggested'?'✓':'?',proposal.status==='suggested'&&!differs?'pin':'pin warn');badge.title='Подсказка помощника';badge.addEventListener('click',()=>showTip(proposal,entry.el));overlayRoot.append(badge);badges.push({node:badge,el:entry.el});}positionOverlays();if(previousTarget){const id=[...fieldMap].find(([,entry])=>entry.el===previousTarget)?.[0],proposal=proposals.find(p=>p.id===id);if(proposal)showTip(proposal,previousTarget);}}
+    for(const proposal of proposals){const entry=fieldMap.get(proposal.id);if(!entry)continue;const badge=element('button','?', 'pin');badge.hidden=true;badge.title='Пояснение ИИ для этого вопроса';badge.setAttribute('aria-label','Пояснение ИИ: '+proposal.label);badge.addEventListener('click',()=>showTip(proposal,entry.el));overlayRoot.append(badge);badges.push({node:badge,el:entry.el});}positionOverlays();
+    if(previousTarget){const id=[...fieldMap].find(([,entry])=>entry.el===previousTarget)?.[0],proposal=proposals.find(p=>p.id===id);if(proposal)showTip(proposal,previousTarget);}
+  }
   overlayToggle.addEventListener('change',()=>renderOverlay(lastProposals));
   window.addEventListener('scroll',positionOverlays,{passive:true,capture:true});window.addEventListener('resize',positionOverlays,{passive:true});
-  document.addEventListener('focusin',event=>{if(!overlayToggle.checked||!visible)return;const entry=[...fieldMap.entries()].find(([,item])=>item.el===event.target);if(entry){const proposal=lastProposals.find(item=>item.id===entry[0]);if(proposal)showTip(proposal,event.target);}});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'){tip?.remove();tip=null;}});
+  document.addEventListener('pointerover',event=>{if(!visible||!overlayToggle.checked||event.composedPath().includes(overlayHost)||event.composedPath().includes(host))return;const entry=[...fieldMap.values()].find(item=>item.el===event.target||['choice-group','custom-select'].includes(item.field.type)&&item.el.contains(event.target));activeOverlay=entry?.el||null;positionOverlays();});
+  document.addEventListener('focusin',event=>{if(!overlayToggle.checked||!visible)return;const entry=[...fieldMap.entries()].find(([,item])=>item.el===event.target||['choice-group','custom-select'].includes(item.field.type)&&item.el.contains(event.target));if(entry){const proposal=lastProposals.find(item=>item.id===entry[0]);if(proposal)showTip(proposal,entry[1].el);}});
+  document.addEventListener('click',event=>{if(!visible||!overlayToggle.checked)return;const entry=[...fieldMap.entries()].find(([,item])=>['choice-group','custom-select'].includes(item.field.type)&&item.el.contains(event.target));if(entry){const proposal=lastProposals.find(p=>p.id===entry[0]);if(proposal)showTip(proposal,entry[1].el);clearTimeout(timer);timer=setTimeout(()=>void scan(),350);}});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){tip?.remove();tip=null;activeOverlay=null;positionOverlays();}});
   function writeValue(el,value){
     const probe=el.cloneNode(true);probe.value=value;
     if(probe.value!==value||(el.maxLength>0&&value.length>el.maxLength)||!probe.checkValidity())throw Error('Значение не соответствует ограничениям поля. Проверьте формат вручную.');
@@ -137,7 +149,7 @@
     if(el.value!==value)throw Error('Сайт изменил значение. Проверьте его вручную.');
   }
   function renderManualPicker(fields){
-    const allowed=fields.filter(field=>!['checkbox','radio','select-multiple'].includes(field.type));
+    const allowed=fields.filter(field=>!['checkbox','radio','select-multiple','choice-group','custom-select','file'].includes(field.type)&&!field.disabled&&!field.readOnly);
     if(!lastReview?.approved||!facts.length||!allowed.length)return;
     const detail=element('details'),summary=element('summary','Выбрать поле и данные вручную'),form=element('form'),target=element('select'),source=element('select'),preview=element('div'),ackLabel=element('label'),ack=element('input'),submit=element('button','Вставить выбранные данные');
     for(const field of allowed){const option=element('option',field.label);option.value=field.id;target.append(option);}
@@ -168,8 +180,8 @@
   }
   companySelect.addEventListener('change',()=>{companyId=companySelect.value;autoToggle.checked=false;lastProposals=[];lastSignature='';void scan(true);});refresh.addEventListener('click',safe(async()=>{await loadCompanies();await scan(true);}));
   async function loadCompanies(){const [companies,me]=await Promise.all([api('/companies'),api('/me')]),previous=companyId;fieldTitles=me.fields;agentEnabled=me.aiEnabled;agentButton.textContent=agentEnabled?'Агент: разобрать анкету':'Агент: подключите OpenAI';companySelect.replaceChildren();const empty=element('option','Выберите компанию');empty.value='';companySelect.append(empty);for(const company of companies){const o=element('option',company.name);o.value=company.id;companySelect.append(o);}companySelect.value=companies.some(c=>c.id===previous)?previous:'';companyId=companySelect.value;}
-  const observer=new MutationObserver(changes=>{if(filling){pendingScan=true;return;}if(!visible||!changes.some(c=>c.target!==host&&![...(c.addedNodes||[]),...(c.removedNodes||[])].includes(host)))return;clearTimeout(timer);timer=setTimeout(()=>void scan().catch(error=>say(error.message)),600);});observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['aria-describedby','aria-label','aria-labelledby','disabled','readonly','hidden','type','placeholder','required','maxlength','pattern']});
-  document.addEventListener('change',event=>{if(event.target.tagName==='SELECT'&&visible){if(filling){pendingScan=true;return;}clearTimeout(timer);timer=setTimeout(()=>void scan(true),350);}});
+  const observer=new MutationObserver(changes=>{if(filling){pendingScan=true;return;}if(!visible||!changes.some(c=>c.target!==host&&![...(c.addedNodes||[]),...(c.removedNodes||[])].includes(host)))return;clearTimeout(timer);timer=setTimeout(()=>void scan().catch(error=>say(error.message)),600);});observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['aria-describedby','aria-label','aria-labelledby','disabled','readonly','hidden','type','placeholder','required','maxlength','pattern','role','aria-checked','aria-pressed','aria-selected','aria-expanded','aria-disabled','aria-multiselectable','data-state','class','aria-invalid','aria-required','accept','aria-controls','aria-owns']});
+  document.addEventListener('change',event=>{if(visible&&event.target.matches('select,input[type=radio],input[type=checkbox]')){if(filling){pendingScan=true;return;}clearTimeout(timer);timer=setTimeout(()=>void scan(true),350);}});
   const interval=setInterval(()=>{if(!host.isConnected){active=false;clearOverlay();overlayHost.remove();observer.disconnect();clearInterval(interval);clearTimeout(timer);clearTimeout(agentTimer);delete globalThis.__registrationAssistant;return;}if(visible&&location.href!==pageKey)void scan(true);if(visible&&companyId&&!polling&&!filling&&++ticks%5===0){polling=true;const selected=companyId;void api(`/companies/${selected}/review`).then(state=>{if(companyId===selected&&(state.signature!==lastReview?.signature||state.approved!==lastReview?.approved))return scan(true);}).catch(error=>say(error.message)).finally(()=>{polling=false;});}},1000);
   void safe(async()=>{await loadCompanies();await scan(true);})();
 })();

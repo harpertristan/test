@@ -49,7 +49,90 @@
     const taxControl=peers.find(peer=>peer.tagName==='SELECT'&&/^(?:country of tax residence|country of tax residency|tax residence country|tax residency)$/.test(normalize(labels(peer)||caption(peer)||peer.name)));
     let taxCountry;if(taxControl){const option=taxControl.selectedOptions[0];if(option&&!/^(?:please select|select|choose)/i.test(option.textContent.trim())&&taxControl.value)taxCountry=/^[A-Z]{2}$/i.test(taxControl.value)?taxControl.value:option.textContent.trim().slice(0,80);}
     const kinds=new Set([...form.querySelectorAll('label,legend,h2,h3,.section-title')].map(node=>addressKind(text(node))).filter(Boolean));
-    return {id,label:label.slice(0,300),caption:hint,group:section.label||'',addressKind:section.kind,ambiguousAddress:!section.kind&&kinds.size>1,name:(control.name||'').slice(0,100),type:control.tagName==='SELECT'?control.type:control.tagName==='TEXTAREA'?'textarea':control.type,autocomplete:(control.autocomplete||'').split(' ').at(-1),placeholder:control.getAttribute('placeholder')||control.getAttribute('data-date-format')||'',required:control.required,maxLength:control.maxLength,phonePart,splitPhone:phonePart==='national',taxCountry,options:control.tagName==='SELECT'?[...control.options].slice(0,500).map(option=>({text:option.textContent.trim().slice(0,200),value:option.value.slice(0,200),disabled:option.disabled})):undefined};
+    return {id,label:label.slice(0,300),caption:hint,group:section.label||'',addressKind:section.kind,ambiguousAddress:!section.kind&&kinds.size>1,name:(control.name||'').slice(0,100),type:control.tagName==='SELECT'?control.type:control.tagName==='TEXTAREA'?'textarea':control.type,autocomplete:(control.autocomplete||'').split(' ').at(-1),placeholder:control.getAttribute('placeholder')||control.getAttribute('data-date-format')||'',required:control.required,disabled:control.disabled===true||control.getAttribute('aria-disabled')==='true',readOnly:control.readOnly===true,pattern:control.getAttribute('pattern')||'',accept:control.getAttribute('accept')||'',maxLength:control.maxLength,phonePart,splitPhone:phonePart==='national',taxCountry,options:control.tagName==='SELECT'?[...control.options].slice(0,500).map(option=>({text:option.textContent.trim().slice(0,200),value:option.value.slice(0,200),selected:option.selected,disabled:option.disabled})):undefined};
   }
-  globalThis.RegistrationDOM={label:control=>labels(control)||caption(control)||control.getAttribute('placeholder')||control.name||'',caption,group,describe,eligible};
+  const optionSelector='button,[role="radio"],[role="checkbox"],[role="switch"],input[type="radio"],input[type="checkbox"],label:has(input[type="radio"]),label:has(input[type="checkbox"])';
+  const action=/^(?:(?:show|view|see|learn more)\b.*|continue|next|back|cancel|submit|save|sign in|log in|register|upload|delete|remove|add|edit|close|open|search|далее|назад|продолжить|отмена|сохранить|отправить|загрузить)(?:\s*[→←›»…]*)?$/i;
+  function visible(node){return node.getClientRects().length&&getComputedStyle(node).visibility!=='hidden'&&!node.closest('nav,header,[role="navigation"],[role="menu"],[hidden],[aria-hidden="true"]');}
+  function optionText(node){return (node.getAttribute('aria-label')||(node.matches('input')?labels(node):node.textContent)||'').replace(/^[\s✓✔☑]+/,'').replace(/\s+/g,' ').trim().slice(0,200);}
+  function selected(node){
+    if(node.matches('input'))return node.checked;if(node.matches('label'))return node.querySelector('input')?.checked??null;
+    for(const attribute of ['aria-checked','aria-pressed','aria-selected']){const value=node.getAttribute(attribute);if(value==='true')return true;if(value==='false')return false;}
+    const state=node.getAttribute('data-state');if(['checked','on','selected','active'].includes(state))return true;if(['unchecked','off','unselected','inactive'].includes(state))return false;
+    if(/(?:^|\s)(?:selected|checked|is-selected|is-checked)(?:\s|$)/.test(node.className||'')||/^[\s]*[✓✔☑]/.test(node.textContent||'')||node.querySelector('[data-icon="check"],.lucide-check,.fa-check'))return true;
+    return null;
+  }
+  function optionsIn(container){return [...container.querySelectorAll(optionSelector)].filter(node=>visible(node)&&!(node.matches('input')&&node.closest('label'))&&!node.parentElement?.closest('button,[role="radio"],[role="checkbox"],[role="switch"]')).filter(node=>{const value=optionText(node);return value&&value.length<=200&&!action.test(value)&&!node.matches('[type="submit"],[type="reset"],[role="combobox"],[aria-haspopup="listbox"]');});}
+  function questionLabel(container){
+    const accessible=container.getAttribute('aria-label')||(container.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>text(document.getElementById(id))).join(' ').trim();if(accessible)return accessible;
+    const titles=[...container.querySelectorAll(':scope > legend,:scope > label,:scope > h3,:scope > h4,:scope > h5,:scope > .question-label,:scope > .question-title,:scope > .field-label,:scope > .label,:scope > [data-question-label]')].filter(node=>!node.matches('label:has(input[type=radio]),label:has(input[type=checkbox])'));
+    if(titles.length===1)return labelText(titles[0]);if(titles.length>1)return '';
+    const copy=container.cloneNode(true);copy.querySelectorAll(optionSelector+',select,textarea,input,svg,script,style,small,.help-block,.form-text').forEach(node=>node.remove());
+    const value=copy.textContent.replace(/\s+/g,' ').trim();return value.length<=350?value:'';
+  }
+  const consent=/\b(?:i (?:have |hereby )?(?:agree|accept|confirm|certify|consent|acknowledge|reviewed)|terms\s*(?:and|&)\s*conditions|pricing terms|privacy policy)\b/i;
+  function choiceDescriptor(container,id){
+    if(!visible(container)||['FORM','BODY','MAIN','HTML'].includes(container.tagName))return;
+    const other=[...container.querySelectorAll('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]),select,textarea,[role="combobox"]')];if(other.length>1||other.some(node=>!node.matches('input')||!(node.type==='search'||/search|filter|поиск/i.test(node.getAttribute('placeholder')||''))))return;
+    const controls=optionsIn(container);if(controls.length<2||controls.length>300||controls.some(node=>consent.test(optionText(node))))return;
+    const question=questionLabel(container).replace(/\s*\*\s*$/,'').trim();if(!question||question.length<5||action.test(question))return;
+    if(controls.some(node=>node.matches('input[type="radio"]'))&&new Set(controls.filter(node=>node.matches('input[type="radio"]')).map(node=>node.name)).size>1)return;
+    const options=controls.map(node=>({text:optionText(node),selected:selected(node),disabled:node.disabled===true||node.querySelector('input')?.disabled===true||node.getAttribute('aria-disabled')==='true'}));
+    if(new Set(options.map(option=>option.text)).size<2)return;
+    const mode=container.getAttribute('aria-multiselectable')==='true'||controls.some(node=>node.matches('[role="checkbox"],input[type="checkbox"]')||node.querySelector('input[type=checkbox]'))||/multiple selection|select all|select multiple|choose all/i.test(container.textContent)?'multiple':container.matches('[role="radiogroup"]')||controls.some(node=>node.matches('[role="radio"],input[type="radio"]')||node.querySelector('input[type=radio]'))?'single':'unknown';
+    const heading=container.closest('fieldset,section,[role="region"]')?.querySelector('legend,h2,h3,.section-title');
+    return {id,label:question.slice(0,300),type:'choice-group',required:/\*\s*$/.test(questionLabel(container))||container.getAttribute('aria-required')==='true',help:supportingText(container),group:heading?text(heading):'',choiceMode:mode,selectionKnown:options.some(option=>option.selected===true),options};
+  }
+  function scrub(value){let result=String(value||'');for(const input of document.querySelectorAll('input,textarea')){if(['checkbox','radio','button','submit','reset','hidden'].includes(input.type))continue;if(input.value?.length>=3)result=result.split(input.value).join('[значение скрыто]');}return result.slice(0,800);}
+  function supportingText(el){
+    const referenced=(el.getAttribute('aria-describedby')||'').split(/\s+/).map(id=>text((el.getRootNode().getElementById?.(id))||document.getElementById(id))).filter(Boolean);
+    const container=el.closest('[data-question],.question,.form-group,.field,.form-field')||el.parentElement;
+    if(container)for(const node of container.querySelectorAll(':scope > small,:scope > .help-block,:scope > .form-text,:scope > .description,:scope > [role="alert"],:scope > .error-message')){const value=text(node);if(value)referenced.push(value);}
+    return [...new Set(referenced.map(scrub))].slice(0,5);
+  }
+  function pageContext(){
+    const headings=[...document.querySelectorAll('h1,h2,h3,h4,[role="heading"]')].filter(visible).slice(0,30).map(node=>scrub(text(node)));
+    const actions=[...document.querySelectorAll('button,[role="button"],input[type="submit"],input[type="button"]')].filter(visible).map(node=>({label:scrub(optionText(node)||node.value||''),kind:node.type==='submit'||/submit|send application|отправить/i.test(optionText(node))?'submit':action.test(optionText(node))?'navigation':'choice-or-action',disabled:node.disabled===true})).filter(row=>row.label).slice(0,60);
+    const notices=[...document.querySelectorAll('[role="alert"],.error-message,.validation-message,[aria-live="assertive"]')].filter(visible).slice(0,15).map(node=>scrub(text(node)));
+    const embedded=[...document.querySelectorAll('iframe,frame')].filter(visible).length;
+    const shadows=[...document.querySelectorAll('*')].filter(el=>el.shadowRoot&&visible(el)).length;
+    return {headings,actions,notices,unreadEmbeddedFrames:embedded,openShadowRoots:shadows};
+  }
+  function describeControl(el,id){
+    let field=describe(el,id);
+      if(el.matches('[role="checkbox"],[role="switch"],[role="radio"]')&&!el.matches('input'))field={...field,type:el.getAttribute('role')==='radio'?'radio':'checkbox',label:labels(el)||optionText(el),checked:selected(el)};
+      else if(el.matches('[role="combobox"],[aria-haspopup="listbox"]')&&!el.matches('select'))field={...field,type:'custom-select',label:labels(el)||questionLabel(el.parentElement)||el.getAttribute('data-placeholder')||'Выбор варианта'};
+      else if(!labels(el)&&!caption(el)){
+        for(let parent=el.parentElement,depth=0;parent&&depth<3&&!['FORM','BODY','MAIN'].includes(parent.tagName);parent=parent.parentElement,depth++){
+          if(parent.querySelectorAll('input:not([type="hidden"]),select,textarea,[role="combobox"]').length!==1)break;
+          const label=questionLabel(parent);if(label){field.label=label.slice(0,300);break;}
+        }
+      }
+      if(field.type==='custom-select'){const target=(el.getAttribute('aria-controls')||el.getAttribute('aria-owns')||'').split(/\s+/).map(id=>el.ownerDocument.getElementById(id)).find(Boolean);if(target)field.options=[...target.querySelectorAll('[role=option]')].slice(0,300).map(option=>({text:optionText(option),selected:selected(option),disabled:option.getAttribute('aria-disabled')==='true'}));}
+      const links=[...(el.closest('label')||el.parentElement).querySelectorAll('a[href]')].map(a=>a.textContent.trim()).filter(Boolean).slice(0,5);if(links.length)field.linkTitles=links;if(consent.test(field.label))field.consent=true;
+    if(['checkbox','radio'].includes(field.type)&&typeof el.checked==='boolean')field.checked=el.checked;
+    const help=supportingText(el);if(help.length)field.help=help;if(el.getAttribute('aria-invalid')==='true')field.invalid=true;
+    return field;
+  }
+  function entries(){
+    const roots=new Map();
+    for(const control of document.querySelectorAll(optionSelector)){
+      if(!visible(control)||!optionText(control)||action.test(optionText(control)))continue;
+      for(let parent=control.parentElement,depth=0;parent&&depth<5;parent=parent.parentElement,depth++){
+        if(['FORM','BODY','HTML','MAIN'].includes(parent.tagName))break;
+        const field=choiceDescriptor(parent,'');if(field){roots.set(parent,field);break;}
+      }
+    }
+    // Keep the smallest question block; do not merge neighbouring questions into a card.
+    for(const root of [...roots.keys()])if([...roots.keys()].some(other=>other!==root&&root.contains(other)))roots.delete(root);
+    const result=[...roots].map(([el,field])=>({el,field}));
+    for(const el of document.querySelectorAll('input,select,textarea,[role="combobox"],[aria-haspopup="listbox"],[role="checkbox"],[role="switch"],[role="radio"]')){
+      if(!el.getClientRects().length||getComputedStyle(el).visibility==='hidden'||el.closest('[hidden],[aria-hidden="true"]')||(['hidden','submit','button','reset','image','password'].includes(el.type)&&!el.matches('[role=combobox],[aria-haspopup=listbox]'))||[...roots.keys()].some(root=>root.contains(el)))continue;
+      const field=describeControl(el,'');
+      if(field.label)result.push({el,field});
+    }
+    result.sort((a,b)=>a.el===b.el?0:a.el.compareDocumentPosition(b.el)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
+    return result.slice(0,100).map((entry,index)=>({el:entry.el,field:{...entry.field,id:String(index)}}));
+  }
+  globalThis.RegistrationDOM={label:control=>labels(control)||caption(control)||control.getAttribute('placeholder')||control.name||'',caption,group,describe:describeControl,eligible,entries,pageContext};
 })();

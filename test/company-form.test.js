@@ -54,3 +54,13 @@ test('LEI and other labels tolerate attached explanatory captions without matchi
  assert.equal(resolveFieldKey({label:'VAT number This is required for tax registration'}),'vat_number');
  assert.equal(resolveFieldKey({label:'VAT number of a different company'}),undefined);
 });
+
+test('choice metadata includes public options, help and observed states without internal values or typed data',async()=>{
+ const {fieldMetadata}=await import('../lib/form-agent.js');
+ const field={label:'Required products',type:'choice-group',choiceMode:'multiple',value:'private typed value',options:[{text:'SEPA payments',value:'private-server-id',selected:true},{text:'SWIFT payments',selected:false}],help:['Select the required services'],required:true};
+ const metadata=fieldMetadata(field);assert.equal(metadata.options[0].selected,true);assert.equal(metadata.help[0],'Select the required services');assert.equal(metadata.required,true);assert.equal(JSON.stringify(metadata).includes('private'),false);
+ assert.equal(fieldFingerprint(field),fieldFingerprint({...field,options:field.options.map(o=>({...o,selected:!o.selected}))}));
+ assert.equal(mappingAllowed(field,'product_interest'),false);assert.equal(suggest(field,[{id:'x',key:'product_interest',value:'SEPA payments',confirmed:1}],{mappedKey:'product_interest'}).status,'manual');
+ assert.equal(suggest({label:'I agree with Terms & Conditions',type:'checkbox',consent:true},[]).status,'manual');
+ assert.equal(suggest({label:'Upload certificate',type:'file'},[]).status,'manual');assert.equal(suggest({label:'Company name',type:'text',readOnly:true},[]).status,'manual');
+});
