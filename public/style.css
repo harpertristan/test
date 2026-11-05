@@ -1186,3 +1186,20 @@ summary {
 @keyframes robot-thinking{0%,75%,100%{opacity:1}40%{opacity:.25}}
 @media(prefers-reduced-motion:reduce){.scout-workspace .ai-robot-button{transition:none}.scout-workspace .ai-robot-button:hover{transform:none}.ai-robot-button[aria-busy=true] .ai-robot-eyes{animation:none}}
 @media(max-width:460px){.scout-workspace .workspace-primary-actions .ai-robot-button{width:100%}.ai-robot-count{margin-left:auto}}
+
+/* Optional shared workspace appearance; existing light and dark themes remain. */
+.theme-switch{display:flex;align-items:center;gap:8px;font-size:12px;margin:0;white-space:nowrap}.theme-switch select{width:auto;min-width:140px;padding:8px 12px;margin:0;border-radius:10px}
+.suite-tabs{display:flex;gap:8px;padding:12px 36px;background:var(--ws-surface,#fff);border-bottom:1px solid var(--ws-line,#dfe6f0)}.suite-tabs a{padding:10px 18px;border-radius:10px;text-decoration:none}.suite-tabs a[aria-current=page]{background:#813bc0;color:white}.scout-violet-banner{display:none}
+[data-theme=violet]{color-scheme:dark;background:#0c0912;color:#eee9f6}
+[data-theme=violet] .scout-workspace{--ws-bg:#0c0912;--ws-surface:#15111d;--ws-text:#eee9f6;--ws-muted:#b9a8c9;--ws-line:#3b2949;--ws-green:#a5e3c5;--ws-amber:#efc88d;--ws-blue:#c795ff;--ws-red:#ffabab}
+[data-theme=violet] body,[data-theme=violet] main,[data-theme=violet] .page{background:#0c0912;color:#eee9f6}
+[data-theme=violet] .topbar,[data-theme=violet] .sidebar,[data-theme=violet] .panel,[data-theme=violet] .schedule-body,[data-theme=violet] .crm-row,[data-theme=violet] .crm-detail,[data-theme=violet] .suite-tabs,[data-theme=violet] fieldset{background:#15111d;color:#eee9f6;border-color:#3b2949}
+[data-theme=violet] input,[data-theme=violet] select,[data-theme=violet] textarea{background:#100d16;color:#f4effc;border-color:#59416a}
+[data-theme=violet] h1,[data-theme=violet] h2,[data-theme=violet] h3,[data-theme=violet] label,[data-theme=violet] strong,[data-theme=violet] th{color:#eee9f6}
+[data-theme=violet] .hint,[data-theme=violet] small,[data-theme=violet] .muted{color:#b9a8c9}
+[data-theme=violet] .primary-button,[data-theme=violet] .suite-tabs a[aria-current=page]{background:#813bc0;color:white;border-color:#a966e0}
+[data-theme=violet] .outline-button,[data-theme=violet] .theme-toggle{background:#2c1d3c;color:#e3c7ff;border-color:#604475}
+[data-theme=violet] .scout-violet-banner{display:flex;flex-direction:column;justify-content:center;gap:12px;min-height:245px;margin:0 0 26px;padding:34px;border:1px solid #593176;border-radius:18px;background:linear-gradient(90deg,#100a1bd9,#100a1b00),url('/assets/scout-violet.webp') center right/cover}
+.scout-violet-banner span{color:#d196ff;font-size:11px;letter-spacing:2px}.scout-violet-banner h2{font-size:32px;max-width:65%;margin:0}.scout-violet-banner p{max-width:50%;color:#c3afd2;margin:0;line-height:1.5}
+@media(max-width:700px){.suite-tabs{padding:10px 14px;flex-wrap:wrap}.theme-switch{flex-wrap:wrap}.scout-violet-banner h2{font-size:23px;max-width:70%}.scout-violet-banner p{max-width:60%;font-size:12px}[data-theme=violet] .scout-violet-banner{padding:20px;min-height:210px}}
+@media(max-width:700px){.scout-workspace .workspace-nav,.topbar{flex-wrap:wrap}}

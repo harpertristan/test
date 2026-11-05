@@ -77,6 +77,7 @@ export function createApp({
   requestTimeoutMs,
   password = process.env.APP_PASSWORD || "",
   viewerPassword = process.env.VIEW_PASSWORD || "",
+  assistantWorkspace = process.env.ASSISTANT_WORKSPACE === "true",
 } = {}) {
   if(diagnostic)manual=false;
   if(diagnostic||manual)autoSchedule=false;
@@ -128,6 +129,7 @@ export function createApp({
     '/identity-names.js':['../lib/identity-names.js','text/javascript'],
     '/finding-order.js':['../lib/finding-order.js','text/javascript'],
     '/theme.js':['theme.js','text/javascript'],
+    '/assets/scout-violet.webp':['assets/scout-violet.webp','image/webp'],
     '/list-order.js':['list-order.js','text/javascript'],
     '/licence-queries.js':['../lib/licence-queries.js','text/javascript'],
     '/geography.js':['../lib/geography.js','text/javascript'],
@@ -210,7 +212,8 @@ export function createApp({
       }
       if(req.method==='POST'&&!access.canEdit)return send(403,{error:'Эта ссылка открыта в режиме просмотра. Для изменений войдите как admin.'});
       if(!['GET','HEAD'].includes(req.method)&&url.pathname!=='/api/system/shutdown'&&(diagnostic||server.shuttingDown))return send(503,{error:diagnostic?'Диагностический режим: поиск, ИИ и изменения отключены.':'Программа завершает сохранение. Дождитесь остановки.'});
-      if(req.method==='GET'&&url.pathname==='/api/access')return send(200,{...access,canEdit:access.canEdit&&!diagnostic,diagnostic,...(manual?{manual:true}:{})});
+      if(req.method==='GET'&&url.pathname==='/api/workspace-auth')return send(200,{role:access.role},'application/json; charset=utf-8',{'X-Workspace-Role':access.role});
+      if(req.method==='GET'&&url.pathname==='/api/access')return send(200,{workspace:{enabled:assistantWorkspace,assistant:'/assistant/'},...access,canEdit:access.canEdit&&!diagnostic,diagnostic,...(manual?{manual:true}:{})});
       if(apple&&req.method==='POST')return send(410,{error:'App Store отключён. Сохранённые записи доступны в архиве CRM.'});
       if (req.method === "GET" && files[url.pathname]) {
         const [file, type] = files[url.pathname];

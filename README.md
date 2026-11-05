@@ -1,4 +1,6 @@
-# Play Scout 4.8.6 — CRM для Mac и Windows
+# Play Scout 4.9.0 — CRM для Mac и Windows
+
+[Общая панель с помощником регистраций: полный перенос на сервер](https://github.com/harpertristan/test/blob/registration-assistant/docs/PLAY-SCOUT-MIGRATION.md).
 
 **[Полный перенос в Google Cloud с Ollama, общим доступом и обновлениями с Mac](GOOGLE_CLOUD.md).**
 
