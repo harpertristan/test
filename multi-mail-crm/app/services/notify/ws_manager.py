@@ -55,7 +55,8 @@ class WSManager:
     async def listen(self):
         while True:
             try:
-                async with redis() as client:
+                # Pub/Sub may be idle indefinitely; cancellation closes the connection.
+                async with redis(socket_timeout=None) as client:
                     async with client.pubsub() as channel:
                         await channel.subscribe("crm:events")
                         async for message in channel.listen():

@@ -7,12 +7,12 @@ from redis.asyncio import Redis
 from app.core.config import settings
 
 
-def redis() -> Redis:
+def redis(*, socket_timeout: float | None = 10) -> Redis:
     return Redis.from_url(
         settings().redis_url,
         decode_responses=True,
         socket_connect_timeout=5,
-        socket_timeout=10,
+        socket_timeout=socket_timeout,
     )
 
 

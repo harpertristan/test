@@ -418,3 +418,28 @@ async def test_telegram_one_time_link_and_callback_ownership(database, admin_use
         assert (await session.get(Notification, notice_id)).is_seen
         message = await session.get(Message, ids[0])
         assert message.desired_read is True
+
+
+@pytest.mark.asyncio
+async def test_readiness_tracks_migration_head_and_rejects_stale_schema(client):
+    from sqlalchemy import text
+    from app.core.schema import expected_schema_revision
+
+    expected = expected_schema_revision()
+    response = await client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json()["schema"] == expected
+    try:
+        async with Session() as session:
+            await session.execute(text("UPDATE alembic_version SET version_num='0002'"))
+            await session.commit()
+        response = await client.get("/health/ready")
+        assert response.status_code == 503
+    finally:
+        async with Session() as session:
+            await session.execute(
+                text("UPDATE alembic_version SET version_num=:revision"),
+                {"revision": expected},
+            )
+            await session.commit()
+    assert (await client.get("/health/ready")).status_code == 200

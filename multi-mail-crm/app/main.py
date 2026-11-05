@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.core.db import Session, engine
 from app.core.observability import HTTP_LATENCY, HTTP_REQUESTS, configure_logging
 from app.core.redis import redis
+from app.core.schema import expected_schema_revision
 from app.core.security import workspace_user
 from app.services.notify import telegram
 from app.services.notify.ws_manager import manager
@@ -105,7 +106,7 @@ async def ready():
                 revision = await session.scalar(
                     text("SELECT version_num FROM alembic_version")
                 )
-                if revision != "0002":
+                if revision != expected_schema_revision():
                     raise ValueError("Schema mismatch")
             async with redis() as client:
                 await client.ping()
