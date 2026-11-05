@@ -162,7 +162,7 @@ class ZohoEUProvider(OAuthProvider):
             },
         )
 
-    async def trash(self, remote_id):
+    async def trash(self, remote_id, *, mark_read=False):
         base = await self.account_base()
         folders = (await self.request("GET", base + "/folders")).get("data", [])
         trash = next(
@@ -171,6 +171,8 @@ class ZohoEUProvider(OAuthProvider):
         )
         if not trash:
             raise ValueError("Zoho Trash folder not found")
+        if mark_read:
+            await self.mark_read(remote_id, True)
         await self.request(
             "PUT",
             base + "/updatemessage",

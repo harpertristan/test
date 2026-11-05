@@ -50,9 +50,9 @@ async def sync_once(account_id, refresh_only=False):
                         if provider_id:
                             account.provider_account_id = provider_id
                         for item in batch.items:
-                            from app.services.mail_rules import is_sign_in_notice
+                            from app.services.mail_rules import auto_trash_reason
 
-                            auto_trash = is_sign_in_notice(
+                            auto_trash = auto_trash_reason(
                                 item.from_email, item.subject
                             )
                             message_id = await session.scalar(
@@ -71,15 +71,13 @@ async def sync_once(account_id, refresh_only=False):
                                     body_text=item.body_text,
                                     body_html=item.body_html,
                                     received_at=item.received_at,
-                                    is_read=item.is_read,
+                                    is_read=True if auto_trash else item.is_read,
                                     raw_headers=item.headers,
                                     processing_state="done"
                                     if auto_trash
                                     else "pending",
                                     deleted_at=utcnow() if auto_trash else None,
-                                    delete_reason="inbox_sign_in"
-                                    if auto_trash
-                                    else None,
+                                    delete_reason=auto_trash,
                                 )
                                 .on_conflict_do_nothing(constraint="uq_message_remote")
                                 .returning(Message.id)
@@ -100,6 +98,7 @@ async def sync_once(account_id, refresh_only=False):
                                 update(Message)
                                 .where(
                                     Message.mail_account_id == account.id,
+                                    Message.deleted_at.is_(None),
                                     Message.direction == "in",
                                 )
                                 .values(is_read=Message.remote_id.not_in(unseen))
@@ -110,6 +109,7 @@ async def sync_once(account_id, refresh_only=False):
                                     update(Message)
                                     .where(
                                         Message.mail_account_id == account.id,
+                                        Message.deleted_at.is_(None),
                                         Message.remote_id == remote_id,
                                     )
                                     .values(is_read=is_read)

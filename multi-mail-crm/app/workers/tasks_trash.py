@@ -2,7 +2,7 @@ import asyncio
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 
 from app.core.db import Session
 from app.core.redis import Busy, Lease, redis
@@ -10,7 +10,7 @@ from app.core.security import utcnow
 from app.models import MailAccount, Message
 from app.services.events import event
 from app.services.mail import provider_for
-from app.services.mail_rules import is_sign_in_notice
+from app.services.mail_rules import auto_trash_reason, AUTO_TRASH_REASONS
 from app.services.trash import request_trash
 from app.workers.celery_app import celery_app
 
@@ -33,7 +33,11 @@ async def trash_once(message_id):
                     try:
                         if message.direction != "in" or not message.remote_id:
                             raise ValueError("No remote incoming message")
-                        await provider.trash(message.remote_id)
+                        if message.delete_reason in AUTO_TRASH_REASONS:
+                            await provider.trash(message.remote_id, mark_read=True)
+                            message.is_read = True
+                        else:
+                            await provider.trash(message.remote_id)
                         message.trashed_at = utcnow()
                         message.trash_error = None
                         message.trash_retry_at = None
@@ -53,6 +57,7 @@ async def trash_once(message_id):
                             session,
                             "trash.failed",
                             {
+                                "silent": message.delete_reason in AUTO_TRASH_REASONS,
                                 "message_id": str(message.id),
                                 "account_id": str(account.id),
                             },
@@ -86,15 +91,27 @@ async def cleanup_and_recover():
                         .where(
                             Message.deleted_at.is_(None),
                             Message.direction == "in",
-                            Message.from_email.ilike("support@inbox.eu"),
-                            Message.subject.ilike("New sign in from % to your email"),
+                            or_(
+                                and_(
+                                    Message.from_email.ilike("support@inbox.eu"),
+                                    Message.subject.ilike(
+                                        "New sign in from % to your email"
+                                    ),
+                                ),
+                                and_(
+                                    Message.from_email.ilike("orders@inbox.eu"),
+                                    Message.subject.ilike(
+                                        "Thank you! Premium subscription activated!"
+                                    ),
+                                ),
+                            ),
                         )
                         .limit(200)
                     )
                 ).all()
                 for message in candidates:
-                    if is_sign_in_notice(message.from_email, message.subject):
-                        await request_trash(session, message, "inbox_sign_in")
+                    if reason := auto_trash_reason(message.from_email, message.subject):
+                        await request_trash(session, message, reason)
                 pending = (
                     await session.scalars(
                         select(Message)

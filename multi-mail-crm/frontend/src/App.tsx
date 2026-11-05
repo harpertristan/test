@@ -39,7 +39,7 @@ function Workspace({ user, onUser }: { user: User; onUser: (value: User | null) 
       setMails(current => current.filter(mail => mail.id !== event.message_id));
       if (detail?.id === event.message_id) { ++detailRequest.current; setDetail(null); }
     }
-    if (event.type === 'trash.failed') message.error('Не удалось перенести письмо в корзину. Статус — в разделе «Управление».');
+    if (event.type === 'trash.failed' && !event.silent) message.error('Не удалось перенести письмо в корзину. Статус — в разделе «Управление».');
     if (event.type === 'notification' && event.notification_id && !seen.current.has(event.notification_id)) {
       seen.current.add(event.notification_id); if (seen.current.size > 2000) seen.current.delete(seen.current.values().next().value!);
       notify(event, id => void openMail(id, true), sound);

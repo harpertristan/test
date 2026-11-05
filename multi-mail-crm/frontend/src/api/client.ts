@@ -4,7 +4,7 @@ export type Account = { id: string; company_id: string; provider: string; trash_
 export type Mail = { id: string; mail_account_id: string; company_id: string; direction: 'in' | 'out'; from_email: string; from_name: string; to_emails: string[]; subject: string; received_at: string; is_read: boolean; is_flagged: boolean; category: string | null; category_conf: number | null; category_reason: string | null; replied_at: string | null; needs_reply: boolean; thread_id: string | null; send_state: string | null; send_error: string | null; body_text?: string; body_html?: string };
 export type Notice = { id: string; message_id: string; account_id: string; email: string; subject: string; category: string; is_seen: boolean; created_at: string };
 export type CRMTask = { id: string; title: string; company_id: string; message_id: string | null; is_done: boolean; due_at: string | null };
-export type RealtimeEvent = { type: string; event_id?: string; notification_id?: string; message_id?: string; account_id?: string; company_id?: string; email?: string; subject?: string; category?: string };
+export type RealtimeEvent = { type: string; silent?: boolean; event_id?: string; notification_id?: string; message_id?: string; account_id?: string; company_id?: string; email?: string; subject?: string; category?: string };
 
 export class APIError extends Error {
   constructor(public status: number, message: string) { super(message); }

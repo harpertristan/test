@@ -26,12 +26,12 @@ async def process(message_id):
                     or message.processing_state == "done"
                 ):
                     return
-                from app.services.mail_rules import is_sign_in_notice
+                from app.services.mail_rules import auto_trash_reason
 
-                if is_sign_in_notice(message.from_email, message.subject):
+                if reason := auto_trash_reason(message.from_email, message.subject):
                     from app.services.trash import request_trash
 
-                    await request_trash(session, message, "inbox_sign_in")
+                    await request_trash(session, message, reason)
                     await session.commit()
                     return
                 result = await classifier_for(client).classify(

@@ -130,8 +130,10 @@ class GmailProvider(OAuthProvider):
             },
         )
 
-    async def trash(self, remote_id):
+    async def trash(self, remote_id, *, mark_read=False):
         try:
+            if mark_read:
+                await self.mark_read(remote_id, True)
             await self.request("POST", BASE + "/messages/" + remote_id + "/trash")
         except httpx.HTTPStatusError as error:
             if error.response.status_code != 404:

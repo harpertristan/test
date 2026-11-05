@@ -497,7 +497,7 @@ async def test_automatic_signin_delete_skips_llm_and_notifications(
     async with Session() as session:
         message = await session.get(Message, ids[0])
         assert message.deleted_at and message.delete_reason == "inbox_sign_in"
-        assert not message.is_read
+        assert message.is_read
 
 
 @pytest.mark.asyncio
@@ -563,7 +563,44 @@ async def test_ingest_signin_notice_starts_in_trash_without_notifications(
         assert len(messages) == 1
         message = messages[0]
         assert message.deleted_at and message.delete_reason == "inbox_sign_in"
-        assert message.processing_state == "done" and message.is_read is False
+        assert message.processing_state == "done" and message.is_read is True
         assert (await session.get(MailAccount, aid)).unread_count == 0
         assert await session.scalar(select(func.count()).select_from(Notification)) == 0
     assert (await client.get("/messages")).json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_premium_cleanup_is_read_and_has_no_notifications(
+    client, admin_user, monkeypatch
+):
+    from app.workers import tasks_process, tasks_trash
+
+    cid, aid, ids = await seed_mail(admin_user)
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        message.from_email = "orders@inbox.eu"
+        message.subject = "Thank you! Premium subscription activated!"
+        session.add(
+            Notification(
+                user_id=admin_user.id, message_id=message.id, mail_account_id=aid
+            )
+        )
+        await session.commit()
+    classifier = Mock(
+        side_effect=AssertionError("No classification for premium notices")
+    )
+    monkeypatch.setattr(tasks_process, "classifier_for", classifier)
+    await tasks_process.process(str(ids[0]))
+    classifier.assert_not_called()
+    assert (await client.get("/messages")).json()["items"] == []
+    notices = (await client.get("/notifications")).json()
+    assert notices["items"] == [] and notices["unseen_count"] == 0
+    provider = SimpleNamespace(trash=AsyncMock(), close=AsyncMock())
+    monkeypatch.setattr(tasks_trash, "provider_for", lambda *args: provider)
+    await tasks_trash.trash_once(str(ids[0]))
+    provider.trash.assert_awaited_once_with("0", mark_read=True)
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        assert message.is_read and message.trashed_at
+        assert message.delete_reason == "inbox_premium"
+        assert (await session.get(MailAccount, aid)).unread_count == 0

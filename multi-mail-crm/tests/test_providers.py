@@ -381,3 +381,22 @@ def test_imap_trash_does_not_remove_original_if_trash_copy_fails(monkeypatch):
     with pytest.raises(RuntimeError, match="copy to Trash failed"):
         provider.trash_blocking("7:11")
     assert [call.args[0] for call in mailbox.uid.call_args_list] == ["search", "COPY"]
+
+
+def test_automatic_imap_trash_marks_read_before_move(monkeypatch):
+    from unittest.mock import Mock
+
+    mailbox = Mock()
+    mailbox.capabilities = (b"MOVE",)
+    mailbox.select.return_value = ("OK", [])
+    mailbox.response.return_value = ("UIDVALIDITY", [b"7"])
+    mailbox.list.return_value = ("OK", [b'(\\Trash) "/" "Trash"'])
+    mailbox.uid.side_effect = [("OK", [b"11"]), ("OK", []), ("OK", [])]
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    monkeypatch.setattr(provider, "connection", lambda: mailbox)
+    provider.trash_blocking("7:11", mark_read=True)
+    assert [call.args for call in mailbox.uid.call_args_list] == [
+        ("search", None, "(UID 11)"),
+        ("STORE", "11", "+FLAGS.SILENT", "(\\Seen)"),
+        ("MOVE", "11", '"Trash"'),
+    ]

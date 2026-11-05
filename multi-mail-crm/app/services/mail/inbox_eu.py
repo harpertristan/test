@@ -174,7 +174,7 @@ class InboxEUProvider(MailProvider):
             return fallback
         raise RuntimeError("IMAP Trash folder not found")
 
-    def trash_blocking(self, remote_id):
+    def trash_blocking(self, remote_id, mark_read=False):
         validity, uid = remote_id.split(":", 1)
         if not validity.isdigit() or not uid.isdigit():
             raise ValueError("Invalid IMAP message identifier")
@@ -193,6 +193,9 @@ class InboxEUProvider(MailProvider):
             if uid.encode() not in b" ".join(found or []).split():
                 return  # Already moved by a previous attempt, or deleted externally.
             target = self.trash_folder(mailbox)
+            if mark_read:
+                if mailbox.uid("STORE", uid, "+FLAGS.SILENT", "(\\Seen)")[0] != "OK":
+                    raise RuntimeError("IMAP mark-read before trash failed")
             capabilities = {
                 c.decode().upper() if isinstance(c, bytes) else c.upper()
                 for c in mailbox.capabilities
@@ -218,11 +221,11 @@ class InboxEUProvider(MailProvider):
             except (OSError, imaplib.IMAP4.error):
                 pass
 
-    async def trash(self, remote_id):
+    async def trash(self, remote_id, *, mark_read=False):
         async with Semaphore(
             self.redis, "imap:connections", settings().imap_max_connections
         ):
-            await asyncio.to_thread(self.trash_blocking, remote_id)
+            await asyncio.to_thread(self.trash_blocking, remote_id, mark_read)
 
     async def send(self, message, original):
         await aiosmtplib.send(

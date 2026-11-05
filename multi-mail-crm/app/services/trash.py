@@ -4,6 +4,7 @@ from app.core.security import utcnow
 from app.models import MailAccount, Notification
 from app.services.events import event
 from app.services.pending import account_status
+from app.services.mail_rules import AUTO_TRASH_REASONS
 
 
 async def request_trash(session, message, reason="manual"):
@@ -14,6 +15,8 @@ async def request_trash(session, message, reason="manual"):
         return
     message.deleted_at = utcnow()
     message.delete_reason = reason
+    if reason in AUTO_TRASH_REASONS:
+        message.is_read = True
     message.needs_reply = False
     message.desired_read = None
     message.processing_state = "done"
