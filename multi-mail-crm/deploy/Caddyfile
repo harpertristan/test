@@ -1,0 +1,6 @@
+# Replace crm.example.com with the DNS name pointing to your VPS.
+crm.example.com {
+    reverse_proxy 127.0.0.1:8080
+    encode zstd gzip
+    header Strict-Transport-Security "max-age=31536000"
+}

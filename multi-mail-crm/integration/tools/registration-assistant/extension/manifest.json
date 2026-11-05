@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Помощник регистраций компаний",
+  "description": "Подсказки по подтверждённым документам, объяснения на русском и вставка полей по нажатию.",
+  "version": "0.5.1",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Открыть помощника"
+  },
+  "options_page": "options.html",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  }
+}

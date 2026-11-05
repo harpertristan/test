@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru" data-theme="violet">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#133f35"><title>Play Scout — сигналы о новых необанках</title>
+  <link rel="stylesheet" href="/style.css"><script src="/social.js" type="module"></script>
+<script type="module" src="/theme.js"></script></head>
+<body class="social-page">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Play Scout"><span class="brand-icon">▷</span> play<span>scout</span></a>
+    <div class="workspace-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+    <a href="/" class="nav-item"><span>⌕</span> Поиск приложений</a>
+    <a href="/web" class="nav-item">Веб-версии</a><a href="/social" class="nav-item active"><span>◎</span> Сайты и публикации</a>
+    <a href="/review" class="nav-item">Нейронный поиск</a><a href="/watch" class="nav-item"><span>↻</span> Изменения и компании</a>
+    <div class="sidebar-note">Публичные публикации<br><small>Поисковый индекс Brave</small></div>
+    <div class="sidebar-bottom"><span class="eu-mark">✦</span><div>Европейский финтех<small>Сигналы о запуске бизнес-банкинга</small></div></div>
+  </aside>
+  <main>
+    <header class="topbar"><a href="/crm">Единая CRM</a><a href="/">Google Play</a><a href="/web">Веб-версии</a><a href="/social">Сайты и публикации</a><a href="/watch">Изменения и компании</a><span class="top-tag">НОВОСТИ · САЙТЫ · ПРИЛОЖЕНИЯ</span></header>
+    <div class="page">
+      <div class="page-heading"><div><div class="eyebrow">МОНИТОРИНГ РЫНКА</div><h1>Анонсы запуска бизнес-счетов</h1><p>Публикации, новости, приложения App Store и выбранные вами сайты — через поисковый индекс.</p></div></div>
+      <div id="social-connection" class="notice connection-notice" role="status">Проверяем подключение…</div>
+      <div class="layout">
+        <section class="panel filter-panel" aria-labelledby="social-filters-title">
+          <div class="panel-heading"><h2 id="social-filters-title">Поиск публикаций</h2><span class="small-badge">Европа</span></div>
+          <form id="social-form">
+            <fieldset id="social-filters"><legend class="sr-only">Фильтры публикаций</legend>
+              <label for="event-mode">Что искать</label><select id="event-mode"><option value="launches">Конкретные анонсы запуска бизнес-счетов</option><option value="signals">Все сигналы · форумы, реестры и каталоги</option></select><p class="hint">В анонсах нужны название сервиса и сообщение о запуске продукта. Обзоры, рассуждения, планы и сборы инвестиций отсеиваются. Форумы и реестры доступны во втором режиме.</p><label for="profile">Профиль поиска</label><select id="profile"><option value="business">Как ваши примеры · бизнес-счета, EMI, платёжные сервисы</option><option value="strict">Строго · бизнес-счёт, EU IBAN и лицензия</option></select><p class="hint">В основном режиме собственная банковская лицензия не обязательна. IBAN, EU IBAN и обслуживание бизнеса показываются отдельно: неизвестное не выдаётся за подтверждённое.</p>
+              <button id="social-preset" type="button" class="outline-button">Добавить все рекомендованные источники</button><p class="hint">Профильные СМИ, партнёры, рассылки, форумы, реестры и каталоги. Реестр не доказывает запуск продукта; форум не подтверждает условия счёта.</p><span class="field-label">Источники</span>
+              <div class="social-source-options" id="source-options"></div>
+              <label for="watch-domains">Мои сайты · домены по одному на строку</label><textarea id="watch-domains" rows="4" placeholder="examplebank.eu"></textarea><p class="hint">До 10 доменов без https и пути. Включите источник «Мои сайты». Проверяется индекс Brave, не все страницы сайта. Изменения по прежнему URL отдельной находкой не считаются.</p>
+              <label for="social-queries">Поисковые запросы</label><textarea id="social-queries" rows="12" required maxlength="2010"></textarea>
+              <p class="hint">Один запрос на строку. Источники обходятся в пределах дневного лимита. Для реестров используются отдельные запросы об организациях и лицензиях. Для банков с IBAN других стран ЕС добавьте запросы, например «business account Spanish IBAN». В новостях и соцсетях также ищем признаки запуска.</p>
+              <label for="social-freshness">Свежесть результатов поисковика</label><select id="social-freshness"><option value="7">Последние 7 дней</option><option value="30" selected>Последние 30 дней</option></select>
+              <p class="hint">Поисковик может учитывать обновление страницы. Это не подтверждение даты публикации или основания банка.</p>
+              <label for="social-limit">Результатов на запрос и источник</label><select id="social-limit"><option value="10">До 10</option><option value="20" selected>До 20</option></select>
+              <input id="social-budget" type="hidden" value="0"><p class="hint">Все выбранные источники и запросы проверяются без квоты; используются доступные страницы Brave.</p><p id="social-cost" class="hint">Число обращений зависит от выбранных источников и запросов, без дополнительных страниц выдачи. Повторный ручной запуск тоже расходует лимит.</p>
+
+              <div class="divider"></div>
+              <div id="strict-controls">
+              <label class="schedule-toggle"><input id="strict-banking" type="checkbox" checked> Требовать явное подтверждение всех трёх признаков</label>
+              <label for="institution-type">Тип организации</label><select id="institution-type"><option value="bank">Банк · требуется заявление о банковской лицензии</option><option value="bank_or_emi">Банк или платёжная организация / EMI</option></select>
+              <p class="hint">Для строгого режима нужны три признака в тексте: счёт для бизнеса, выдача IBAN страны ЕС и лицензия. SEPA и GB/CH IBAN сами по себе не подходят. Если сведений нет — результат исключается. Текстовые признаки требуют проверки по реестру и условиям банка.</p>
+              </div>
+              <label for="exclude-terms">Исключить слова и фразы</label><textarea id="exclude-terms" rows="5" placeholder="По одному на строку: UPI, IFSC, название банка"></textarea>
+              <p class="hint">Каждая строка — отдельное исключение в названии, разработчике или описании. Без регулярных выражений. Удалите ненужные исключения стран.</p>
+              <details><summary>Исключить приложения и сайты</summary><label for="exclude-ids">ID приложений Google Play</label><textarea id="exclude-ids" rows="3" placeholder="com.example.app"></textarea><label for="exclude-domains">Домены сайтов</label><textarea id="exclude-domains" rows="3" placeholder="example.com"></textarea></details>
+              <p class="hint">Для ежедневного применения исключений нажмите «Сохранить расписание».</p>
+            </fieldset>
+            <button id="social-search" class="primary-button" type="submit" disabled>Найти новые публикации</button>
+            <button id="social-cancel" class="cancel-button" type="button" hidden>Остановить поиск</button>
+            <p id="social-error" class="form-error" role="alert"></p>
+          </form>
+        </section>
+        <div class="results-column">
+          <section class="panel schedule-panel" aria-labelledby="social-schedule-title">
+            <div class="panel-heading"><h2 id="social-schedule-title">Ежедневный мониторинг</h2><span id="social-schedule-badge" class="small-badge">Загрузка…</span></div>
+            <div class="schedule-body"><div class="schedule-controls"><label class="schedule-toggle"><input id="social-enabled" type="checkbox"> Каждый день</label><div><label for="social-time">Калининград · UTC+2</label><input id="social-time" type="time" value="09:15" required></div><button id="social-save" class="outline-button" type="button" disabled>Сохранить расписание</button></div>
+            <p id="social-next" class="schedule-next"></p><p class="hint">Запросы, источники и свежесть из формы сохраняются отдельно от Google Play. Браузер можно закрыть; сервер должен продолжать работать.</p><p id="social-saved" class="schedule-feedback" role="status"></p></div>
+          </section>
+          <section class="summary-grid"><div class="stat"><span>Новых за поиск</span><strong id="social-new-count">—</strong><small>Повторные ссылки исключены</small></div><div class="stat"><span>Просмотрено результатов</span><strong id="social-scanned">—</strong><small>Отбор по теме и региону</small></div><div class="stat"><span>Всего сигналов</span><strong id="social-total">0</strong><small>Сохраняются после перезапуска</small></div></section>
+          <section class="panel results-panel">
+            <div class="panel-heading results-heading"><div><h2>Анонсы по вашим критериям</h2><p id="social-caption">Ожидаем первого поиска</p></div><button id="social-export" class="outline-button" disabled>↓ Экспорт CSV</button></div>
+            <div class="result-tabs" role="group" aria-label="Результаты публикаций"><button id="social-latest" class="selected" aria-pressed="true">Новые за последний поиск</button><button id="social-history" aria-pressed="false">Все сигналы</button></div>
+            <label class="archive-toggle"><input type="checkbox" id="show-archive"> Показать архив и результаты без подтверждения критериев</label>
+            <div id="social-progress" class="social-progress" hidden><p id="social-progress-text"></p><progress id="social-progress-bar" max="1" value="0"></progress><p id="social-current" class="hint"></p></div>
+            <div id="social-notice" class="notice" hidden role="status"></div>
+            <div id="social-empty" class="empty-state"><div class="search-illustration"><span>⌕</span><i>✦</i></div><h3>Сигналы о новых запусках появятся здесь</h3><p>Проверяем публичную выдачу и сохраняем<br>только ранее не найденные подходящие публикации.</p></div>
+            <div id="social-posts" class="social-posts"></div>
+            <details id="social-diagnostics" hidden><summary>Подробности отбора</summary><div id="social-diagnostics-content"></div></details>
+          </section>
+          <div class="source-note"><span>ⓘ</span><p>Каждая находка требует проверки: новый бизнес-счёт может быть продуктом давно существующего банка. Регион определяется по тексту; лицензия, дата основания и доступность услуг не подтверждены. Поиск охватывает страницы в поисковом индексе, полнота выдачи не гарантируется.</p></div>
+        </div>
+      </div>
+      <footer>PLAY SCOUT <span>Публикации · Brave Search API</span></footer>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,13 @@
+node_modules/
+.cache/
+*.log
+.env
+*.env
+test-results/
+data/
+
+.env.*.tmp
+*.psbackup
+.profile-import-*/
+PlayScout-before-import-*/
+.profile-transfer-lock/

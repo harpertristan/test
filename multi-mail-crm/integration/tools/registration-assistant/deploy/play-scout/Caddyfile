@@ -1,0 +1,46 @@
+{$SCOUT_DOMAIN} {
+    header X-Robots-Tag "noindex, nofollow, noarchive"
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+            test_dir {$SCOUT_ACME_TEST_CA:https://acme-staging-v02.api.letsencrypt.org/directory}
+        }
+    }
+    encode zstd gzip
+    request_body {
+        max_size 350MB
+    }
+    route {
+        request_header -X-Workspace-Key
+        request_header -X-Workspace-Role
+        @extension {
+            path /assistant/api/*
+            header Authorization "Bearer *"
+        }
+        handle @extension {
+            reverse_proxy registration-assistant:3100 {
+                transport http {
+                    response_header_timeout 35m
+                }
+            }
+        }
+        handle /assistant {
+            redir /assistant/ 308
+        }
+        handle /assistant/* {
+            forward_auth app:3000 {
+                uri /api/workspace-auth
+                copy_headers X-Workspace-Role
+            }
+            reverse_proxy registration-assistant:3100 {
+                header_up X-Workspace-Key {$WORKSPACE_SHARED_SECRET}
+                transport http {
+                    response_header_timeout 35m
+                }
+            }
+        }
+        handle {
+            reverse_proxy app:3000
+        }
+    }
+}

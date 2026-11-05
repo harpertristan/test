@@ -1,0 +1,46 @@
+{
+  "observedAt": "2026-10-20",
+  "source": "Public Google Play cards, DE / en",
+  "apps": [
+    {
+      "appId": "com.paysaxas.akitamob",
+      "title": "PaySaxas",
+      "developer": "Paysaxas LTD",
+      "developerWebsite": "https://paysaxas.com",
+      "description": "PaySaxas is an innovative financial service for businesses, offering convenient access to multi-currency business accounts and cryptocurrency operations. We support international transfers in over 100 jurisdictions, including fiat and stablecoin transactions, such as USDC.\n\nOur service is ideal for companies operating cross border, providing secure and fast transactions, transparent crypto integrations, and access to dedicated IBAN accounts.\n\nKey Features:\n- Open multi-currency accounts under the company name\n- Support for cryptocurrency transactions (USDC)\n- Direct crypto-fiat-crypto transfers for full control\n- Specialized solutions for agribusiness, importers, and exporters\n- High-level security and 24/7 support\n\nPaySaxas helps businesses save time and reduce costs with innovative and flexible financial solutions. Chosen by companies worldwide, we empower businesses to confidently and securely manage their international finances.\n\nPaySaxas services are provided to customers by Paysaxas Financial Solutions Corporation, Paysaxas UAB and other Paysaxas companies within the Paysaxas group. For more details please visit the Paysaxas website. App provides access to the Paysaxas services to registered customers of Paysaxas only in subject to Paysaxas terms and conditions and policies availiable at Paysaxas website.",
+      "free": true,
+      "genreId": "FINANCE",
+      "released": "Jan 2, 2025"
+    },
+    {
+      "appId": "com.breinrock.ebankingmobile",
+      "title": "Breinrock",
+      "developer": "Breinrock LTD",
+      "developerWebsite": "https://breinrock.com",
+      "description": "Your money, across borders, in one app.\n\nBreinrock brings payments, currency exchange, and cards together so you can manage your finances without juggling providers. Whether you're paying a supplier abroad, topping up a card, or moving between fiat and digital assets, it's all in one place.\n\nWhat you can do\n\nSend and receive payments quickly, with clear fees and status tracking\nExchange currencies at transparent rates, with no hidden markups\nManage your card: view balance and transactions, freeze or unfreeze instantly, and control settings from your phone\nTrack everything with a real-time view of balances, transactions, and statements\n\nBuilt for how you actually operate\n\nBreinrock is designed for a multi-currency, multi-jurisdiction world, with a single account experience whether you're an individual or a growing business.",
+      "free": true,
+      "genreId": "FINANCE",
+      "released": "Oct 7, 2025"
+    },
+    {
+      "appId": "com.luminary.mobile",
+      "title": "Luminary Business",
+      "developer": "LUMINARY ECOSYSTEM LTD",
+      "developerWebsite": "https://www.luminaryinc.com",
+      "description": "At Luminary we believe that the main principle of doing business is in creating value that's why our proprietary core banking was programmed with a simple yet fundamental business value in mind: we enable companies to receive and to make payments effortlessly.\n\nFeatures:\n\nFully-fledged digital IBAN account: - Luminary Business offers a fully-fledged multi-currency IBAN account to receive, hold and send a variety of currencies.\nMulti-currency account: - The Luminary multi-currency account enables you to accept and send funds around the world while avoiding painful conversion fees.\nExclusive membership services: - Experience unparalleled service with our dedicated concierge team catering exclusively to the needs of our clients. From technical assistance to strategic financial guidance as well as Investment opportunities and Business Travel, we're committed to ensuring a seamless and hassle-free banking experience for your enterprise.\nCustomer Support: - Our dedicated support team is here to assist you every step of the way, ensuring a smooth and hassle-free banking experience.\nStay Tuned for Updates: - Keep an eye out for upcoming announcements as we continue to roll out new features and enhancements to empower your financial journey.\n\nJoin the premier Luminary community today and embrace the future of banking. Download our app now!",
+      "free": true,
+      "genreId": "FINANCE",
+      "released": "Apr 16, 2024"
+    },
+    {
+      "appId": "com.unlimint.app",
+      "title": "Unlimit",
+      "developer": "Unlimit Holding EU Ltd",
+      "developerWebsite": "https://www.accounts.unlimit.com/",
+      "description": "Unlimit simplifies your financial management with a global multi-payment application. \n\nTailored for the diverse needs of startups, scale-ups, enterprises, individuals, and freelancers, Unlimit transforms financial management. Experience a seamless blend of multicurrency accounts, cards, and FX & transfer functionalities, delivering a comprehensive financial solution.\n\nDynamic features for every need:\n\nGlobal Accounts: Universal payments in multiple currencies. Our multicurrency corporate account supports transactions in major currencies like EUR, USD, GBP, and CNY making it perfect for global coverage. The Unlimit multicurrency account allows seamless transactions worldwide and is compatible with digital wallets like Google Pay and Apple Pay.\n\nGet paid like a local: Get paid in the currency you want and pay your suppliers or contractors in their preferred currency, from EUR and USD to CNY or MXN.\n\nOnline KYB: Sign up for an account completely digitally/ \n\nComprehensive Corporate and Business Accounts: Empower your organization with our robust corporate and business account services, ensuring financial agility and control.\n\nUnhindered currency operations through FX, and transfers: Unlimit empowers businesses with seamless FX (foreign exchange) transactions, allowing for quick and efficient currency conversions at competitive rates.\n\nThe business account for going global: Pay invoices and bills faster, at a better exchange rate. Offer your customers a wide array of payment options to streamline checkout processes. This includes all major card brands and many currencies including USD, EUR, BRL, MXN, etc. Connect to supported platforms like Amazon, eBay, Google and Apple Pay and pay for ad services on AdSense, Meta and many more.\n - Multi-Currency IBAN Accounts: Open numerous accounts to streamline your business transactions.\n - Global Wire Transfers: Effortlessly conduct international transactions using SWIFT and SEPA.\n - Worldwide Payment Receptions: Receive payments from any corner of the globe, in the currency you want.\n - Currency Exchange: Seamlessly exchange major world currencies.\n - Cross-Platform Accessibility: Manage your finances on desktop or mobile, anytime, anywhere.\n - Virtual and Physical Cards: Issue cards for your team and manage expenses effortlessly.\n - Smart Financial Management: Utilize our smart filter and transaction search for real-time expense tracking.\n - Comprehensive Notifications: Get instant alerts for all transaction types.\n - Multiple Account Management: Handle various accounts simultaneously with ease.\n - Universal Payment Options: Enjoy the freedom to pay online and offline, globally.\n - Security You Can Trust:\n - Two-Factor Authentication (2FA): Secure your web app access on a PC or laptop.\n - Biometric Security: Leverage FaceID or TouchID for enhanced protection.\n - Reliable and Safe: Your financial security is our top priority.\n\nWhat's New:\n - Card Top-Up: Reload your card with ease.\n - Expanded currency support, including stablecoin transactions.\n - Online Onboarding: Enjoy a seamless self-service questionnaire and \nautomated account opening.\n - Revamped App Design: Experience our updated, user-friendly interface.",
+      "free": true,
+      "genreId": "FINANCE",
+      "released": "Jul 12, 2022"
+    }
+  ]
+}

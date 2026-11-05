@@ -1,0 +1,55 @@
+# Optional managed-cloud trust configuration; never disables TLS verification.
+x-trust: &trust
+  SSL_CERT_FILE: /run/crm-proxy-ca.pem
+
+x-ca-volume: &ca-volume
+  type: bind
+  source: ${PROXY_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
+  target: /run/crm-proxy-ca.pem
+  read_only: true
+
+services:
+  app:
+    build:
+      secrets:
+        - source: proxy_ca
+          target: npm_ca
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/crm-proxy-ca.pem
+    volumes:
+      - *ca-volume
+  registration-assistant:
+    build:
+      secrets: [proxy_ca]
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/crm-proxy-ca.pem
+    volumes:
+      - *ca-volume
+  api:
+    build:
+      secrets: [proxy_ca]
+    environment:
+      <<: *trust
+    volumes:
+      - *ca-volume
+  worker:
+    build:
+      secrets: [proxy_ca]
+    environment:
+      <<: *trust
+    volumes:
+      - *ca-volume
+  beat:
+    build:
+      secrets: [proxy_ca]
+    environment:
+      <<: *trust
+    volumes:
+      - *ca-volume
+  frontend:
+    build:
+      secrets: [proxy_ca]
+
+secrets:
+  proxy_ca:
+    file: ${PROXY_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}

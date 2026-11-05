@@ -1,0 +1,7 @@
+# Docker Compose >=2.24.4. Removes the GPU reservation from the base definition.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices: !reset []
