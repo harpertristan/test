@@ -13,13 +13,18 @@ export function Admin({ companies, accounts, reload }: { companies: Company[]; a
     try {
       const path = editor.kind === 'company' ? '/companies' : '/accounts';
       const payload = Object.fromEntries(Object.entries(value).filter(([key, v]) => v !== undefined && !((key === 'password' || key === 'imap_password') && !v)));
+      if (editor.kind === 'company' && editor.id) {
+        for (const key of ['inn', 'website', 'phone', 'address', 'notes']) {
+          if (editor.values?.[key] !== undefined) payload[key] = editor.values[key];
+        }
+      }
       await api(path + (editor.id ? '/' + editor.id : ''), { method: editor.id ? editor.kind === 'company' ? 'PUT' : 'PATCH' : 'POST', body: JSON.stringify(payload) });
       setEditor(null); reload(); message.success('Сохранено');
     } catch (e) { message.error((e as Error).message); } finally { setBusy(false); }
   };
   return <><Tabs items={[
     { key: 'companies', label: 'Компании', children: <><Button type="primary" onClick={() => edit({ kind: 'company' })}>Добавить компанию</Button><Table rowKey="id" size="small" dataSource={companies} pagination={{ pageSize: 15 }} columns={[
-      { title: 'Компания', dataIndex: 'name' }, { title: 'ИНН', dataIndex: 'inn' }, { title: 'Действия', render: (_, c: Company) => <Space><Button size="small" onClick={() => edit({ kind: 'company', id: c.id, values: { ...c } })}>Изменить</Button><Popconfirm title="Удалить компанию? Сначала нужно удалить её ящики." onConfirm={() => perform(() => api('/companies/' + c.id, { method: 'DELETE' }))}><Button size="small" danger>Удалить</Button></Popconfirm></Space> },
+      { title: 'Компания', dataIndex: 'name' }, { title: 'Действия', render: (_, c: Company) => <Space><Button size="small" onClick={() => edit({ kind: 'company', id: c.id, values: { ...c } })}>Изменить</Button><Popconfirm title="Удалить компанию? Сначала нужно удалить её ящики." onConfirm={() => perform(() => api('/companies/' + c.id, { method: 'DELETE' }))}><Button size="small" danger>Удалить</Button></Popconfirm></Space> },
     ]} /></> },
     { key: 'accounts', label: 'Почтовые ящики', children: <><Button type="primary" disabled={!companies.length} onClick={() => edit({ kind: 'account' })}>Добавить ящик</Button>{!companies.length && <p>Сначала добавьте компанию.</p>}<Table rowKey="id" size="small" dataSource={accounts} pagination={{ pageSize: 15 }} scroll={{ x: 800 }} columns={[
       { title: 'Ящик', render: (_, a: Account) => <><strong>{a.email}</strong><div>{a.company_name}</div><Tag>{a.provider}</Tag><Tag color={a.connected ? 'green' : 'orange'}>{a.connected ? 'Подключён' : 'Не подключён'}</Tag></> },
@@ -34,7 +39,7 @@ export function Admin({ companies, accounts, reload }: { companies: Company[]; a
   ]} />
     <Drawer title={editor ? `${editor.id ? 'Изменить' : 'Добавить'}: ${{ company: 'компанию', account: 'ящик' }[editor.kind]}` : ''} open={!!editor} onClose={() => setEditor(null)} width={520} destroyOnClose>
       <Form form={form} layout="vertical" onFinish={save}>
-        {editor?.kind === 'company' && <>{['name', 'inn', 'website', 'phone', 'address'].map((key, index) => <Form.Item key={key} name={key} label={['Название', 'ИНН', 'Сайт', 'Телефон', 'Адрес'][index]} rules={key === 'name' ? [{ required: true }] : []}><Input /></Form.Item>)}<Form.Item name="notes" label="Заметки"><Input.TextArea rows={5} /></Form.Item></>}
+        {editor?.kind === 'company' && <Form.Item name="name" label="Название" rules={[{ required: true, whitespace: true, message: 'Введите название компании' }]}><Input /></Form.Item>}
         {editor?.kind === 'account' && <>
           <Form.Item name="company_id" label="Компания" rules={[{ required: true }]}><Select options={companies.map(c => ({ value: c.id, label: c.name }))} showSearch optionFilterProp="label" /></Form.Item>
           {!editor.id && <><Form.Item name="provider" label="Провайдер" rules={[{ required: true }]}><Select options={[{ value: 'zoho_eu', label: 'Zoho Mail EU' }, { value: 'gmail', label: 'Gmail' }, { value: 'imap_inbox', label: 'Inbox.ru / Mail.ru IMAP' }]} /></Form.Item><Form.Item name="email" label="Email ящика" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item></>}
