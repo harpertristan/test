@@ -46,3 +46,13 @@ test('an explicit separate operating address keeps its own mode and is not copie
  const db=setup(t);note(db,'addresses','Company name: EXAMPLE GOODS LTD\nRegistered address: 8 Example Road, Bristol, England, BS1 1AA\nOperating address\n77 Sample Avenue, Oxford, England, OX1 1AA');
  const state=profileState(db,'company');assert.equal(state.values.operating_address_mode,'different');assert.equal(state.values.operating_address_line1,'77 Sample Avenue');assert.equal(state.values.operating_city,'Oxford');assert.equal(state.values.city,'Bristol');
 });
+test('card alias and legacy mismatch flags do not block legal company fields after reanalysis',t=>{
+ const db=setup(t);db.prepare("UPDATE companies SET name='Магазин №1' WHERE id='company'").run();note(db,'main','EXAMPLE GOODS LTD\nCompany number 12345678\nRegistered office address\n8 Example Road, Bristol, England, BS1 1AA\nIncorporated on 03.10.2025\nhttps://example.com');
+ db.prepare("UPDATE extracted_fields SET note='Название в документе отличается от выбранной компании. Проверьте принадлежность документа.',automatic=0,status='review'").run();db.prepare('DELETE FROM facts').run();reanalyze(db,'company');const state=profileState(db,'company');for(const key of ['company_name','company_number','incorporated_on','website','registered_address_line1','city','postal_code'])assert.ok(state.values[key],key);assert.equal(state.values.company_name,'EXAMPLE GOODS LTD');assert.equal(state.values.city,'Bristol');
+});
+test('selected Director role can use one document identity without claiming registry role verification',t=>{
+ const db=setup(t);note(db,'identity','PASSPORT\nGiven names: ANNA MARIA\nSurname: EXAMPLE\nApplicant role: Director');const state=profileState(db,'company');assert.equal(state.values.applicant_role,'director');assert.equal(state.values.contact_first_name,'ANNA MARIA');assert.equal(state.values.contact_last_name,'EXAMPLE');assert.ok(state.roleVerification);
+});
+test('different company names with the same official registration number are not blocked as unrelated entities',t=>{
+ const db=setup(t);publish(db,completedProfile({}, {company_name:'OLD EXAMPLE GOODS LTD'}));note(db,'current','CERTIFICATE OF INCORPORATION\nCompany Name: EXAMPLE GOODS LTD\nCompany number: 12345678\nIncorporated on 03.10.2025');const rows=db.prepare("SELECT note FROM extracted_fields WHERE document_id='current'").all();assert.ok(rows.length);assert.equal(rows.some(row=>row.note.startsWith('Название в документе отличается')),false);
+});

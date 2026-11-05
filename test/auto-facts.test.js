@@ -54,3 +54,23 @@ test('foreign-company evidence remains reviewable without blocking selected comp
  assert.equal(db.prepare("SELECT value FROM facts WHERE key='company_number'").get()?.value,'12345678');
  assert.ok(listExtracted(db,'company').some(r=>r.value==='87654321'&&!r.automatic));
 });
+test('semantic extraction includes the final document beyond 60000 characters instead of silently truncating',async t=>{
+ const db=setup(t);addDocument(db,'long','x'.repeat(65000));addDocument(db,'last','Website: https://last.example');let calls=0;
+ const result=await semanticExtraction(db,'company',{AI_API_KEY:'synthetic-key',AI_MODEL:'test-model'},async(_url,options)=>{calls++;const sources=JSON.parse(JSON.parse(options.body).messages[1].content).documents;const source=sources.find(page=>page.documentId==='last');return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:source?[{documentId:'last',page:1,key:'website',value:'https://last.example',quote:'Website: https://last.example',confidence:0.99}]:[]})}}]})};});
+ assert.equal(calls,3);assert.equal(result.batches,3);assert.equal(result.pages,2);assert.equal(result.truncated,false);assert.equal(db.prepare("SELECT value FROM facts WHERE key='website'").get().value,'https://last.example');
+});
+test('a failed later AI batch does not partially import earlier responses',async t=>{
+ const db=setup(t);addDocument(db,'first','Website: https://first.example\n'+'x'.repeat(65000));let calls=0;
+ await assert.rejects(semanticExtraction(db,'company',{AI_API_KEY:'synthetic-key',AI_MODEL:'test-model'},async()=>{calls++;if(calls===2)throw Error('synthetic provider failure');return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:[{documentId:'first',page:1,key:'website',value:'https://first.example',quote:'Website: https://first.example',confidence:0.99}]})}}]})};}));assert.equal(calls,2);assert.equal(db.prepare('SELECT count(*) n FROM facts').get().n,0);assert.equal(db.prepare('SELECT count(*) n FROM extracted_fields').get().n,0);
+});
+test('document changes during semantic extraction invalidate the complete response',async t=>{
+ const db=setup(t);addDocument(db,'first','Website: https://first.example');
+ await assert.rejects(semanticExtraction(db,'company',{AI_API_KEY:'synthetic-key',AI_MODEL:'test-model'},async()=>{addDocument(db,'new','Another source');return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:[]})}}]})};}),error=>error.status===409);assert.equal(db.prepare('SELECT count(*) n FROM extracted_fields').get().n,0);
+});
+test('supplier VAT cannot become applicant VAT even when invoice names both companies',t=>{
+ const db=setup(t);addDocument(db,'main','EXAMPLE GOODS LTD\nCompany number: 12345678');addDocument(db,'invoice','INVOICE\nOTHER SUPPLIER LIMITED\nCompany Name: EXAMPLE GOODS LTD\nVAT number: GB999999999');reanalyze(db,'company');assert.equal(db.prepare("SELECT value FROM facts WHERE key='vat_number'").get(),undefined);assert.ok(listExtracted(db,'company').some(row=>row.key==='vat_number'&&!row.automatic));
+});
+test('semantic passport name is not promoted to a director without role evidence',async t=>{
+ const db=setup(t);addDocument(db,'passport','PASSPORT\nGiven names ALICE\nSurname EXAMPLE');
+ const result=await semanticExtraction(db,'company',{AI_API_KEY:'synthetic-key',AI_MODEL:'test-model'},async()=>({ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({fields:[{documentId:'passport',page:1,key:'director_first_name',value:'ALICE',quote:'Given names ALICE',confidence:0.99},{documentId:'passport',page:1,key:'contact_first_name',value:'ALICE',quote:'Given names ALICE',confidence:0.99}]})}}]})}));assert.equal(result.accepted,1);assert.equal(result.rejected,1);assert.equal(db.prepare("SELECT * FROM facts WHERE key='director_first_name'").get(),undefined);
+});

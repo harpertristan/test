@@ -1,3 +1,5 @@
+import {previewRegister} from './lib/company-register.js';
+import {REGISTRY_NOTE} from './lib/registry-extraction.js';
 import express from 'express';
 import helmet from 'helmet';
 import multer from 'multer';
@@ -12,7 +14,7 @@ import {FIELDS,suggest,normalize,sensitive} from './lib/fields.js';
 import {token,digest,verifyPassword,requireString,fail} from './lib/security.js';
 import {reanalyze,listExtracted,resolveExtracted,refreshAutoFacts} from './lib/auto-facts.js';
 import {valueGrounded} from './lib/normalization.js';
-import {semanticExtraction} from './lib/semantic-extraction.js';
+import {semanticExtraction,analysisBatches} from './lib/semantic-extraction.js';
 import {compact,comparableValue} from './lib/normalization.js';
 import {aiConfiguration,aiStatus,saveAISettings} from './lib/ai-settings.js';
 import {analyzeForm,fieldFingerprint,fieldMetadata,mappingAllowed,consumeAICall} from './lib/form-agent.js';
@@ -23,7 +25,7 @@ import {resolveFieldKey} from './lib/fields.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const VERSION=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version;
-export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env,control,aiFetch=fetch} = {}) {
+export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env,control,aiFetch=fetch,registryFetch=fetch} = {}) {
   const app = express();
   const uploadDir = join(dataDir,'uploads'); mkdirSync(uploadDir,{recursive:true,mode:0o700});
   for(const company of db.prepare('SELECT id FROM companies').all())reanalyze(db,company.id);
@@ -147,6 +149,23 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     db.prepare("UPDATE extracted_fields SET status=CASE WHEN automatic=1 THEN 'auto' ELSE 'review' END WHERE company_id=? AND status='resolved' AND key NOT IN (SELECT key FROM facts WHERE company_id=?)").run(req.params.companyId,req.params.companyId);
     reanalyze(db,req.params.companyId);if(existsSync(join(uploadDir,doc.id)))unlinkSync(join(uploadDir,doc.id));res.json({ok:true});
   });
+  app.post('/api/companies/:companyId/registry/preview',fileLimiter,async(req,res)=>{
+    companyFor(req);const result=await previewRegister(requireString(req.body.url,'Ссылка на реестр',500),registryFetch);companyFor(req);
+    const id=randomUUID();db.prepare('DELETE FROM registry_previews WHERE expires<?').run(Date.now());db.prepare('INSERT INTO registry_previews VALUES(?,?,?,?)').run(id,req.params.companyId,JSON.stringify(result),Date.now()+15*60*1000);
+    res.json({id,url:result.url,number:result.number,companyName:result.companyName,fields:result.fields,fetchedAt:result.fetchedAt});
+  });
+  app.post('/api/companies/:companyId/registry/confirm',(req,res)=>{
+    companyFor(req);if(req.body.confirmed!==true)fail('Подтвердите выбор компании из реестра.');
+    const preview=db.prepare('SELECT * FROM registry_previews WHERE id=? AND company_id=? AND expires>?').get(requireString(req.body.previewId,'Предварительный просмотр',100),req.params.companyId,Date.now());if(!preview)fail('Просмотр устарел. Загрузите запись реестра ещё раз.',409);
+    const data=JSON.parse(preview.payload),profile=db.prepare('SELECT values_json FROM company_profiles WHERE company_id=?').get(req.params.companyId);if(profile){const values=JSON.parse(profile.values_json);if(values.company_number&&comparableValue('company_number',values.company_number)!==comparableValue('company_number',data.number))fail('В сохранённой анкете другой регистрационный номер. Проверьте выбранную карточку компании.',409);}
+    const documentId=randomUUID();db.exec('BEGIN IMMEDIATE');try{
+      const previous=db.prepare('SELECT document_id FROM company_registry_sources WHERE company_id=?').get(req.params.companyId);if(previous)db.prepare('DELETE FROM documents WHERE id=?').run(previous.document_id);
+      db.prepare('INSERT INTO documents VALUES(?,?,?,?,?)').run(documentId,req.params.companyId,'Companies House · '+data.number+' · '+data.url,JSON.stringify(data.pages),'registry');
+      for(const field of data.fields)db.prepare('INSERT INTO extracted_fields VALUES(?,?,?,?,?,?,?,?,?,?)').run(randomUUID(),req.params.companyId,field.key,field.value,documentId,1,field.quote,REGISTRY_NOTE+'Дополнительный официальный источник · '+data.url,'auto',1);
+      db.prepare('INSERT INTO company_registry_sources VALUES(?,?,?,?)').run(req.params.companyId,documentId,data.url,data.fetchedAt);reanalyze(db,req.params.companyId);db.prepare('DELETE FROM registry_previews WHERE id=?').run(preview.id);db.exec('COMMIT');
+    }catch(error){db.exec('ROLLBACK');throw error;}res.json({ok:true,documentId});
+  });
+  app.get('/api/companies/:companyId/diagnostics',(req,res)=>{companyFor(req);const profile=profileState(db,req.params.companyId),docs=db.prepare('SELECT id,pages,status FROM documents WHERE company_id=?').all(req.params.companyId);res.json({version:VERSION,documents:docs.map(doc=>({id:doc.id,status:doc.status,pages:JSON.parse(doc.pages).map(page=>({page:page.page,characters:page.text.length}))})),fields:profile.decisions,missing:Object.keys(profile.errors),approved:profile.approved});});
   app.get('/api/companies/:companyId/profile',(req,res)=>{companyFor(req);res.json(profileState(db,req.params.companyId));});
   app.post('/api/companies/:companyId/profile',(req,res)=>{companyFor(req);res.json(saveProfile(db,req.params.companyId,req.body));});
   app.get('/api/companies/:companyId/facts',(req,res)=>{companyFor(req);res.json(factsFor(req.params.companyId));});
@@ -154,6 +173,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
   app.post('/api/companies/:companyId/review',(req,res)=>{companyFor(req);if(req.body.confirmed!==true)fail('Отметьте подтверждение всех итоговых данных.');const state=effectiveReview(db,req.params.companyId);if(!state.approved)fail('Сначала заполните и сохраните основную анкету компании.',409);res.json(state);});
   app.get('/api/companies/:companyId/extracted',(req,res)=>{companyFor(req);res.json(listExtracted(db,req.params.companyId));});
   app.post('/api/companies/:companyId/analyze',(req,res)=>{companyFor(req);res.json(reanalyze(db,req.params.companyId));});
+  app.get('/api/companies/:companyId/analyze-ai-plan',(req,res)=>{companyFor(req);const batches=analysisBatches(db.prepare('SELECT id,pages FROM documents WHERE company_id=?').all(req.params.companyId));res.json({batches:batches.length,pages:new Set(batches.flat().map(source=>source.documentId+':'+source.page)).size});});
   app.post('/api/companies/:companyId/analyze-ai',async(req,res)=>{companyFor(req);if(req.body.consent!==true)fail('Подтвердите отправку текста документов API-провайдеру.');res.json(await semanticExtraction(db,req.params.companyId,aiFor(req),aiFetch));});
   app.post('/api/companies/:companyId/extracted/confirm',(req,res)=>{companyFor(req);resolveExtracted(db,req.params.companyId,req.body.selections);res.json({ok:true});});
   app.delete('/api/companies/:companyId/extracted/:id',(req,res)=>{companyFor(req);const row=db.prepare('SELECT * FROM extracted_fields WHERE id=? AND company_id=?').get(req.params.id,req.params.companyId);if(row){db.prepare("UPDATE extracted_fields SET status='dismissed' WHERE id=?").run(row.id);db.prepare('DELETE FROM facts WHERE company_id=? AND key=? AND confirmed=2').run(req.params.companyId,row.key);refreshAutoFacts(db,req.params.companyId);}res.json({ok:true});});

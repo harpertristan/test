@@ -1,4 +1,6 @@
-# Помощник регистраций компаний · 0.4.4
+# Помощник регистраций компаний · 0.4.5
+
+[Сопоставление всех источников, реестр и полное автозаполнение · 0.4.5](docs/UPDATE-0.4.5.md)
 
 [Проверка города, индекса и владельца адреса · 0.4.4](docs/UPDATE-0.4.4.md)
 
@@ -18,7 +20,7 @@
 
 [Пошаговая настройка OpenAI, оверлея и обновления 0.3.0](docs/UPDATE-0.3.md)
 
-[Скачать ZIP 0.4.4](https://github.com/harpertristan/test/raw/refs/heads/registration-assistant/registration-assistant-0.4.4.zip) · [Обновление с 0.1 и новый порядок работы](docs/UPDATE-0.2.md)
+[Скачать ZIP 0.4.5](https://github.com/harpertristan/test/raw/refs/heads/registration-assistant/registration-assistant-0.4.5.zip) · [Обновление с 0.1 и новый порядок работы](docs/UPDATE-0.2.md)
 
 Отдельный проект для Windows / macOS и Chromium-профилей Dolphin. Целевая версия Dolphin, указанная пользователем, — **307.36437**. Сервер работает на Node.js 24 / Linux, пользователю нужен браузер и расширение. Общедоступный сервер автоматически не создавался.
 
