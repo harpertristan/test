@@ -36,7 +36,7 @@ class CompanyView(ORM, CompanyInput):
 
 class AccountInput(BaseModel):
     company_id: UUID
-    provider: Literal["zoho_eu", "gmail", "imap_inbox"]
+    provider: Literal["zoho_eu", "gmail", "inbox_eu"]
     email: EmailStr
     display_name: str = Field(default="", max_length=200)
     organization_id: str | None = Field(default=None, max_length=100)

@@ -27,7 +27,7 @@ async def seed():
         await session.flush()
         account = MailAccount(
             company_id=company.id,
-            provider="imap_inbox",
+            provider="inbox_eu",
             email="mail-" + marker + "@example.com",
             imap_pass_enc=encrypt(secrets.token_urlsafe(24)),
             is_active=False,

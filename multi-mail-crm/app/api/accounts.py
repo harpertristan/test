@@ -64,7 +64,7 @@ async def listing(
         item.oldest_pending_at = oldest
         item.connected = bool(
             account.imap_pass_enc
-            if account.provider == "imap_inbox"
+            if account.provider == "inbox_eu"
             else account.oauth_token
         )
         result.append(item)
@@ -91,13 +91,13 @@ async def create(
             raise HTTPException(
                 422, "Укажите Zoho organization_id для общего rate limit"
             )
-    if data.provider == "imap_inbox":
+    if data.provider == "inbox_eu":
         if not data.imap_password:
-            raise HTTPException(422, "Нужен пароль приложения Mail.ru")
+            raise HTTPException(422, "Нужен пароль для почтовой программы Inbox.eu")
         values.update(
-            imap_host="imap.mail.ru",
+            imap_host="mail.inbox.eu",
             imap_port=993,
-            smtp_host="smtp.mail.ru",
+            smtp_host="mail.inbox.eu",
             smtp_port=465,
             imap_user=data.imap_user or values["email"],
             imap_pass_enc=encrypt(data.imap_password),
@@ -135,7 +135,7 @@ async def edit(
         if value is not None:
             setattr(account, key, value)
     if data.imap_password:
-        if account.provider != "imap_inbox":
+        if account.provider != "inbox_eu":
             raise HTTPException(422, "Пароль применим только к IMAP")
         account.imap_pass_enc = encrypt(data.imap_password)
     event(session, "accounts.changed", {"account_id": str(account_id)})

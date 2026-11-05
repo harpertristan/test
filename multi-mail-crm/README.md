@@ -79,7 +79,7 @@ sudo bash /srv/mail-crm/integration/install-existing.sh https://play-scout.34.22
 
 ## Подключения, копии и проверки
 
-- [SETUP.md](SETUP.md): Zoho **EU**, Gmail, Mail.ru, Telegram, OpenAI/Ollama, CSV, backup.
+- [SETUP.md](SETUP.md): Zoho **EU**, Gmail, Inbox.eu, Telegram, OpenAI/Ollama, CSV, backup.
 - [ARCHITECTURE.md](ARCHITECTURE.md): очередь, сохранение UNREAD, безопасность, этап 2.
 - [VALIDATION.md](VALIDATION.md): выполненные проверки и ограничения.
 

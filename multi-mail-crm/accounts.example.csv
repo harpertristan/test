@@ -1,4 +1,4 @@
 company,email,provider,display_name,organization_id,imap_user,password_env
-ООО Ромашка,sales@example.com,imap_inbox,Продажи,,sales@example.com,MAILBOX_SALES_PASSWORD
+ООО Ромашка,sales@inbox.eu,inbox_eu,Продажи,,sales@inbox.eu,MAILBOX_SALES_PASSWORD
 ООО Ромашка,team@example.eu,zoho_eu,Команда,replace-organization-id,,
 ООО Пример,support@example.org,gmail,Поддержка,,,

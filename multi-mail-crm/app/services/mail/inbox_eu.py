@@ -12,7 +12,7 @@ from app.core.security import decrypt
 from app.services.mail.base import Batch, parse_mime, reply_mime, MailProvider
 
 
-class InboxIMAPProvider(MailProvider):
+class InboxEUProvider(MailProvider):
     def __init__(self, account, redis_client):
         self.account = account
         self.redis = redis_client
@@ -20,13 +20,13 @@ class InboxIMAPProvider(MailProvider):
     def connection(self):
         if self.account.imap_host not in (
             None,
-            "imap.mail.ru",
-        ) or self.account.smtp_host not in (None, "smtp.mail.ru"):
+            "mail.inbox.eu",
+        ) or self.account.smtp_host not in (None, "mail.inbox.eu"):
             raise ValueError(
-                "Only the configured Mail.ru IMAP/SMTP endpoints are supported"
+                "Only the configured Inbox.eu IMAP/SMTP endpoints are supported"
             )
         mailbox = imaplib.IMAP4_SSL(
-            "imap.mail.ru", 993, ssl_context=ssl.create_default_context(), timeout=30
+            "mail.inbox.eu", 993, ssl_context=ssl.create_default_context(), timeout=30
         )
         mailbox.login(
             self.account.imap_user or self.account.email,
@@ -148,7 +148,7 @@ class InboxIMAPProvider(MailProvider):
     async def send(self, message, original):
         await aiosmtplib.send(
             reply_mime(self.account.email, message, original),
-            hostname="smtp.mail.ru",
+            hostname="mail.inbox.eu",
             port=465,
             use_tls=True,
             validate_certs=True,

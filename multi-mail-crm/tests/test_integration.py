@@ -32,7 +32,7 @@ async def test_open_workspace_crud_and_encryption(client, admin_user):
         "/accounts",
         json={
             "company_id": company.json()["id"],
-            "provider": "imap_inbox",
+            "provider": "inbox_eu",
             "email": "sales@example.com",
             "imap_password": "application-secret",
         },
@@ -90,7 +90,7 @@ async def seed_mail(admin_user, count=1):
         await session.flush()
         account = MailAccount(
             company_id=company.id,
-            provider="imap_inbox",
+            provider="inbox_eu",
             email="sales@example.com",
             imap_pass_enc=encrypt("secret"),
         )

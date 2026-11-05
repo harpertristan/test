@@ -87,7 +87,7 @@ GET карточки письма не имеет побочного эффек�
 - IMAP-пароли и OAuth access/refresh-токены зашифрованы Fernet. OAuth хранится
   JSONB-конвертом `encrypted`; API не отдаёт секретные поля. Ротация ключа требует
   отдельной процедуры перешифрования; простая замена ключа недопустима.
-- Mail.ru host/port закреплены: произвольный IMAP/SMTP SSRF через CRUD не допускается.
+- Inbox.eu host/port закреплены: произвольный IMAP/SMTP SSRF через CRUD не допускается.
 - OAuth state одноразовый; проверяется соответствие авторизованной почты ящику.
   Zoho использует только `.eu` endpoints. Refresh выполняется по расписанию и перед запросом.
 - Gmail push проверяет RS256 Google OIDC, issuer, audience, email и email_verified.

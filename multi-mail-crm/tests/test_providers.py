@@ -10,7 +10,7 @@ import pytest
 from app.core.security import encrypt, encrypt_tokens
 from app.services.mail.base import parse_mime
 from app.services.mail.gmail import GmailProvider
-from app.services.mail.imap_inbox import InboxIMAPProvider
+from app.services.mail.inbox_eu import InboxEUProvider
 from app.services.mail.zoho_eu import ZohoEUProvider
 
 RAW = b"From: Client <client@example.com>\r\nTo: sales@example.com\r\nMessage-ID: <new@example.com>\r\nReferences: <root@example.com>\r\nSubject: Quote\r\nDate: Wed, 04 Nov 2026 10:00:00 +0000\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nNeed quote"
@@ -29,8 +29,8 @@ def account(provider):
                 "expires_at": time.time() + 3600,
             }
         ),
-        imap_host="imap.mail.ru",
-        smtp_host="smtp.mail.ru",
+        imap_host="mail.inbox.eu",
+        smtp_host="mail.inbox.eu",
         imap_user="sales@example.com",
         imap_pass_enc=encrypt("test-app-password"),
     )
@@ -189,7 +189,7 @@ async def test_imap_examine_and_body_peek(monkeypatch):
         def logout(self):
             pass
 
-    provider = InboxIMAPProvider(account("imap_inbox"), None)
+    provider = InboxEUProvider(account("inbox_eu"), None)
     monkeypatch.setattr(provider, "connection", FakeIMAP)
     batch = provider.fetch_blocking({"last_uid": 10, "uidvalidity": "7"})
     assert calls[0] == ("select", "INBOX", True)
@@ -214,7 +214,48 @@ async def test_imap_uidvalidity_resets_cursor(monkeypatch):
         def logout(self):
             pass
 
-    provider = InboxIMAPProvider(account("imap_inbox"), None)
+    provider = InboxEUProvider(account("inbox_eu"), None)
     monkeypatch.setattr(provider, "connection", Fake)
     batch = provider.fetch_blocking({"last_uid": 100, "uidvalidity": "old"})
     assert batch.state == {"last_uid": 0, "uidvalidity": "new"}
+
+
+def test_inbox_eu_connects_with_full_email_and_verified_tls(monkeypatch):
+    from unittest.mock import Mock
+    import ssl
+
+    connection = Mock()
+    factory = Mock(return_value=connection)
+    monkeypatch.setattr("app.services.mail.inbox_eu.imaplib.IMAP4_SSL", factory)
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    assert provider.connection() is connection
+    args, kwargs = factory.call_args
+    assert args == ("mail.inbox.eu", 993)
+    assert kwargs["ssl_context"].verify_mode == ssl.CERT_REQUIRED
+    connection.login.assert_called_once_with("sales@example.com", "test-app-password")
+
+
+@pytest.mark.asyncio
+async def test_inbox_eu_smtp_endpoint_and_credentials(monkeypatch):
+    send = AsyncMock()
+    monkeypatch.setattr("app.services.mail.inbox_eu.aiosmtplib.send", send)
+    monkeypatch.setattr("app.services.mail.inbox_eu.reply_mime", lambda *args: "mime")
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    result = await provider.send(SimpleNamespace(message_id="outgoing-id"), None)
+    assert result == "outgoing-id"
+    assert send.call_args.kwargs["hostname"] == "mail.inbox.eu"
+    assert send.call_args.kwargs["port"] == 465
+    assert send.call_args.kwargs["use_tls"] is True
+    assert send.call_args.kwargs["validate_certs"] is True
+
+
+def test_supported_new_account_providers():
+    from app.api.schemas import AccountInput
+    from pydantic import ValidationError
+    from uuid import uuid4
+
+    fields = dict(company_id=uuid4(), email="sales@inbox.eu")
+    for provider in ["inbox_eu", "zoho_eu", "gmail"]:
+        assert AccountInput(provider=provider, **fields).provider == provider
+    with pytest.raises(ValidationError):
+        AccountInput(provider="imap_inbox", **fields)

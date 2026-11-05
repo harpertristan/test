@@ -58,7 +58,7 @@ async def import_accounts(path):
                     session.add(company)
                     await session.flush()
                 password = None
-                if row.get("provider") == "imap_inbox":
+                if row.get("provider") == "inbox_eu":
                     key = row.get("password_env", "")
                     if not re.fullmatch(r"MAILBOX_[A-Z0-9_]+", key):
                         raise ValueError(
@@ -104,9 +104,9 @@ async def import_accounts(path):
                 account.email = account.email.lower()
                 if password:
                     account.imap_pass_enc = encrypt(password)
-                    account.imap_host = "imap.mail.ru"
+                    account.imap_host = "mail.inbox.eu"
                     account.imap_port = 993
-                    account.smtp_host = "smtp.mail.ru"
+                    account.smtp_host = "mail.inbox.eu"
                     account.smtp_port = 465
                 session.add(account)
                 count += 1

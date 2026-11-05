@@ -100,7 +100,8 @@ class MailAccount(Identity, Created, Base):
     last_unread_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
         CheckConstraint(
-            "provider IN ('zoho_eu','gmail','imap_inbox')", name="ck_account_provider"
+            "provider IN ('zoho_eu','gmail','inbox_eu','imap_inbox')",
+            name="ck_account_provider",
         ),
     )
 
