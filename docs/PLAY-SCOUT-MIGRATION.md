@@ -150,3 +150,25 @@ sudo /srv/play-scout-workspace/workspace.sh rollback
 Резервная копия CRM находится в `/srv/play-scout-workspace/backups/`; точный путь печатает установщик. Перенесённые данные помощника находятся в `/srv/play-scout-workspace/assistant-data`.
 
 Если этап завершился ошибкой, сохраните текст ошибки и вывод `workspace.sh status` (если этот файл уже создан). Не удаляйте базы, журналы и Docker-тома для повторного запуска.
+
+## Если общая панель уже установлена, а архив ещё не импортирован
+
+Браузерный SSH и `gcloud compute scp` могут использовать разные домашние папки. Найдите архив:
+
+```bash
+sudo find /home /root -maxdepth 3 -type f -name 'assistant-transfer.tar.gz' -ls
+```
+
+Используйте найденный полный путь. Дополнительный импорт проверяет архив и целостность SQLite до остановки помощника, сохраняет прежнюю папку данных и настройки, выбирает прежнего пользователя и пересоздаёт только контейнер помощника. Play Scout и Ollama продолжают работать. При ошибке запуска возвращаются прежние данные. Это замена базы помощника снимком с Windows, а не слияние двух баз; текущая серверная база сохраняется в резервной папке.
+
+```bash
+(
+  set -e
+  curl --fail --location --show-error \
+    https://raw.githubusercontent.com/harpertristan/test/registration-assistant/deploy/play-scout/import-installed.sh \
+    -o /tmp/import-play-scout-assistant.sh
+  sudo bash /tmp/import-play-scout-assistant.sh /home/ivano/assistant-transfer.tar.gz
+)
+```
+
+Если в архиве несколько пользователей, добавьте прежний логин владельца компаний вторым аргументом. Ключи не печатаются в терминале. После импорта проверьте компании, документы и соединение OpenAI в кабинете. Расширение подключите свежим токеном серверного помощника.
