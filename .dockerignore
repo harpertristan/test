@@ -8,3 +8,6 @@ deploy/.env
 *.zip
 .runtime
 .update-state.json
+
+*.tar.gz
+__pycache__

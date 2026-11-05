@@ -1,0 +1,47 @@
+# Overlay for the existing play-scout project; install.sh writes absolute paths.
+services:
+  app:
+    image: play-scout:workspace
+    build:
+      context: /srv/play-scout-workspace/scout
+    environment:
+      ASSISTANT_WORKSPACE: "true"
+      ASSISTANT_PUBLIC_ORIGIN: https://${SCOUT_DOMAIN}
+  registration-assistant:
+    image: registration-assistant:workspace
+    build:
+      context: /srv/play-scout-workspace/assistant
+    restart: unless-stopped
+    init: true
+    mem_limit: 2g
+    cpus: 1
+    stop_grace_period: 120s
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3100"
+      BASE_PATH: /assistant
+      PUBLIC_ORIGIN: https://${SCOUT_DOMAIN}
+      TRUST_PROXY: "1"
+      WORKSPACE_SHARED_SECRET: ${WORKSPACE_SHARED_SECRET:?Missing workspace key}
+      WORKSPACE_USER: ${WORKSPACE_USER:-}
+      AI_DAILY_CALL_LIMIT: ${ASSISTANT_AI_DAILY_CALL_LIMIT:-100}
+    volumes:
+      - /srv/play-scout-workspace/assistant-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/assistant/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  caddy:
+    environment:
+      NO_PROXY: app,registration-assistant,localhost,127.0.0.1
+      WORKSPACE_SHARED_SECRET: ${WORKSPACE_SHARED_SECRET:?Missing workspace key}
+    volumes:
+      - /srv/play-scout-workspace/assistant/deploy/play-scout/Caddyfile:/etc/caddy/Caddyfile:ro

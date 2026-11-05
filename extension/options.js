@@ -2,7 +2,7 @@ const status=document.getElementById('status');
 document.getElementById('settings').addEventListener('submit',async event=>{
   event.preventDefault();
   try {
-    const url=new URL(document.getElementById('origin').value),origin=url.origin;
+    const url=new URL(document.getElementById('origin').value),origin=url.origin+url.pathname.replace(/\/$/,'');
     const allowed=await chrome.permissions.request({origins:[url.protocol+'//'+url.hostname+'/*']});
     if(!allowed)throw Error('Разрешите расширению обращаться к вашему серверу.');
     const result=await chrome.runtime.sendMessage({type:'settings',origin,token:document.getElementById('token').value.trim()});

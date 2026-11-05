@@ -6,12 +6,13 @@ import multer from 'multer';
 import {rateLimit} from 'express-rate-limit';
 import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {parseEnv} from 'node:util';
 import {dirname,resolve,join,extname,basename} from 'node:path';
 import {mkdirSync,writeFileSync,unlinkSync,existsSync,readFileSync,rmSync,realpathSync} from 'node:fs';
 import {openDatabase} from './lib/database.js';
 import {extractDocument} from './lib/extraction.js';
 import {FIELDS,suggest,normalize,sensitive} from './lib/fields.js';
-import {token,digest,verifyPassword,requireString,fail} from './lib/security.js';
+import {token,digest,verifyPassword,hashPassword,requireString,fail} from './lib/security.js';
 import {reanalyze,listExtracted,resolveExtracted,refreshAutoFacts} from './lib/auto-facts.js';
 import {valueGrounded} from './lib/normalization.js';
 import {semanticExtraction,analysisBatches} from './lib/semantic-extraction.js';
@@ -25,7 +26,20 @@ import {resolveFieldKey} from './lib/fields.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const VERSION=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version;
-export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env,control,aiFetch=fetch,registryFetch=fetch} = {}) {
+export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:3100',db=openDatabase(dataDir),ai=process.env,control,aiFetch=fetch,registryFetch=fetch,basePath=process.env.BASE_PATH||'',workspaceKey=process.env.WORKSPACE_SHARED_SECRET||'',workspaceUser=process.env.WORKSPACE_USER||''} = {}) {
+  if(!['','/assistant'].includes(basePath))throw Error('BASE_PATH: используйте пустое значение или /assistant.');
+  if(new URL(origin).origin!==origin)throw Error('PUBLIC_ORIGIN должен содержать только https://домен, без пути.');
+  let owner;
+  if(workspaceKey){
+    if(workspaceKey.length<32)throw Error('WORKSPACE_SHARED_SECRET: нужно не менее 32 символов.');
+    const users=db.prepare('SELECT id,username FROM users ORDER BY id').all();
+    if(workspaceUser)owner=users.find(user=>user.username===workspaceUser);
+    else if(users.length===1)owner=users[0];
+    else if(users.length>1)throw Error('Для общей вкладки укажите WORKSPACE_USER — владельца переносимых компаний.');
+    if(!owner&&users.length)throw Error('Пользователь WORKSPACE_USER не найден в перенесённой базе.');
+    if(!owner){const username=workspaceUser||'workspace';const result=db.prepare('INSERT INTO users(username,password) VALUES(?,?)').run(username,hashPassword(token()));owner={id:Number(result.lastInsertRowid),username};}
+  }
+  const importedAI=join(dataDir,'.secrets','imported-ai.env');if(!ai.AI_API_KEY&&!ai.OPENAI_API_KEY&&existsSync(importedAI))ai={...ai,...parseEnv(readFileSync(importedAI,'utf8'))};
   const app = express();
   const uploadDir = join(dataDir,'uploads'); mkdirSync(uploadDir,{recursive:true,mode:0o700});
   for(const company of db.prepare('SELECT id FROM companies').all())reanalyze(db,company.id);
@@ -55,6 +69,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
   });
   app.get('/api/health',(_req,res) => res.json({ok:true,project:'registration-assistant',version:VERSION,...(control?{instanceId:control.instanceId}:{})}));
   app.post('/api/login',loginLimiter,(req,res) => {
+    if(workspaceKey)return res.status(409).json({error:'Отдельный вход отключён. Откройте вкладку помощника в Play Scout.'});
     if(req.get('Origin') !== origin || req.get('X-Assistant-Request') !== '1') fail('Войдите через интерфейс приложения.',403);
     const username = requireString(req.body.username,'Логин',100);
     const password = requireString(req.body.password,'Пароль',200);
@@ -63,13 +78,19 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     const value = token();
     db.prepare('DELETE FROM sessions WHERE expires < ?').run(Date.now());
     db.prepare('INSERT INTO sessions VALUES(?,?,?,?)').run(digest(value),user.id,Date.now()+12*60*60*1000,'web');
-    res.cookie('ra_session',value,{httpOnly:true,sameSite:'strict',secure:origin.startsWith('https:'),maxAge:12*60*60*1000,path:'/'});
+    res.cookie('ra_session',value,{httpOnly:true,sameSite:'strict',secure:origin.startsWith('https:'),maxAge:12*60*60*1000,path:basePath+'/'});
     res.json({username:user.username});
   });
   app.use('/api',(req,res,next) => {
     const bearer = req.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]+)$/)?.[1];
     const cookie = req.get('Cookie')?.split(';').map(c=>c.trim()).find(c=>c.startsWith('ra_session='))?.slice(11);
-    const session = db.prepare('SELECT sessions.*,users.username FROM sessions JOIN users ON users.id=sessions.user_id WHERE hash=? AND expires>?').get(digest(bearer || cookie || ''),Date.now());
+    let session;
+    if(workspaceKey&&!bearer){
+      const supplied=req.get('X-Workspace-Key')||'',role=req.get('X-Workspace-Role');
+      if(Buffer.byteLength(supplied)!==Buffer.byteLength(workspaceKey)||!timingSafeEqual(Buffer.from(supplied),Buffer.from(workspaceKey))||!['admin','viewer'].includes(role))return res.status(401).json({error:'Откройте помощник через вкладку Play Scout.'});
+      session={user_id:owner.id,username:owner.username,hash:'shared-workspace',kind:'web',workspace:true,role};
+      if(role==='viewer'&&!['GET','HEAD','OPTIONS'].includes(req.method))return res.status(403).json({error:'В Play Scout открыт доступ только для просмотра.'});
+    }else session=db.prepare('SELECT sessions.*,users.username FROM sessions JOIN users ON users.id=sessions.user_id WHERE hash=? AND expires>?').get(digest(bearer || cookie || ''),Date.now());
     if(!session || (bearer && session.kind !== 'extension') || (!bearer && session.kind !== 'web')) return res.status(401).json({error:'Войдите в приложение или подключите расширение заново.'});
     req.user = session;
     if(session.kind === 'web' && !['GET','HEAD','OPTIONS'].includes(req.method) && (req.get('Origin') !== origin || req.get('X-Assistant-Request') !== '1')) return res.status(403).json({error:'Запрос не подтверждён интерфейсом.'});
@@ -85,12 +106,12 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
   };
   const evidenceFor=companyId=>{const master=profileState(db,companyId);if(!master.approved)return [];return [...['tax_status','vat_status','operating_address_mode'].map(key=>({key,value:master.values[key]||'',source:'Основная анкета компании',page:1,quote:key+': '+master.values[key],origin:'master-profile'})),...factsFor(companyId).map(f=>({key:f.key,value:f.value,source:f.filename,page:f.page,quote:f.quote,origin:f.id.startsWith('profile-')?'master-profile':'document'})),...db.prepare('SELECT f.key,f.value,d.filename AS source,f.page,f.quote FROM facts f JOIN documents d ON d.id=f.document_id WHERE f.company_id=?').all(companyId).map(f=>({...f,origin:'document'}))].filter(f=>!['company_email','company_phone','phone_dial_code','phone_national','phone_country'].includes(f.key));};
   const aiFor=req=>aiConfiguration(db,dataDir,req.user.user_id,ai);
-  app.get('/api/me',(req,res)=>res.json({username:req.user.username,fields:FIELDS,aiEnabled:aiStatus(db,req.user.user_id,ai).configured}));
+  app.get('/api/me',(req,res)=>res.json({username:req.user.username,fields:FIELDS,aiEnabled:aiStatus(db,req.user.user_id,ai).configured,sharedWorkspace:Boolean(workspaceKey),role:req.user.role||'admin'}));
   app.get('/api/ai-settings',(req,res)=>res.json(aiStatus(db,req.user.user_id,ai)));
   app.post('/api/ai-settings',(req,res)=>{if(!origin.startsWith('https://')&&!/^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(origin))fail('Для передачи API-ключа используйте HTTPS или localhost.',400);let apiKey=req.body.apiKey;if(!apiKey&&aiStatus(db,req.user.user_id,ai).source==='user')apiKey=aiFor(req).AI_API_KEY;saveAISettings(db,dataDir,req.user.user_id,{apiKey,model:req.body.model});res.json(aiStatus(db,req.user.user_id,ai));});
   app.delete('/api/ai-settings',(req,res)=>{db.prepare('DELETE FROM ai_settings WHERE user_id=?').run(req.user.user_id);res.json(aiStatus(db,req.user.user_id,ai));});
   app.post('/api/ai-settings/test',async(req,res)=>{const config=aiFor(req);consumeAICall(db,config);const payload=await requestOpenAI(aiFetch,config,{max_completion_tokens:2048,messages:[{role:'user',content:'Reply OK. Connection test only; no customer documents.'}]},30000);if(!payload.choices?.[0]?.message?.content)throw publicAIError('OpenAI подключён, но модель не вернула текст. Повторите проверку или выберите другую модель.');res.json({ok:true,model:config.AI_MODEL});});
-  app.post('/api/logout',(req,res)=>{db.prepare('DELETE FROM sessions WHERE hash=?').run(req.user.hash);res.clearCookie('ra_session',{path:'/'});res.json({ok:true});});
+  app.post('/api/logout',(req,res)=>{db.prepare('DELETE FROM sessions WHERE hash=?').run(req.user.hash);res.clearCookie('ra_session',{path:basePath+'/'});res.json({ok:true});});
   app.post('/api/extension-token',(req,res)=>{
     const value = token();
     db.prepare("DELETE FROM sessions WHERE user_id=? AND kind='extension'").run(req.user.user_id);
@@ -241,11 +262,13 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     res.json({explanation:explanation.slice(0,5000),notice:'Пояснение модели: проверьте смысл перед принятием решения. Оно не изменяет подтверждённые данные.'});
   });
   app.use('/api',(_req,res)=>res.status(404).json({error:'Метод не найден.'}));
-  app.use(express.static(join(root,'public'),{index:'index.html'}));
+  app.get('/',(_req,res)=>res.type('html').send(readFileSync(join(root,'public','index.html'),'utf8').replace('<html lang="ru">',`<html lang="ru" data-workspace="${workspaceKey?'shared':'standalone'}">`).replace('<head>','<head><meta name="assistant-base" content="'+basePath+'">')));
+  app.use(express.static(join(root,'public'),{index:false}));
   app.use((error,_req,res,_next)=>{
     const status=error instanceof multer.MulterError ? 400 : error.status || 500;
     res.status(status).json({error:status>=500 ? error.publicMessage || 'Не удалось выполнить операцию. Проверьте сервер; содержимое документов в журнал не выводится.' : error.message,...(error.fieldErrors?{fieldErrors:error.fieldErrors}:{})});
   });
+  if(basePath){const mounted=express();mounted.disable('x-powered-by');mounted.use((req,res,next)=>req.path===basePath?res.redirect(308,basePath+'/'):next());mounted.use(basePath,app);return {app:mounted,db};}
   return {app,db};
 }
 

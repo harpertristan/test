@@ -12,10 +12,10 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
       if(!settingsPage)throw Error('Откройте настройки расширения.');
       if(message.disconnect){await chrome.storage.session.clear();return {ok:true};}
       const url=new URL(message.origin);
-      if(url.username||url.password||url.pathname!=='/'||url.search||url.hash||!(url.protocol==='https:'||(url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname))))throw Error('Нужен HTTPS-адрес сервера; HTTP допускается только для localhost.');
+      if(url.username||url.password||!['/','/assistant','/assistant/'].includes(url.pathname)||url.search||url.hash||!(url.protocol==='https:'||(url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname))))throw Error('Нужен HTTPS-адрес сервера; HTTP допускается только для localhost.');
       if(!/^[A-Za-z0-9_-]{40,100}$/.test(message.token||''))throw Error('Проверьте токен подключения.');
       if(!await chrome.permissions.contains({origins:[url.protocol+'//'+url.hostname+'/*']}))throw Error('Доступ к серверу не предоставлен.');
-      await chrome.storage.session.set({origin:url.origin,token:message.token});
+      await chrome.storage.session.set({origin:url.origin+url.pathname.replace(/\/$/,''),token:message.token});
       return {ok:true};
     }
     if(message.type==='appearance'){if(message.theme!==undefined){if(!['classic','violet'].includes(message.theme))throw Error('Неизвестное оформление.');await chrome.storage.local.set({appearance:message.theme});}return {theme:(await chrome.storage.local.get('appearance')).appearance||'classic'};}

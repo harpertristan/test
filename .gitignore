@@ -6,3 +6,5 @@ backups/
 test-results/
 .runtime/
 .update-state.json
+*.tar.gz
+__pycache__/

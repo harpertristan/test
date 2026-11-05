@@ -17,4 +17,7 @@ test('extension service worker limits destinations, sender access and API scope'
   result=await send({type:'api',path:'/propose',method:'POST',body:{host:'another.example'}},{id:extensionId,tab:{id:1}});assert.equal(result.ok,false);
   result=await send({type:'api',path:'/companies'},{id:'other-extension',tab:{id:1}});assert.equal(result.ok,false);
   assert.equal(calls.length,1);
+  result=await send({type:'settings',origin:'https://scout.example/assistant/',token:'a'.repeat(43)});assert.equal(result.ok,true);
+  result=await send({type:'api',path:'/companies'},{id:extensionId,url:'https://bank.example/application',tab:{id:1}});assert.equal(result.ok,true);assert.equal(calls.at(-1).url,'https://scout.example/assistant/api/companies');
+  result=await send({type:'settings',origin:'https://scout.example/other/',token:'a'.repeat(43)});assert.equal(result.ok,false);
 });

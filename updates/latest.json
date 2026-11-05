@@ -1,9 +1,9 @@
 {
   "project": "registration-assistant",
-  "version": "0.4.5",
+  "version": "0.5.0",
   "minimum_node": 24,
-  "archive": "https://github.com/harpertristan/test/raw/refs/heads/registration-assistant/registration-assistant-0.4.5.zip",
-  "bytes": 345053,
-  "sha256": "5dcb5ef585433195c89fb1570cb0c04cd9bd8ed1d920ef2006739621295b93c2",
+  "archive": "https://github.com/harpertristan/test/raw/refs/heads/registration-assistant/registration-assistant-0.5.0.zip",
+  "bytes": 368927,
+  "sha256": "b087449eea7d483f27e5f53a01b4022f70bf58ebf4399aee7b23dd54f9db9225",
   "updater_sha256": "75c2e90f684bca37a79480a7fcf4688015d8d7b57f7ec6927b43056dd72662c9"
 }

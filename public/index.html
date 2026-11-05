@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Помощник регистраций</title><link rel="stylesheet" href="/style.css"></head>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Помощник регистраций</title><link rel="stylesheet" href="./style.css"></head>
 <body>
-  <header><div><span class="eyebrow">COMPANY ASSISTANT · 0.4.1</span><h1>Помощник регистраций</h1></div><div class="header-tools"><label class="theme-label">Оформление<select id="themeSelect"><option value="classic">Обычное</option><option value="violet">Тёмное фиолетовое</option></select></label><div id="account" hidden><span id="username"></span><button id="logout" class="quiet">Выйти</button></div></div></header>
+  <nav class="workspace-tabs" aria-label="Разделы рабочего пространства"><a href="/crm">Play Scout</a><a href="/assistant/" aria-current="page">Помощник регистраций</a></nav>
+  <header><div><span class="eyebrow">COMPANY ASSISTANT</span><h1>Помощник регистраций</h1></div><div class="header-tools"><label class="theme-label">Оформление<select id="themeSelect"><option value="classic">Обычное</option><option value="violet">Тёмное фиолетовое</option></select></label><div id="account" hidden><span id="username"></span><button id="logout" class="quiet">Выйти</button></div></div></header>
   <section class="theme-banner" aria-hidden="true"><div><span>COMPANY WORKSPACE</span><h2>Документы. Данные. Регистрации.</h2><p>Единая анкета компании и помощник рядом с каждым вопросом.</p></div></section>
   <div id="message" role="status" aria-live="polite"></div>
   <main>
@@ -20,5 +21,5 @@
       </div>
     </div>
   </main><footer>Человек подтверждает сведения и отправляет анкету. ИИ-пояснение не является юридическим заключением.</footer>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body></html>
