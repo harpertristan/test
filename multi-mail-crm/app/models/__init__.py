@@ -150,6 +150,11 @@ class Message(Identity, Base):
     )
     read_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     desired_read: Mapped[bool | None] = mapped_column(Boolean)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trashed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trash_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delete_reason: Mapped[str | None] = mapped_column(Text)
+    trash_error: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(Text)
     category_conf: Mapped[float | None] = mapped_column(Float)
     category_reason: Mapped[str | None] = mapped_column(Text)
@@ -174,6 +179,11 @@ class Message(Identity, Base):
         ForeignKey("messages.id", ondelete="SET NULL")
     )
     __table_args__ = (
+        Index(
+            "idx_msg_trash_pending",
+            "trash_retry_at",
+            postgresql_where=text("deleted_at IS NOT NULL AND trashed_at IS NULL"),
+        ),
         UniqueConstraint("mail_account_id", "remote_id", name="uq_message_remote"),
         CheckConstraint("direction IN ('in','out')", name="ck_message_direction"),
         CheckConstraint(

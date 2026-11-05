@@ -130,6 +130,13 @@ class GmailProvider(OAuthProvider):
             },
         )
 
+    async def trash(self, remote_id):
+        try:
+            await self.request("POST", BASE + "/messages/" + remote_id + "/trash")
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code != 404:
+                raise
+
     async def send(self, message, original):
         raw = base64.urlsafe_b64encode(
             reply_mime(self.account.email, message, original)

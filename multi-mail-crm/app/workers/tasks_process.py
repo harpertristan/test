@@ -21,9 +21,18 @@ async def process(message_id):
                 message = await session.get(Message, UUID(str(message_id)))
                 if (
                     not message
+                    or message.deleted_at is not None
                     or message.direction != "in"
                     or message.processing_state == "done"
                 ):
+                    return
+                from app.services.mail_rules import is_sign_in_notice
+
+                if is_sign_in_notice(message.from_email, message.subject):
+                    from app.services.trash import request_trash
+
+                    await request_trash(session, message, "inbox_sign_in")
+                    await session.commit()
                     return
                 result = await classifier_for(client).classify(
                     message.subject or "", message.body_text or ""
@@ -32,7 +41,7 @@ async def process(message_id):
                     MailAccount, message.mail_account_id, with_for_update=True
                 )
                 await session.refresh(message, with_for_update=True)
-                if message.processing_state == "done":
+                if message.deleted_at or message.processing_state == "done":
                     return
                 message.category = result.category
                 message.category_conf = result.confidence
@@ -102,6 +111,8 @@ async def set_read(message_id, value, version=None):
                 if not account:
                     return
                 await session.refresh(message, with_for_update=True)
+                if message.deleted_at:
+                    return
                 if version is not None and version != message.read_revision:
                     return
                 if message.desired_read is not None:
@@ -142,7 +153,12 @@ async def send(message_id):
                         MailAccount, message.mail_account_id, with_for_update=True
                     )
                     original = await session.get(Message, message.reply_to_id)
-                    if not account or not account.is_active or not original:
+                    if (
+                        not account
+                        or not account.is_active
+                        or not original
+                        or original.deleted_at
+                    ):
                         message.send_state = "failed"
                         message.send_error = "Ящик выключен или исходное письмо удалено"
                         await session.commit()
@@ -200,7 +216,11 @@ async def recover():
         identifiers = (
             await session.scalars(
                 select(Message.id)
-                .where(Message.direction == "in", Message.processing_state == "pending")
+                .where(
+                    Message.direction == "in",
+                    Message.deleted_at.is_(None),
+                    Message.processing_state == "pending",
+                )
                 .limit(200)
             )
         ).all()
@@ -218,7 +238,7 @@ async def recover():
         reads = (
             await session.execute(
                 select(Message.id, Message.desired_read, Message.read_revision)
-                .where(Message.desired_read.is_not(None))
+                .where(Message.desired_read.is_not(None), Message.deleted_at.is_(None))
                 .limit(100)
             )
         ).all()

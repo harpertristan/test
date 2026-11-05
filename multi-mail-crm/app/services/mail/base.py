@@ -136,6 +136,9 @@ class MailProvider(ABC):
     async def mark_read(self, remote_id: str, value: bool) -> None: ...
     @abstractmethod
     async def send(self, message, original) -> str: ...
+    async def trash(self, remote_id: str) -> None:
+        raise NotImplementedError("Provider does not implement trash")
+
     async def renew_push(self, state: dict) -> dict:
         return state
 

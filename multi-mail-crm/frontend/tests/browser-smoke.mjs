@@ -8,7 +8,7 @@ const user = { id: '00000000-0000-4000-8000-000000000001', email: 'admin@example
 const companies = Array.from({ length: 16 }, (_, i) => ({ id: `company-${i}`, name: `Компания ${String(i).padStart(2, '0')}`, inn: '7700000000', website: 'example.com', phone: '+7 000 000-00-00', address: 'Тестовый адрес', notes: 'Тестовые данные браузерной проверки', is_flagged: false }));
 const accounts = Array.from({ length: 320 }, (_, i) => ({ id: `account-${i}`, company_id: `company-${Math.floor(i / 20)}`, company_name: companies[Math.floor(i / 20)].name, provider: 'inbox_eu', email: `box${String(i).padStart(3, '0')}@example.com`, is_active: true, connected: true, unread_count: i === 0 ? 3 : 0, current_status: i === 0 ? 'add_request' : null, is_favorite: false, pending_count: i === 0 ? 1 : 0, oldest_pending_at: new Date(Date.now() - 3 * 86400000).toISOString(), last_sync_at: new Date().toISOString(), last_error: null }));
 const mail = { id: 'mail-1', mail_account_id: 'account-0', company_id: 'company-0', direction: 'in', from_email: 'client@example.com', from_name: 'Клиент', to_emails: [accounts[0].email], subject: 'Нужна цена', received_at: new Date(Date.now() - 3 * 86400000).toISOString(), is_read: false, category: 'add_request', category_conf: 0.95, category_reason: 'Запрашивает цену', replied_at: null, needs_reply: true, thread_id: 'root-thread', body_text: 'Пришлите коммерческое предложение.\n<script>malicious()</script>', is_flagged: false, send_state: null };
-let readRequests = 0, ws;
+let readRequests = 0, deleteRequests = 0, deleted = false, ws;
 const notices = [];
 await page.routeWebSocket('**/ws/notifications/**', socket => { ws = socket; setTimeout(() => socket.send(JSON.stringify({ type: 'connected' })), 20); });
 await page.route('**/api/**', async route => {
@@ -20,8 +20,9 @@ await page.route('**/api/**', async route => {
   else if (path === '/notifications') body = { items: notices, unseen_count: notices.filter(n => !n.is_seen).length };
   else if (path === '/users') body = [user];
   else if (path === '/tasks') body = [];
-  else if (path === '/messages') body = { items: !url.searchParams.get('account_id') || url.searchParams.get('account_id') === 'account-0' ? [mail] : [], next_cursor: null };
-  else if (path === '/messages/mail-1' && method === 'GET') body = mail;
+  else if (path === '/messages') body = { items: !deleted && (!url.searchParams.get('account_id') || url.searchParams.get('account_id') === 'account-0') ? [mail] : [], next_cursor: null };
+  else if (path === '/messages/mail-1' && method === 'DELETE') { deleteRequests++; deleted = true; status = 202; body = { status: 'queued' }; }
+  else if (path === '/messages/mail-1' && method === 'GET') { body = deleted ? { detail: 'Письмо не найдено' } : mail; if (deleted) status = 404; }
   else if (path === '/messages/mail-319' && method === 'GET') body = { ...mail, id: 'mail-319', mail_account_id: 'account-319', company_id: 'company-15', subject: 'Письмо другого ящика' };
   else if (path === '/messages/mail-1/read') { readRequests++; mail.is_read = route.request().postDataJSON().value; status = 202; }
   else if (path === '/messages/mail-1/replied') { mail.replied_at = new Date().toISOString(); mail.needs_reply = false; status = 204; }
@@ -48,6 +49,7 @@ try {
   assert.equal(await accountEditor.getByText('IMAP-логин', { exact: false }).count(), 0);
   await accountEditor.locator('.ant-select-selector').nth(1).click();
   const options = page.locator('.ant-select-dropdown:visible .ant-select-item-option-content');
+  await options.first().waitFor({ state: 'visible' });
   assert.deepEqual(await options.allTextContents(), ['Zoho Mail EU', 'Google / Gmail', 'Inbox.eu']);
   await options.getByText('Google / Gmail', { exact: true }).click();
   assert.equal(await accountEditor.locator('input[type="password"]').count(), 0);
@@ -91,7 +93,10 @@ try {
   await page.locator('.account-pane').getByRole('button', { name: /box000@example.com/ }).click();
   await page.getByRole('button', { name: /Нужна цена/ }).click();
   await page.locator('.mail-body').waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: /Удалить письмо/ }).click();
+  await page.locator('.mail-body').waitFor({ state: 'hidden' });
+  assert.equal(deleteRequests, 1);
   assert.equal(errors.length, 0, errors.join('\n'));
   if (process.env.SCREENSHOT_PATH) await page.screenshot({ path: process.env.SCREENSHOT_PATH, fullPage: true });
-  console.log(JSON.stringify({ accounts: accounts.length, mountedRows: mounted, virtualization: 'passed', searchLastAccount: 'passed', readIsExplicit: 'passed', replyTrackingUI: 'passed', telegramSettings: 'passed', websocketToast: 'passed', notificationNavigation: 'passed', mobile: 'passed', pageErrors: errors.length }));
+  console.log(JSON.stringify({ accounts: accounts.length, mountedRows: mounted, virtualization: 'passed', searchLastAccount: 'passed', readIsExplicit: 'passed', replyTrackingUI: 'passed', telegramSettings: 'passed', websocketToast: 'passed', notificationNavigation: 'passed', mobile: 'passed', deleteMessage: 'passed', pageErrors: errors.length }));
 } finally { await browser.close(); }

@@ -66,6 +66,8 @@ class AccountView(ORM):
     current_status: str | None
     last_sync_at: datetime | None
     last_error: str | None
+    trash_pending_count: int = 0
+    trash_error_count: int = 0
     connected: bool = False
     company_name: str = ""
     is_favorite: bool = False

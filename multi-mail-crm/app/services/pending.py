@@ -13,7 +13,8 @@ REPLY_CATEGORIES = ("add_request", "other")
 
 def overdue(message: Message, now=None) -> bool:
     return bool(
-        message.direction == "in"
+        not getattr(message, "deleted_at", None)
+        and message.direction == "in"
         and message.category in REPLY_CATEGORIES
         and message.replied_at is None
         and message.needs_reply
@@ -28,6 +29,7 @@ async def account_status(session: AsyncSession, account_id: UUID) -> None:
     )
     conditions = (
         Message.mail_account_id == account_id,
+        Message.deleted_at.is_(None),
         Message.direction == "in",
         Message.is_read.is_(False),
     )
@@ -53,6 +55,7 @@ async def refresh_needs_reply(session: AsyncSession) -> int:
     # needs_reply describes an unanswered message, age is separately used for the dot.
     wanted = (
         (Message.direction == "in")
+        & Message.deleted_at.is_(None)
         & Message.category.in_(REPLY_CATEGORIES)
         & Message.replied_at.is_(None)
     )
@@ -72,6 +75,7 @@ async def mark_replied(
     limit = before or utcnow()
     query = update(Message).where(
         Message.direction == "in",
+        Message.deleted_at.is_(None),
         Message.received_at <= limit,
         Message.replied_at.is_(None),
     )

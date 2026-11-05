@@ -5,10 +5,12 @@ from app.services.events import event
 
 async def request_read(session: AsyncSession, message_id, value: bool):
     message = await session.get(Message, message_id)
-    if not message:
+    if not message or message.deleted_at:
         return
     await session.get(MailAccount, message.mail_account_id, with_for_update=True)
     await session.refresh(message, with_for_update=True)
+    if message.deleted_at:
+        return
     message.read_revision += 1
     message.desired_read = value
     event(

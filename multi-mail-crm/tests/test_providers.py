@@ -259,3 +259,125 @@ def test_supported_new_account_providers():
         assert AccountInput(provider=provider, **fields).provider == provider
     with pytest.raises(ValidationError):
         AccountInput(provider="imap_inbox", **fields)
+
+
+@pytest.mark.parametrize("capabilities", [(b"MOVE",), (b"UIDPLUS",)])
+def test_imap_trash_targets_only_requested_uid_and_keeps_trash_copy(
+    monkeypatch, capabilities
+):
+    calls = []
+
+    class Fake:
+        def __init__(self):
+            self.capabilities = capabilities
+
+        def select(self, folder, readonly=False):
+            assert folder == "INBOX" and readonly is False
+            return "OK", []
+
+        def response(self, name):
+            return name, [b"7"]
+
+        def list(self):
+            return "OK", [
+                b'(\\HasNoChildren) "/" "INBOX"',
+                b'(\\HasNoChildren \\Trash) "/" "Deleted Items"',
+            ]
+
+        def uid(self, command, *args):
+            calls.append((command, *args))
+            return ("OK", [b"11"]) if command == "search" else ("OK", [])
+
+        def logout(self):
+            pass
+
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    monkeypatch.setattr(provider, "connection", Fake)
+    provider.trash_blocking("7:11")
+    mutations = [call for call in calls if call[0] != "search"]
+    if b"MOVE" in capabilities:
+        assert mutations == [("MOVE", "11", '"Deleted Items"')]
+    else:
+        assert mutations == [
+            ("COPY", "11", '"Deleted Items"'),
+            ("STORE", "11", "+FLAGS.SILENT", "(\\Deleted)"),
+            ("EXPUNGE", "11"),
+        ]
+    assert all(call[1] == "11" for call in mutations)
+    assert all("\\Seen" not in str(call) for call in mutations)
+
+
+def test_imap_trash_refuses_reused_uidvalidity(monkeypatch):
+    from unittest.mock import Mock
+
+    mailbox = Mock()
+    mailbox.select.return_value = ("OK", [])
+    mailbox.response.return_value = ("UIDVALIDITY", [b"new"])
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    monkeypatch.setattr(provider, "connection", lambda: mailbox)
+    with pytest.raises(ValueError, match="UIDVALIDITY"):
+        provider.trash_blocking("7:11")
+    mailbox.uid.assert_not_called()
+
+
+def test_imap_trash_retry_missing_message_is_success(monkeypatch):
+    from unittest.mock import Mock
+
+    mailbox = Mock()
+    mailbox.select.return_value = ("OK", [])
+    mailbox.response.return_value = ("UIDVALIDITY", [b"7"])
+    mailbox.uid.return_value = ("OK", [b""])
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    monkeypatch.setattr(provider, "connection", lambda: mailbox)
+    provider.trash_blocking("7:11")
+    mailbox.list.assert_not_called()
+    assert mailbox.uid.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_gmail_trash_uses_recoverable_endpoint(monkeypatch):
+    provider = GmailProvider(account("gmail"))
+    provider.request = AsyncMock(return_value={})
+    await provider.trash("mail-123")
+    provider.request.assert_awaited_once_with(
+        "POST", "https://gmail.googleapis.com/gmail/v1/users/me/messages/mail-123/trash"
+    )
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_zoho_trash_moves_to_trash_folder_in_eu(monkeypatch):
+    provider = ZohoEUProvider(account("zoho_eu"), None)
+    provider.request = AsyncMock(
+        side_effect=[
+            {"data": [{"folderType": "Trash", "folderId": "trash-folder"}]},
+            {},
+        ]
+    )
+    await provider.trash("message-123")
+    assert provider.request.call_args.args == (
+        "PUT",
+        "https://mail.zoho.eu/api/accounts/123/updatemessage",
+    )
+    assert provider.request.call_args.kwargs["json"] == {
+        "mode": "moveMessage",
+        "messageId": ["message-123"],
+        "destfolderId": "trash-folder",
+    }
+    await provider.close()
+
+
+def test_imap_trash_does_not_remove_original_if_trash_copy_fails(monkeypatch):
+    from unittest.mock import Mock
+
+    mailbox = Mock()
+    mailbox.capabilities = (b"UIDPLUS",)
+    mailbox.select.return_value = ("OK", [])
+    mailbox.response.return_value = ("UIDVALIDITY", [b"7"])
+    mailbox.list.return_value = ("OK", [b'(\\Trash) "/" "Trash"'])
+    mailbox.uid.side_effect = [("OK", [b"11"]), ("NO", [b"Mailbox quota exceeded"])]
+    provider = InboxEUProvider(account("inbox_eu"), None)
+    monkeypatch.setattr(provider, "connection", lambda: mailbox)
+    with pytest.raises(RuntimeError, match="copy to Trash failed"):
+        provider.trash_blocking("7:11")
+    assert [call.args[0] for call in mailbox.uid.call_args_list] == ["search", "COPY"]

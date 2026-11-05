@@ -1,6 +1,6 @@
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -443,3 +443,127 @@ async def test_readiness_tracks_migration_head_and_rejects_stale_schema(client):
             )
             await session.commit()
     assert (await client.get("/health/ready")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_message_delete_hides_mail_and_counters_but_keeps_tombstone(
+    client, admin_user
+):
+    from app.services.pending import account_status, refresh_needs_reply
+
+    cid, aid, ids = await seed_mail(admin_user)
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        message.category = "add_request"
+        message.needs_reply = True
+        await session.flush()
+        await account_status(session, aid)
+        await session.commit()
+    response = await client.delete(f"/messages/{ids[0]}")
+    assert response.status_code == 202
+    assert (await client.delete(f"/messages/{ids[0]}")).status_code == 202
+    assert (await client.get(f"/messages/{ids[0]}")).status_code == 404
+    assert (await client.get("/messages")).json()["items"] == []
+    accounts = (await client.get("/accounts")).json()
+    assert accounts[0]["unread_count"] == 0
+    assert accounts[0]["pending_count"] == 0
+    assert accounts[0]["trash_pending_count"] == 1
+    async with Session() as session:
+        await refresh_needs_reply(session)
+        await session.commit()
+        message = await session.get(Message, ids[0])
+        assert message.deleted_at and not message.trashed_at and not message.needs_reply
+        assert message.remote_id == "0" and message.delete_reason == "manual"
+
+
+@pytest.mark.asyncio
+async def test_automatic_signin_delete_skips_llm_and_notifications(
+    client, admin_user, monkeypatch
+):
+    from app.workers import tasks_process
+
+    cid, aid, ids = await seed_mail(admin_user)
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        message.from_email = "support@inbox.eu"
+        message.subject = "New sign in from United Kingdom to your email"
+        await session.commit()
+    classify = Mock(side_effect=AssertionError("No LLM calls for sign-in notices"))
+    monkeypatch.setattr(tasks_process, "classifier_for", classify)
+    await tasks_process.process(str(ids[0]))
+    classify.assert_not_called()
+    assert (await client.get("/messages")).json()["items"] == []
+    assert (await client.get("/notifications")).json()["unseen_count"] == 0
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        assert message.deleted_at and message.delete_reason == "inbox_sign_in"
+        assert not message.is_read
+
+
+@pytest.mark.asyncio
+async def test_remote_trash_retries_and_does_not_resurrect_message(
+    client, admin_user, monkeypatch
+):
+    from app.workers import tasks_trash
+
+    cid, aid, ids = await seed_mail(admin_user)
+    provider = SimpleNamespace(
+        trash=AsyncMock(side_effect=ConnectionError("temporary")), close=AsyncMock()
+    )
+    monkeypatch.setattr(tasks_trash, "provider_for", lambda *args: provider)
+    await client.delete(f"/messages/{ids[0]}")
+    await tasks_trash.trash_once(str(ids[0]))
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        assert message.deleted_at and not message.trashed_at and message.trash_retry_at
+        assert message.trash_error == "ConnectionError"
+    provider.trash.side_effect = None
+    await tasks_trash.trash_once(str(ids[0]))
+    await tasks_trash.trash_once(str(ids[0]))
+    assert provider.trash.await_count == 2
+    async with Session() as session:
+        message = await session.get(Message, ids[0])
+        assert message.deleted_at and message.trashed_at and message.trash_error is None
+    assert (await client.get("/messages")).json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_signin_notice_starts_in_trash_without_notifications(
+    client, admin_user, monkeypatch
+):
+    from app.workers import tasks_sync
+    from app.services.mail.base import Batch, MailItem
+
+    cid, aid, _ = await seed_mail(admin_user, 0)
+    item = MailItem(
+        "7:11",
+        "<signin@inbox.eu>",
+        "notice",
+        "support@inbox.eu",
+        "Inbox.eu",
+        ["sales@example.com"],
+        "New sign in from Germany to your email",
+        "Notice",
+        "",
+        utcnow(),
+        False,
+        {},
+    )
+    provider = SimpleNamespace(
+        fetch=AsyncMock(return_value=Batch([item], {"last_uid": 11}, False, {})),
+        close=AsyncMock(),
+    )
+    monkeypatch.setattr(tasks_sync, "provider_for", lambda *args: provider)
+    await tasks_sync.sync_once(str(aid))
+    await tasks_sync.sync_once(str(aid))  # Dedup retains the deletion tombstone.
+    async with Session() as session:
+        messages = (
+            await session.scalars(select(Message).where(Message.mail_account_id == aid))
+        ).all()
+        assert len(messages) == 1
+        message = messages[0]
+        assert message.deleted_at and message.delete_reason == "inbox_sign_in"
+        assert message.processing_state == "done" and message.is_read is False
+        assert (await session.get(MailAccount, aid)).unread_count == 0
+        assert await session.scalar(select(func.count()).select_from(Notification)) == 0
+    assert (await client.get("/messages")).json()["items"] == []

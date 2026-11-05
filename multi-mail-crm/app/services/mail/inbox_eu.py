@@ -145,6 +145,85 @@ class InboxEUProvider(MailProvider):
         ):
             await asyncio.to_thread(self.read_blocking, remote_id, value)
 
+    @staticmethod
+    def trash_folder(mailbox):
+        status, rows = mailbox.list()
+        if status != "OK":
+            raise RuntimeError("IMAP folder listing failed")
+        fallback = None
+        for row in rows or []:
+            if not isinstance(row, bytes):
+                continue
+            match = re.fullmatch(
+                rb'\(([^)]*)\)\s+(?:"(?:[^"\\]|\\.)*"|NIL)\s+("(?:[^"\\]|\\.)*"|[^\s]+)',
+                row,
+            )
+            if not match:
+                continue
+            flags, token = match.groups()
+            target = token.decode("ascii")
+            if b"\\trash" in flags.lower().split():
+                return target
+            if token.strip(b'"').lower() in (
+                b"trash",
+                b"deleted items",
+                b"deleted messages",
+            ):
+                fallback = target
+        if fallback:
+            return fallback
+        raise RuntimeError("IMAP Trash folder not found")
+
+    def trash_blocking(self, remote_id):
+        validity, uid = remote_id.split(":", 1)
+        if not validity.isdigit() or not uid.isdigit():
+            raise ValueError("Invalid IMAP message identifier")
+        mailbox = self.connection()
+        try:
+            if mailbox.select("INBOX", readonly=False)[0] != "OK":
+                raise RuntimeError("IMAP INBOX unavailable")
+            current = (mailbox.response("UIDVALIDITY")[1] or [b""])[0].decode()
+            if current != validity:
+                raise ValueError(
+                    "IMAP UIDVALIDITY changed; refusing to move another message"
+                )
+            status, found = mailbox.uid("search", None, f"(UID {uid})")
+            if status != "OK":
+                raise RuntimeError("IMAP UID search failed")
+            if uid.encode() not in b" ".join(found or []).split():
+                return  # Already moved by a previous attempt, or deleted externally.
+            target = self.trash_folder(mailbox)
+            capabilities = {
+                c.decode().upper() if isinstance(c, bytes) else c.upper()
+                for c in mailbox.capabilities
+            }
+            if "MOVE" in capabilities:
+                if mailbox.uid("MOVE", uid, target)[0] != "OK":
+                    raise RuntimeError("IMAP move to Trash failed")
+            elif "UIDPLUS" in capabilities:
+                # Never issue a global EXPUNGE: it could remove unrelated deleted mail.
+                # COPY first even when already flagged: never assume another client's
+                # Deleted flag means a recoverable Trash copy exists.
+                if mailbox.uid("COPY", uid, target)[0] != "OK":
+                    raise RuntimeError("IMAP copy to Trash failed")
+                if mailbox.uid("STORE", uid, "+FLAGS.SILENT", "(\\Deleted)")[0] != "OK":
+                    raise RuntimeError("IMAP delete flag failed")
+                if mailbox.uid("EXPUNGE", uid)[0] != "OK":
+                    raise RuntimeError("IMAP targeted expunge failed")
+            else:
+                raise RuntimeError("Safe IMAP trash requires MOVE or UIDPLUS")
+        finally:
+            try:
+                mailbox.logout()
+            except (OSError, imaplib.IMAP4.error):
+                pass
+
+    async def trash(self, remote_id):
+        async with Semaphore(
+            self.redis, "imap:connections", settings().imap_max_connections
+        ):
+            await asyncio.to_thread(self.trash_blocking, remote_id)
+
     async def send(self, message, original):
         await aiosmtplib.send(
             reply_mime(self.account.email, message, original),

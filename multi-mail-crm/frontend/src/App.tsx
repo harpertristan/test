@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Checkbox, Drawer, Empty, Form, Input, List, Popover, Space, Spin, Tag, Tooltip, Typography, message } from 'antd';
-import { BellOutlined, ReloadOutlined, SettingOutlined, TeamOutlined } from '@ant-design/icons';
-import { type Account, type Company, type CRMTask, type Mail, type Notice, type RealtimeEvent, type User, api, post, labels, colors, dateTime, mailBase } from './api/client';
+import { BellOutlined, DeleteOutlined, ReloadOutlined, SettingOutlined, TeamOutlined } from '@ant-design/icons';
+import { type Account, type Company, type CRMTask, type Mail, type Notice, type RealtimeEvent, type User, APIError, api, post, labels, colors, dateTime, mailBase } from './api/client';
 import { AccountList } from './components/AccountList';
 import { MessageFeed } from './components/MessageFeed';
 import { CompanyCard } from './components/CompanyCard';
@@ -23,6 +23,7 @@ function Workspace({ user, onUser }: { user: User; onUser: (value: User | null) 
   const [accounts, setAccounts] = useState<Account[]>([]), [companies, setCompanies] = useState<Company[]>([]), [notices, setNotices] = useState<Notice[]>([]), [noticeCount, setNoticeCount] = useState(0);
   const [accountId, setAccountId] = useState<string | null>(null), [companyId, setCompanyId] = useState<string | null>(null), [detail, setDetail] = useState<Mail | null>(null);
   const [mails, setMails] = useState<Mail[]>([]), [cursor, setCursor] = useState<string | null>(null), [loading, setLoading] = useState(false), [error, setError] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<'settings' | 'admin' | null>(null), [sound, setSound] = useState(localStorage.getItem('crm-sound') === 'true');
   const [reply, setReply] = useState(''), [sending, setSending] = useState(false), [taskTitle, setTaskTitle] = useState(''), [tasks, setTasks] = useState<CRMTask[]>([]), [threadOnly, setThreadOnly] = useState(false);
   const [mobilePane, setMobilePane] = useState('accounts'), [revision, setRevision] = useState(0);
@@ -34,6 +35,11 @@ function Workspace({ user, onUser }: { user: User; onUser: (value: User | null) 
   useEffect(() => { const id = new URLSearchParams(location.search).get('message'); if (id) void openMail(id, true); }, [openMail]);
   const realtime = useCallback((event: RealtimeEvent) => {
     if (['heartbeat', 'pong'].includes(event.type)) return;
+    if (event.type === 'messages.deleted' && event.message_id) {
+      setMails(current => current.filter(mail => mail.id !== event.message_id));
+      if (detail?.id === event.message_id) { ++detailRequest.current; setDetail(null); }
+    }
+    if (event.type === 'trash.failed') message.error('Не удалось перенести письмо в корзину. Статус — в разделе «Управление».');
     if (event.type === 'notification' && event.notification_id && !seen.current.has(event.notification_id)) {
       seen.current.add(event.notification_id); if (seen.current.size > 2000) seen.current.delete(seen.current.values().next().value!);
       notify(event, id => void openMail(id, true), sound);
@@ -58,13 +64,25 @@ function Workspace({ user, onUser }: { user: User; onUser: (value: User | null) 
     const id = ++requestId.current; setLoading(true); paginationBusy.current = true;
     api<{ items: Mail[]; next_cursor: string | null }>(query()).then(result => { if (id === requestId.current) { setMails(result.items); setCursor(result.next_cursor); } }).catch(e => setError(e.message)).finally(() => { if (id === requestId.current) { setLoading(false); paginationBusy.current = false; } });
   }, [query, revision]);
-  useEffect(() => { if (detail) api<Mail>('/messages/' + detail.id).then(fresh => setDetail(current => current?.id === fresh.id ? fresh : current)).catch(() => {}); }, [revision]); // refresh only after server events
+  useEffect(() => { if (detail) api<Mail>('/messages/' + detail.id).then(fresh => setDetail(current => current?.id === fresh.id ? fresh : current)).catch(error => { if (error instanceof APIError && error.status === 404) setDetail(current => current?.id === detail.id ? null : current); }); }, [revision]); // refresh only after server events
   useEffect(() => { const id = detail?.company_id || activeCompany?.id; if (id) api<CRMTask[]>('/tasks?company_id=' + id).then(setTasks).catch(() => {}); }, [detail?.company_id, activeCompany?.id, revision]);
   const loadMore = async () => { if (!cursor || paginationBusy.current) return; paginationBusy.current = true; setLoading(true); const id = requestId.current; try { const result = await api<{ items: Mail[]; next_cursor: string | null }>(query(cursor)); if (id === requestId.current) { setMails(existing => [...existing, ...result.items.filter(m => !existing.some(e => e.id === m.id))]); setCursor(result.next_cursor); } } catch (e) { message.error((e as Error).message); } finally { if (id === requestId.current) { paginationBusy.current = false; setLoading(false); } } };
   const action = async (path: string, value: unknown = {}, text = 'Сохранено') => { try { await post(path, value); setRevision(v => v + 1); message.success(text); } catch (e) { message.error((e as Error).message); } };
   const selectAccount = (id: string) => { detailRequest.current++; setAccountId(id); setCompanyId(null); setDetail(null); setThreadOnly(false); setMobilePane('feed'); };
   const selectCompany = (id: string) => { detailRequest.current++; setCompanyId(id); setAccountId(null); setDetail(null); setThreadOnly(false); setMobilePane('feed'); };
   const send = async () => { if (!detail || !reply.trim()) return; setSending(true); try { await post(`/messages/${detail.id}/reply`, { body: reply, idempotency_key: replyKey.current }); setReply(''); replyKey.current = crypto.randomUUID(); setRevision(v => v + 1); message.success('Ответ поставлен в очередь. Статус отправки появится в переписке.'); } catch (e) { message.error((e as Error).message); } finally { setSending(false); } };
+  const deleteMail = async (id: string) => {
+    setDeleting(id);
+    try {
+      await api(`/messages/${id}`, { method: 'DELETE' });
+      ++detailRequest.current;
+      setDetail(current => current?.id === id ? null : current);
+      setMails(current => current.filter(mail => mail.id !== id));
+      setRevision(value => value + 1);
+      message.success('Перенос в корзину почтового сервиса поставлен в очередь');
+    } catch (error) { message.error((error as Error).message); }
+    finally { setDeleting(null); }
+  };
   const noticesContent = <div style={{ width: 340, maxHeight: 420, overflow: 'auto' }}><Button size="small" onClick={() => action('/notifications/seen')}>Отметить уведомления просмотренными</Button><List dataSource={notices} renderItem={n => <List.Item onClick={() => void openMail(n.message_id, true)} style={{ cursor: 'pointer', background: n.is_seen ? '' : '#f0f7ff' }}><List.Item.Meta title={n.email} description={n.subject || '(Без темы)'} /></List.Item>} /></div>;
   return <div className="workspace"><nav className="tool-navigation" aria-label="Инструменты"><a href="/crm">Play Scout</a><a href="/assistant/">Помощник</a><a href={mailBase + '/'} aria-current="page">Почтовая CRM</a></nav><header className="topbar"><div><strong>Мультипочтовая CRM</strong><Tooltip title={connected ? 'Обновления в реальном времени' : 'Переподключаемся; резервное обновление раз в минуту'}><span className={`connection ${connected ? 'online' : ''}`} /></Tooltip></div><Space wrap size="small"><Popover trigger="click" content={noticesContent} placement="bottomRight"><Badge count={noticeCount}><Button icon={<BellOutlined />} aria-label="Уведомления" /></Badge></Popover><Button icon={<ReloadOutlined />} aria-label="Обновить" onClick={() => setRevision(v => v + 1)} /><Button icon={<SettingOutlined />} onClick={() => setDrawer('settings')}>Настройки</Button>{user.role === 'admin' && <Button icon={<TeamOutlined />} onClick={() => setDrawer('admin')}>Управление</Button>}</Space></header>
     {error && <Alert type="error" showIcon message={error} closable onClose={() => setError('')} />}
@@ -77,6 +95,7 @@ function Workspace({ user, onUser }: { user: User; onUser: (value: User | null) 
         <div className="detail-header"><p className="hint">Ящик: {accounts.find(a => a.id === detail.mail_account_id)?.email}</p><Typography.Title level={3}>{detail.subject || '(Без темы)'}</Typography.Title><div>{detail.from_name} &lt;{detail.from_email}&gt;</div><div className="hint">Кому: {detail.to_emails.join(', ')} · {dateTime(detail.received_at)}</div><Space wrap>{detail.category && <Tooltip title={`${Math.round((detail.category_conf ?? 0) * 100)}% · ${detail.category_reason ?? ''}`}><Tag color={colors[detail.category]}>{labels[detail.category]}</Tag></Tooltip>}{detail.replied_at && <Tag color="green">Ответили {dateTime(detail.replied_at)}</Tag>}</Space>
           <Space wrap style={{ marginTop: 12 }}>
             {detail.direction === 'in' && <><Button onClick={() => void action(`/messages/${detail.id}/read`, { value: !detail.is_read }, 'Изменение флага поставлено в очередь')}>{detail.is_read ? 'Сделать непрочитанным' : 'Прочитано'}</Button><Button onClick={() => void action(`/messages/${detail.id}/replied`)}>Отметить: ответил</Button></>}
+            {detail.direction === 'in' && <Tooltip title="Перенести в корзину почтового сервиса"><Button danger icon={<DeleteOutlined />} loading={deleting === detail.id} onClick={() => void deleteMail(detail.id)}>Удалить письмо</Button></Tooltip>}
             <Button onClick={() => void action(`/companies/${detail.company_id}/flag`, { value: !companies.find(c => c.id === detail.company_id)?.is_flagged })}>Пометить компанию</Button>
             <Button onClick={() => selectCompany(detail.company_id)}>Карточка фирмы</Button>
           </Space>

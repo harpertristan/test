@@ -162,6 +162,25 @@ class ZohoEUProvider(OAuthProvider):
             },
         )
 
+    async def trash(self, remote_id):
+        base = await self.account_base()
+        folders = (await self.request("GET", base + "/folders")).get("data", [])
+        trash = next(
+            (f for f in folders if str(f.get("folderType", "")).lower() == "trash"),
+            None,
+        )
+        if not trash:
+            raise ValueError("Zoho Trash folder not found")
+        await self.request(
+            "PUT",
+            base + "/updatemessage",
+            json={
+                "mode": "moveMessage",
+                "messageId": [remote_id],
+                "destfolderId": str(trash["folderId"]),
+            },
+        )
+
     async def send(self, message, original):
         base = await self.account_base()
         result = await self.request(

@@ -40,6 +40,10 @@ async def dispatch_outbox():
                         from app.workers.tasks_process import process_new_message
 
                         process_new_message.delay(payload["message_id"])
+                    elif kind == "trash.request":
+                        from app.workers.tasks_trash import trash_message
+
+                        trash_message.delay(payload["message_id"])
                     elif kind == "read.request":
                         from app.workers.tasks_process import mark_read
 
@@ -53,6 +57,13 @@ async def dispatch_outbox():
 
                         send_reply.delay(payload["message_id"])
                     else:
+                        if kind == "notification":
+                            message = await session.get(
+                                Message, UUID(payload["message_id"])
+                            )
+                            if not message or message.deleted_at:
+                                row.delivered_at = utcnow()
+                                continue
                         await client.publish(
                             "crm:events",
                             json.dumps({"event_id": str(row.id), **payload}),
@@ -121,6 +132,7 @@ async def flush_telegram():
                                             [UUID(i) for i in identifiers]
                                         ),
                                         Notification.user_id == user.id,
+                                        Message.deleted_at.is_(None),
                                         Notification.telegram_sent_at.is_(None),
                                     )
                                     .order_by(Notification.created_at)

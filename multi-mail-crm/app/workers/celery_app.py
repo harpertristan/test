@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.workers.tasks_process",
         "app.workers.tasks_pending",
         "app.workers.tasks_notify",
+        "app.workers.tasks_trash",
     ],
 )
 celery_app.conf.update(
@@ -25,6 +26,7 @@ celery_app.conf.update(
     task_default_queue="control",
     task_routes={
         "mail.sync": {"queue": "sync"},
+        "mail.trash": {"queue": "sync"},
         "mail.refresh_token": {"queue": "sync"},
         "mail.process": {"queue": "classify"},
     },
@@ -37,6 +39,7 @@ celery_app.conf.update(
             "schedule": max(60, int(os.environ.get("SYNC_INTERVAL_SECONDS", "120"))),
         },
         "recover-pending-messages": {"task": "mail.recover", "schedule": 60.0},
+        "trash-recovery": {"task": "mail.cleanup_trash", "schedule": 60.0},
         "outbox": {"task": "notify.outbox", "schedule": 5.0},
         "telegram-digest": {"task": "notify.telegram", "schedule": 10.0},
         "pending-hourly": {"task": "mail.pending", "schedule": 3600.0},

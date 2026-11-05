@@ -28,6 +28,7 @@ async def listing(
         )
         .where(
             Message.direction == "in",
+            Message.deleted_at.is_(None),
             Message.category.in_(("add_request", "other")),
             Message.needs_reply.is_(True),
             Message.replied_at.is_(None),
@@ -55,9 +56,28 @@ async def listing(
             .order_by(Company.name, MailAccount.email)
         )
     ).all()
+    trash_counts = {
+        row.aid: (row.pending, row.errors)
+        for row in (
+            await session.execute(
+                select(
+                    Message.mail_account_id.label("aid"),
+                    func.count().label("pending"),
+                    func.count()
+                    .filter(Message.trash_error.is_not(None))
+                    .label("errors"),
+                )
+                .where(Message.deleted_at.is_not(None), Message.trashed_at.is_(None))
+                .group_by(Message.mail_account_id)
+            )
+        ).all()
+    }
     result = []
     for account, name, favorite, count, oldest in rows:
         item = AccountView.model_validate(account)
+        item.trash_pending_count, item.trash_error_count = trash_counts.get(
+            account.id, (0, 0)
+        )
         item.company_name = name
         item.is_favorite = bool(favorite)
         item.pending_count = count or 0

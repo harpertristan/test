@@ -30,7 +30,7 @@ async def listing(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(db),
 ):
-    query = select(Message)
+    query = select(Message).where(Message.deleted_at.is_(None))
     if account_id:
         query = query.where(Message.mail_account_id == account_id)
     if company_id:
@@ -91,10 +91,28 @@ async def detail(
     session: AsyncSession = Depends(db),
 ):
     message = await session.get(Message, message_id)
-    if not message:
+    if not message or message.deleted_at:
         raise HTTPException(404, "Письмо не найдено")
     # Reading the detail is intentionally side-effect-free. Only explicit Read marks it.
     return message
+
+
+@router.delete("/messages/{message_id}", status_code=202)
+async def trash(
+    message_id: UUID,
+    _: User = Depends(current_user),
+    session: AsyncSession = Depends(db),
+):
+    from app.services.trash import request_trash
+
+    message = await session.get(Message, message_id)
+    if not message:
+        raise HTTPException(404, "Письмо не найдено")
+    if message.direction != "in" or not message.remote_id:
+        raise HTTPException(400, "Удаление доступно для входящих писем")
+    await request_trash(session, message)
+    await session.commit()
+    return {"status": "queued"}
 
 
 @router.post("/messages/{message_id}/read", status_code=202)
@@ -249,7 +267,7 @@ async def notifications(
             select(Notification, Message, MailAccount)
             .join(Message, Message.id == Notification.message_id)
             .join(MailAccount, MailAccount.id == Notification.mail_account_id)
-            .where(Notification.user_id == user.id)
+            .where(Notification.user_id == user.id, Message.deleted_at.is_(None))
             .order_by(Notification.created_at.desc())
             .limit(100)
         )
@@ -257,7 +275,12 @@ async def notifications(
     count = await session.scalar(
         select(func.count())
         .select_from(Notification)
-        .where(Notification.user_id == user.id, Notification.is_seen.is_(False))
+        .join(Message, Message.id == Notification.message_id)
+        .where(
+            Notification.user_id == user.id,
+            Notification.is_seen.is_(False),
+            Message.deleted_at.is_(None),
+        )
     )
     items = [
         {

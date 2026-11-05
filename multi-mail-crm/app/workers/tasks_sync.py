@@ -50,6 +50,11 @@ async def sync_once(account_id, refresh_only=False):
                         if provider_id:
                             account.provider_account_id = provider_id
                         for item in batch.items:
+                            from app.services.mail_rules import is_sign_in_notice
+
+                            auto_trash = is_sign_in_notice(
+                                item.from_email, item.subject
+                            )
                             message_id = await session.scalar(
                                 insert(Message)
                                 .values(
@@ -68,7 +73,13 @@ async def sync_once(account_id, refresh_only=False):
                                     received_at=item.received_at,
                                     is_read=item.is_read,
                                     raw_headers=item.headers,
-                                    processing_state="pending",
+                                    processing_state="done"
+                                    if auto_trash
+                                    else "pending",
+                                    deleted_at=utcnow() if auto_trash else None,
+                                    delete_reason="inbox_sign_in"
+                                    if auto_trash
+                                    else None,
                                 )
                                 .on_conflict_do_nothing(constraint="uq_message_remote")
                                 .returning(Message.id)
@@ -76,9 +87,12 @@ async def sync_once(account_id, refresh_only=False):
                             if message_id:
                                 event(
                                     session,
-                                    "process.request",
+                                    "trash.request"
+                                    if auto_trash
+                                    else "process.request",
                                     {"message_id": str(message_id)},
-                                    "process:" + str(message_id),
+                                    ("trash:" if auto_trash else "process:")
+                                    + str(message_id),
                                 )
                         if "__unseen__" in batch.read_flags:
                             unseen = batch.read_flags["__unseen__"]
