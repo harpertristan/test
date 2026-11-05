@@ -23,7 +23,7 @@ async def telegram_setup():
     bot = Bot(cfg.telegram_bot_token)
     try:
         await bot.set_webhook(
-            cfg.public_url + "/api/webhooks/telegram",
+            cfg.app_url + "/api/webhooks/telegram",
             secret_token=webhook_secret(),
             allowed_updates=["message", "callback_query"],
             drop_pending_updates=False,
