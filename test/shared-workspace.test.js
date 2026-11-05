@@ -1,3 +1,4 @@
+import JSZip from 'jszip';import {readFileSync} from 'node:fs';
 import test from 'node:test';import assert from 'node:assert/strict';import {mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import {once} from 'node:events';import {createApp} from '../server.js';
 test('shared prefix reuses Scout access, rejects forged/absent gateway keys and keeps extension scope',async t=>{
  const dir=mkdtempSync(join(tmpdir(),'assistant-shared-')),key='synthetic-shared-workspace-key-0123456789';const {app,db}=createApp({dataDir:dir,origin:'http://test.local',basePath:'/assistant',workspaceKey:key,ai:{}});const server=app.listen(0,'127.0.0.1');await once(server,'listening');t.after(async()=>{await new Promise(r=>server.close(r));db.close();rmSync(dir,{recursive:true,force:true});});const root='http://127.0.0.1:'+server.address().port;
@@ -9,4 +10,11 @@ test('shared prefix reuses Scout access, rejects forged/absent gateway keys and 
  const token=await (await fetch(root+'/assistant/api/extension-token',{method:'POST',headers,body:'{}'})).json();assert.ok(token.token);assert.equal((await get('/assistant/api/me',{Authorization:'Bearer '+token.token})).status,200);assert.equal((await get('/assistant/api/companies/'+(await create.json()).id+'/documents',{Authorization:'Bearer '+token.token})).status,403);
  assert.equal((await fetch(root+'/assistant/api/login',{method:'POST',headers,body:'{"username":"workspace","password":"unused"}'})).status,409);
  const html=await(await get('/assistant/')).text();assert.match(html,/data-workspace="shared"/);assert.match(html,/content="\/assistant"/);assert.match(html,/\.\/app.js/);
+ assert.match(html,/Полная инструкция подключения/);assert.match(html,/id="connectionServerURL"/);
+ const download=await get('/assistant/downloads/registration-assistant-extension-0.5.1.zip',headers);assert.equal(download.status,200);
+ const bundle=await JSZip.loadAsync(await download.arrayBuffer());
+ const manifest=JSON.parse(await bundle.file('registration-assistant-extension/manifest.json').async('string'));assert.equal(manifest.version,'0.5.1');
+ for(const name of ['manifest.json','background.js','options.js','options.html','panel.js'])assert.equal(await bundle.file('registration-assistant-extension/'+name).async('string'),readFileSync('extension/'+name,'utf8'));
+ assert.ok(Object.keys(bundle.files).every(name=>name.startsWith('registration-assistant-extension/')));
+
 });

@@ -2,6 +2,8 @@ import {createProfileUI} from './profile-ui.js';
 const basePath=document.querySelector('meta[name=assistant-base]')?.content||'';
 const sharedWorkspace=document.documentElement.dataset.workspace==='shared';
 const $ = id=>document.getElementById(id);
+$('connectionServerURL').value=location.origin+basePath+'/';
+$('copyConnectionURL').addEventListener('click',safe(async()=>{await navigator.clipboard.writeText($('connectionServerURL').value);message('Адрес сервера скопирован.');}));
 let companyId='',documents=[],facts=[],fields={},loadVersion=0,review=null,registrySourceURL='';
 function node(tag,text,className) {const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;}
 function message(text,error=false){$('message').textContent=text;$('message').className=error?'error':'';}
@@ -36,7 +38,7 @@ $('createToken').addEventListener('click',safe(async()=>{const data=await api('/
 $('copyToken').addEventListener('click',safe(async()=>{await navigator.clipboard.writeText($('tokenValue').value);message('Токен скопирован. Вставьте его в настройках расширения.');}));
 $('hideToken').addEventListener('click',()=>{$('tokenValue').value='';$('tokenBox').hidden=true;});
 $('revokeToken').addEventListener('click',safe(async()=>{await api('/extension-token',{method:'DELETE'});$('tokenValue').value='';$('tokenBox').hidden=true;message('Токен расширения отозван.');}));
-const themeSelect=$('themeSelect');try{themeSelect.value=localStorage.getItem('assistant-theme')==='violet'?'violet':'classic';}catch{}document.documentElement.dataset.theme=themeSelect.value;themeSelect.addEventListener('change',()=>{document.documentElement.dataset.theme=themeSelect.value;try{localStorage.setItem('assistant-theme',themeSelect.value);}catch{}});
+const themeSelect=$('themeSelect');themeSelect.value='violet';try{if(localStorage.getItem('assistant-theme-default')==='violet-v1'&&localStorage.getItem('assistant-theme')==='classic')themeSelect.value='classic';localStorage.setItem('assistant-theme',themeSelect.value);localStorage.setItem('assistant-theme-default','violet-v1');}catch{}document.documentElement.dataset.theme=themeSelect.value;themeSelect.addEventListener('change',()=>{document.documentElement.dataset.theme=themeSelect.value;try{localStorage.setItem('assistant-theme',themeSelect.value);}catch{}});
 
 await bootstrap();
 

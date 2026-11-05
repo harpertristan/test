@@ -262,7 +262,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     res.json({explanation:explanation.slice(0,5000),notice:'Пояснение модели: проверьте смысл перед принятием решения. Оно не изменяет подтверждённые данные.'});
   });
   app.use('/api',(_req,res)=>res.status(404).json({error:'Метод не найден.'}));
-  app.get('/',(_req,res)=>res.type('html').send(readFileSync(join(root,'public','index.html'),'utf8').replace('<html lang="ru">',`<html lang="ru" data-workspace="${workspaceKey?'shared':'standalone'}">`).replace('<head>','<head><meta name="assistant-base" content="'+basePath+'">')));
+  app.get('/',(_req,res)=>res.type('html').send(readFileSync(join(root,'public','index.html'),'utf8').replace(/<html lang="ru"(?: data-theme="violet")?>/,`<html lang="ru" data-theme="violet" data-workspace="${workspaceKey?'shared':'standalone'}">`).replace('<head>','<head><meta name="assistant-base" content="'+basePath+'">')));
   app.use(express.static(join(root,'public'),{index:false}));
   app.use((error,_req,res,_next)=>{
     const status=error instanceof multer.MulterError ? 400 : error.status || 500;
