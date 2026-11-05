@@ -25,3 +25,16 @@ test('first and last names are selected as a pair rather than mixing independent
  const rows=[row('a','Alice',{key:'contact_first_name'}),row('a','Example',{key:'contact_last_name'}),row('b','Alice',{key:'contact_first_name'}),row('b','Other',{key:'contact_last_name'}),row('c','Anna',{key:'contact_first_name'}),row('c','Other',{key:'contact_last_name'})];
  const result=profileSelections(rows,[doc('a'),doc('b'),doc('c')]);assert.equal(result.contact_first_name.document_id,result.contact_last_name.document_id);assert.equal(result.contact_first_name.tied,true);
 });
+test('registry address outranks supplier invoices even when the supplier has more documents',()=>{
+ const quote='Registered Office: 8 Example Road, Bristol, BS1 1AA, England';
+ const rows=[row('registry','8 Example Road, Bristol, BS1 1AA, England',{key:'registered_address',quote,note:'Регистрационный документ компании: адрес'}),row('registry','Bristol',{key:'city',quote,note:'Регистрационный документ компании: город'})];
+ const docs=[doc('registry')];for(let i=0;i<3;i++){docs.push({...doc('vendor'+i),filename:'invoice-'+i+'.pdf'});rows.push(row('vendor'+i,'London',{key:'city'}));}
+ const selected=profileSelections(rows,docs);assert.equal(selected.city.value,'Bristol');assert.equal(selected.city.document_id,'registry');
+ const bad=profileSelections([row('registry','BS1 1AA (Provider).',{key:'city'})],docs);assert.equal(bad.city,undefined);
+});
+test('incorporation document address is preferred to registry-like footer on an unrelated agreement',()=>{
+ const quote='Registered Office: 8 Example Road, Bristol, BS1 1AA, England',note='Регистрационный документ компании: адрес';
+ const docs=[doc('registry','CERTIFICATE OF INCORPORATION'),doc('agreement','Service agreement. Companies House company number and registered office in footer.')];
+ const rows=[row('registry','8 Example Road, Bristol, BS1 1AA, England',{key:'registered_address',quote,note}),row('registry','Bristol',{key:'city',quote,note}),row('agreement','London',{key:'city',note})];
+ assert.equal(profileSelections(rows,docs).city.value,'Bristol');
+});

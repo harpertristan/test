@@ -32,3 +32,17 @@ test('a single review-only cited description is selected without a button click'
  db.prepare('INSERT INTO extracted_fields VALUES(?,?,?,?,?,?,?,?,?,?)').run('description','company','business_description','Retail sale of example goods','source',1,'Retail sale of example goods','Semantic source requires operator review','review',0);
  const state=profileState(db,'company');assert.equal(state.values.business_description,'Retail sale of example goods');assert.equal(state.comparisons.business_description.length,1);assert.equal(state.approved,false);assert.match(state.recommendations.business_description.reason,/Единственный/);
 });
+test('old malformed saved address is repaired as a whole from registry and requires renewed approval',async t=>{
+ const db=setup(t);const {registryPages}=await import('../scripts/fixtures/positioned-pdf.js');const {positionedPdf}=await import('../scripts/fixtures/positioned-pdf.js');const {extractDocument}=await import('../lib/extraction.js');
+ const pages=await extractDocument(positionedPdf(registryPages),'registry.pdf');db.prepare('INSERT INTO documents VALUES(?,?,?,?,?)').run('registry','company','registry.pdf',JSON.stringify(pages),'ready');reanalyze(db,'company');
+ const saved=publish(db,completedProfile(profileState(db,'company').values));
+ const bad={...saved.values,registered_address_line1:'Vendor Road',registered_address_line2:'6th Floor, 2 Example Street',city:'BS1 1AA (Provider).'};
+ assert.ok(validateProfile(bad).errors.city);
+ db.prepare('UPDATE company_profiles SET values_json=? WHERE company_id=?').run(JSON.stringify(bad),'company');
+ const repaired=profileState(db,'company');assert.equal(repaired.approved,false);assert.equal(repaired.values.city,'BRISTOL');assert.equal(repaired.values.registered_address_line1,'EXAMPLE HOUSE 1 SAMPLE STREET');assert.equal(repaired.values.registered_address_line2,'SAMPLE VILLAGE');assert.ok(repaired.repairs.city);assert.equal(repaired.values.postal_code,'BS1 1AA');
+ assert.equal(publish(db,repaired.values).approved,true);
+});
+test('an explicit separate operating address keeps its own mode and is not copied from registered office',t=>{
+ const db=setup(t);note(db,'addresses','Company name: EXAMPLE GOODS LTD\nRegistered address: 8 Example Road, Bristol, England, BS1 1AA\nOperating address\n77 Sample Avenue, Oxford, England, OX1 1AA');
+ const state=profileState(db,'company');assert.equal(state.values.operating_address_mode,'different');assert.equal(state.values.operating_address_line1,'77 Sample Avenue');assert.equal(state.values.operating_city,'Oxford');assert.equal(state.values.city,'Bristol');
+});
