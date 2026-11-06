@@ -33,7 +33,7 @@ services:
       timeout: 5s
       retries: 6
       start_period: 5s
-    tmpfs: [/tmp:rw,nosuid,nodev,noexec,size=64m]
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=64m"]
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 64
@@ -73,7 +73,7 @@ services:
         source: /srv/hermes-stack/model-bridge
         target: /run/model-bridge
         read_only: true
-    tmpfs: [/tmp:rw,nosuid,nodev,noexec,size=256m]
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=256m"]
     mem_limit: 2g
     cpus: 1
     pids_limit: 128
