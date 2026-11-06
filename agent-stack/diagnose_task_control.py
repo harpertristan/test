@@ -20,6 +20,7 @@ os.environ["HOME"] = home
 os.environ["HERMES_HOME"] = home
 Path(home, "config.yaml").write_text(sys.stdin.read())
 sys.path.insert(0, "/opt/hermes")
+sys.path.insert(0, "/opt/workspace-agent")
 logging.disable(logging.CRITICAL)
 
 try:
