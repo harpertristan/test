@@ -119,16 +119,45 @@ class LocalApiDiagnosticsTests(unittest.TestCase):
     def test_connection_error_does_not_request_or_print_credentials(self):
         output = io.StringIO()
         opener = unittest.mock.Mock()
-        opener.open.side_effect = urllib.error.URLError(
+        opener.request.side_effect = urllib.error.URLError(
             ConnectionRefusedError(111, "synthetic-sensitive-error")
         )
         with (
-            patch.object(
-                bootstrap_owner.urllib.request, "build_opener", return_value=opener
-            ),
+            patch.object(bootstrap_owner, "LocalSession", return_value=opener),
             contextlib.redirect_stdout(output),
             self.assertRaises(RuntimeError),
         ):
             bootstrap_owner.check_api()
         self.assertIn("ConnectionRefusedError", output.getvalue())
         self.assertNotIn("synthetic-sensitive-error", output.getvalue())
+
+
+class InternalTransportTests(unittest.TestCase):
+    def test_password_stdin_only_and_cookies_preserved(self):
+        import json
+
+        session = bootstrap_owner.LocalSession()
+        with patch.object(
+            bootstrap_owner,
+            "run",
+            side_effect=[
+                json.dumps(
+                    {
+                        "status": 200,
+                        "body": "{}",
+                        "cookies": ["session=synthetic; HttpOnly; Path=/"],
+                    }
+                ),
+                json.dumps({"status": 200, "body": "{}", "cookies": []}),
+            ],
+        ) as run:
+            session.request(
+                "POST", "/api/auth/sign-in/email", {"password": "private-password"}
+            )
+            session.request("POST", "/api/invites/token/accept", {})
+        self.assertNotIn("private-password", str(run.call_args_list[0].args))
+        self.assertIn("private-password", run.call_args_list[0].kwargs["input"])
+        self.assertIn("session=synthetic", run.call_args_list[1].kwargs["input"])
+        self.assertIn("hostname:'127.0.0.1', port:3100", bootstrap_owner.LOCAL_HTTP)
+        with self.assertRaises(ValueError):
+            session.request("POST", "/api/../external", {})

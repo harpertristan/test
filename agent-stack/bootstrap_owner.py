@@ -2,7 +2,8 @@
 
 import getpass
 from datetime import datetime, timezone
-import http.cookiejar
+from http.cookies import SimpleCookie
+import io
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,6 @@ import re
 import subprocess
 import sys
 import urllib.error
-import urllib.request
 
 ROOT = Path("/srv/hermes-stack")
 HERE = Path(__file__).resolve().parent
@@ -23,11 +23,6 @@ BASE = DOCKER + [
     "-f",
     str(HERE / "compose.paperclip.yaml"),
 ]
-
-
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
 
 
 def run(command, *, input=None):
@@ -115,34 +110,95 @@ await bootstrapCeoInvite({config:'/paperclip/owner-bootstrap.json', baseUrl:'htt
     return token.group(0)
 
 
-def post(opener, path, payload):
+# The request target is fixed inside the container. Secrets travel only via stdin.
+LOCAL_HTTP = r"""
+import http from 'node:http';
+let raw = '';
+for await (const chunk of process.stdin) raw += chunk;
+const input = JSON.parse(raw);
+if (!/^\/api\/[A-Za-z0-9_/-]+$/.test(input.path) ||
+    !['GET', 'POST'].includes(input.method)) process.exit(2);
+const body = input.payload === null ? '' : JSON.stringify(input.payload);
+const req = http.request({hostname:'127.0.0.1', port:3100,
+  path:input.path, method:input.method,
+  headers:{'Host':'localhost:3101', 'Origin':'http://localhost:3101',
+    'Content-Type':'application/json', 'Content-Length':Buffer.byteLength(body),
+    'Cookie':input.cookie || ''}}, res => {
+  let data = '';
+  res.on('data', chunk => { data += chunk; if (data.length > 1048576) res.destroy(); });
+  res.on('end', () => console.log(JSON.stringify({status:res.statusCode,
+    body:data, cookies:res.headers['set-cookie'] || []})));
+});
+req.setTimeout(15000, () => req.destroy());
+req.on('error', () => { process.exitCode = 1; });
+req.end(body);
+"""
+
+
+class LocalSession:
+    def __init__(self):
+        self.cookies = SimpleCookie()
+        self.status = None
+
+    def request(self, method, path, payload=None):
+        if method not in ("GET", "POST") or not re.fullmatch(
+            r"/api/[A-Za-z0-9_/-]+", path
+        ):
+            raise ValueError("Неразрешённый локальный путь")
+        output = run(
+            BASE
+            + [
+                "exec",
+                "-T",
+                "paperclip",
+                "node",
+                "--input-type=module",
+                "-e",
+                LOCAL_HTTP,
+            ],
+            input=json.dumps(
+                {
+                    "method": method,
+                    "path": path,
+                    "payload": payload,
+                    "cookie": self.cookies.output(header="", sep=";").strip(),
+                }
+            ),
+        )
+        try:
+            result = json.loads(output)
+            self.status = int(result["status"])
+            for cookie in result.get("cookies", []):
+                self.cookies.load(cookie)
+            body = result["body"].encode()
+            if self.status >= 300:
+                raise urllib.error.HTTPError(
+                    BASE_URL + path,
+                    self.status,
+                    "Local API rejected request",
+                    {},
+                    io.BytesIO(body),
+                )
+            return json.loads(body)
+        except (ValueError, KeyError, TypeError):
+            raise RuntimeError("Некорректный ответ внутреннего API Paperclip") from None
+
+
+def post(session, path, payload):
     if not path.startswith("/api/"):
         raise ValueError("Неразрешённый локальный путь")
-    request = urllib.request.Request(
-        BASE_URL + path,
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json", "Origin": BASE_URL},
-        method="POST",
-    )
-    with opener.open(request, timeout=30) as response:
-        return json.load(response)
+    return session.request("POST", path, payload)
 
 
 def check_api():
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    session = LocalSession()
     for method, path, body in [
         ("GET", "/api/health", None),
-        ("POST", "/api/auth/sign-in/email", b"{}"),
+        ("POST", "/api/auth/sign-in/email", {}),
     ]:
-        request = urllib.request.Request(
-            BASE_URL + path,
-            data=body,
-            method=method,
-            headers={"Content-Type": "application/json", "Origin": BASE_URL},
-        )
         try:
-            with opener.open(request, timeout=10) as response:
-                print(f"{method} {path}: HTTP {response.status}", flush=True)
+            session.request(method, path, body)
+            print(f"{method} {path}: HTTP {session.status}", flush=True)
         except urllib.error.HTTPError as error:
             code = ""
             try:
@@ -205,12 +261,7 @@ def main():
                 "paperclip",
             ]
         )
-        # Ignore inherited HTTP proxies and reject redirects: credentials never leave localhost.
-        opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}),
-            NoRedirect(),
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
-        )
+        opener = LocalSession()
         try:
             post(
                 opener,
