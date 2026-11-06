@@ -33,7 +33,7 @@
   const DOM=globalThis.RegistrationDOM;
   if(!DOM){say('Обновите расширение и страницу: модуль чтения полей не загружен.');return;}
   const labelFor=DOM.label,describe=DOM.describe;
-  function isSensitive(el,label){return el.type==='password'||/password|passcode|one.?time|verification code|security code|cvv|cvc|\bpin\b|\botp\b|card number|парол|код подтверждения/i.test(label+' '+el.name+' '+el.id+' '+el.autocomplete);}
+  function isSensitive(el,label){label=String(label).replace(/\b(?:national )?(?:identity|id) card (?:number|no\.?)/gi,'identity document identifier');return el.type==='password'||/password|passcode|one.?time|verification code|security code|cvv|cvc|\bpin\b|\botp\b|card number|парол|код подтверждения/i.test(label+' '+el.name+' '+el.id+' '+el.autocomplete);}
   const eligible=el=>DOM.eligible(el)&&!isSensitive(el,labelFor(el));
   function collect(){fieldMap=new Map();const list=[];for(const {el,field} of DOM.entries()){if(isSensitive(el,field.label))continue;fieldMap.set(field.id,{el,field});list.push(field);}return list;}
   async function scan(force=false){

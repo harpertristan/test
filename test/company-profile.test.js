@@ -86,3 +86,31 @@ test('UBO narrative answers are stored in the master sheet and proposed only fro
  const state=profileState(db,'company');assert.equal(state.values.source_of_wealth,'Employment income supported by payslips.');publish(db,completedProfile(state.values));
  const result=suggest({label:'Primary source of wealth',type:'textarea'},primaryFacts(db,'company',[]));assert.equal(result.value,'Employment income supported by payslips.');assert.equal(result.status,'suggested');
 });
+
+test('saved passport fields reach passport, NIC/Passport No, nationality dropdown and dates for director role',async t=>{
+ const {suggest}=await import('../lib/fields.js');const db=setup(t);
+ note(db,'passport','PASSPORT\nSurname: EXAMPLE\nGiven names: Alice\nPassport No: AB0012345\nPersonal number: 150790-12345\nDate of issue: 12.11.2022\nDate of expiry: 12.11.2032\nNationality: Latvian\nIssuing country: Latvia');
+ const state=profileState(db,'company');assert.equal(state.values.contact_passport_number,'AB0012345');assert.equal(state.values.contact_document_type,'passport');
+ publish(db,completedProfile(state.values,{applicant_role:'director'}));const facts=primaryFacts(db,'company',[]);
+ assert.equal(suggest({label:'NIC/Passport No',type:'text'},facts,{personRole:'director'}).value,'AB0012345');
+ assert.equal(suggest({label:'Passport number',type:'text'},facts,{personRole:'director'}).value,'AB0012345');
+ assert.equal(suggest({label:'Personal identification number',type:'text'},facts,{personRole:'director'}).value,'150790-12345');
+ assert.equal(suggest({label:'Passport expiry date',type:'text',placeholder:'DD-MM-YYYY'},facts,{personRole:'director'}).value,'12-11-2032');
+ assert.equal(suggest({label:'Nationality',type:'select-one',options:[{text:'Latvian',value:'LVA'},{text:'British',value:'GBR'}]},facts,{personRole:'director'}).optionValue,'LVA');
+});
+test('passport details from another named person cannot fill the selected representative',t=>{
+ const db=setup(t);note(db,'alice','PASSPORT\nSurname: EXAMPLE\nGiven names: Alice\nPassport No: AB0012345\nDate of expiry: 12.11.2032');note(db,'bob','PASSPORT\nSurname: OTHER\nGiven names: Bob\nPassport No: BB0099999\nDate of expiry: 12.11.2033');
+ publish(db,completedProfile({}, {contact_first_name:'Alice',contact_last_name:'EXAMPLE'}));const state=profileState(db,'company');assert.equal(state.values.contact_passport_number,'AB0012345');assert.equal(state.values.contact_passport_expiry,'2032-11-12');
+});
+
+test('NIC/Passport No selects the explicit document type and does not substitute personal code',async t=>{
+ const {suggest,sensitive}=await import('../lib/fields.js');const db=setup(t);
+ publish(db,completedProfile({}, {contact_document_type:'id_card',contact_id_number:'ID00012345',contact_personal_id:'150790-12345'}));
+ let facts=primaryFacts(db,'company',[]);assert.equal(suggest({label:'NIC/Passport No',type:'text'},facts).value,'ID00012345');assert.equal(suggest({label:'Passport number',type:'text'},facts).status,'manual');assert.equal(sensitive('National ID card number'),false);assert.equal(sensitive('Credit card number'),true);
+ const result=validateProfile(completedProfile({}, {contact_document_type:'',contact_id_number:'ID00012345',contact_passport_number:'AB0012345'}));assert.ok(result.errors.contact_document_type);
+});
+
+test('expiry is selected from the chosen passport number rather than a different passport of the same person',t=>{
+ const db=setup(t);note(db,'passport-a','PASSPORT\nSurname: EXAMPLE\nGiven names: Alice\nPassport No: AB0012345\nDate of expiry: 12.11.2032');note(db,'passport-b','PASSPORT\nSurname: EXAMPLE\nGiven names: Alice\nPassport No: BB0099999\nDate of expiry: 12.11.2033');
+ publish(db,completedProfile({}, {contact_passport_number:'AB0012345'}));assert.equal(profileState(db,'company').values.contact_passport_expiry,'2032-11-12');
+});

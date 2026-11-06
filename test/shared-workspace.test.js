@@ -12,9 +12,9 @@ test('shared prefix reuses Scout access, rejects forged/absent gateway keys and 
  assert.equal((await fetch(root+'/assistant/api/login',{method:'POST',headers,body:'{"username":"workspace","password":"unused"}'})).status,409);
  const html=await(await get('/assistant/')).text();assert.match(html,/data-workspace="shared"/);assert.match(html,/content="\/assistant"/);assert.match(html,/\.\/app.js/);
  assert.match(html,/Полная инструкция подключения/);assert.match(html,/id="connectionServerURL"/);
- const download=await get('/assistant/downloads/registration-assistant-extension-0.5.2.zip',headers);assert.equal(download.status,200);
+ const download=await get('/assistant/downloads/registration-assistant-extension-0.5.3.zip',headers);assert.equal(download.status,200);
  const bundle=await JSZip.loadAsync(await download.arrayBuffer());
- const manifest=JSON.parse(await bundle.file('registration-assistant-extension/manifest.json').async('string'));assert.equal(manifest.version,'0.5.2');
+ const manifest=JSON.parse(await bundle.file('registration-assistant-extension/manifest.json').async('string'));assert.equal(manifest.version,'0.5.3');
  for(const name of ['manifest.json','background.js','options.js','options.html','panel.js'])assert.equal(await bundle.file('registration-assistant-extension/'+name).async('string'),readFileSync('extension/'+name,'utf8'));
  assert.ok(Object.keys(bundle.files).every(name=>name.startsWith('registration-assistant-extension/')));
 
