@@ -3,9 +3,7 @@
 import http.client
 import json
 import socket
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP("paperclip_task")
+import sys
 
 
 class Connection(http.client.HTTPConnection):
@@ -34,13 +32,11 @@ def call(path, payload):
         connection.close()
 
 
-@mcp.tool()
 def current_task(capability: str) -> dict:
     """Проверить привязку текущего запуска. capability берётся только из runtime instructions."""
     return call("/current", {"capability": capability})
 
 
-@mcp.tool()
 def submit_result(capability: str, summary: str) -> dict:
     """Записать краткий результат по-русски и передать текущую задачу на проверку (in_review).
     Не отмечает задачу выполненной и не может менять другую задачу. Проверяй ответ инструмента.
@@ -48,5 +44,121 @@ def submit_result(capability: str, summary: str) -> dict:
     return call("/submit", {"capability": capability, "summary": summary})
 
 
+TOOLS = [
+    {
+        "name": "current_task",
+        "description": "Проверить текущую задачу. capability берётся из доверенных runtime instructions.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"capability": {"type": "string"}},
+            "required": ["capability"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    },
+    {
+        "name": "submit_result",
+        "description": "Записать результат по-русски и передать текущую задачу на проверку (in_review). Проверяй ответ: ошибка означает, что статус не изменён.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "capability": {"type": "string"},
+                "summary": {"type": "string"},
+            },
+            "required": ["capability", "summary"],
+            "additionalProperties": False,
+        },
+        "annotations": {
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "openWorldHint": False,
+        },
+    },
+]
+
+
+def dispatch(method, params):
+    if method == "initialize":
+        supported = {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
+        version = params.get("protocolVersion")
+        return {
+            "protocolVersion": version if version in supported else "2025-11-25",
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": "paperclip_task", "version": "1.0.0"},
+        }
+    if method == "ping":
+        return {}
+    if method == "tools/list":
+        return {"tools": TOOLS}
+    if method == "tools/call":
+        name, arguments = params.get("name"), params.get("arguments", {})
+        if not isinstance(arguments, dict):
+            raise ValueError("Invalid arguments")
+        expected = (
+            {"capability"} if name == "current_task" else {"capability", "summary"}
+        )
+        if name not in ("current_task", "submit_result") or set(arguments) != expected:
+            raise ValueError("Invalid tool")
+        capability = arguments.get("capability")
+        if not isinstance(capability, str) or not 1 <= len(capability) <= 160:
+            raise ValueError("Invalid capability")
+        if name == "submit_result":
+            summary = arguments.get("summary")
+            if (
+                not isinstance(summary, str)
+                or not summary.strip()
+                or len(summary) > 8000
+            ):
+                raise ValueError("Invalid summary")
+        result = (
+            current_task(**arguments)
+            if name == "current_task"
+            else submit_result(**arguments)
+        )
+        return {
+            "content": [
+                {"type": "text", "text": json.dumps(result, ensure_ascii=False)}
+            ],
+            "isError": "error" in result,
+        }
+    raise LookupError("Method not found")
+
+
+def main():
+    # MCP stdio uses one UTF-8 JSON-RPC message per line. No third-party server SDK.
+    while raw := sys.stdin.buffer.readline(65537):
+        request_id = None
+        try:
+            if len(raw) > 65536:
+                break
+            request = json.loads(raw)
+            if not isinstance(request, dict) or request.get("jsonrpc") != "2.0":
+                raise ValueError("Invalid JSON-RPC")
+            if "id" not in request:  # notifications never receive a response
+                continue
+            request_id = request["id"]
+            params = request.get("params", {})
+            if not isinstance(params, dict):
+                raise ValueError("Invalid parameters")
+            response = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": dispatch(request.get("method"), params),
+            }
+        except LookupError:
+            response = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32601, "message": "Method not found"},
+            }
+        except Exception:
+            response = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32602, "message": "Invalid request"},
+            }
+        print(json.dumps(response, ensure_ascii=False), flush=True)
+
+
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    main()

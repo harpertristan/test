@@ -1,5 +1,7 @@
 """Inspect MCP compatibility in a disposable isolated container, with synthetic config."""
 
+import sys
+
 from bootstrap_owner import BASE, HERE, run
 from prepare_task_control import CONFIG
 
@@ -21,7 +23,7 @@ sys.path.insert(0, "/opt/hermes")
 logging.disable(logging.CRITICAL)
 
 try:
-    import mcp.server.fastmcp
+    import mcp
     print("SDK mcp:", importlib.metadata.version("mcp"), flush=True)
     from hermes_cli.config import load_config
     from hermes_cli.tools_config import _get_platform_tools
@@ -67,7 +69,16 @@ def main():
         PROGRAM,
     ]
     print("Проверяю MCP во временном контейнере с отключённой сетью…", flush=True)
-    print(run(command, input=CONFIG), end="")
+    output = run(command, input=CONFIG)
+    print(output, end="")
+    if "--install-if-compatible" in sys.argv:
+        if "Exact two-tool contract: PASS" not in output.splitlines():
+            raise RuntimeError(
+                "Совместимость ещё не подтверждена; настройки Hermes не менялись"
+            )
+        from install_task_control import main as install
+
+        install()
 
 
 if __name__ == "__main__":
