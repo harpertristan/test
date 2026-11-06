@@ -40,3 +40,23 @@ DAILY_REQUEST_LIMIT и DAILY_INPUT_BYTE_LIMIT только шлюзу. Их сч
 Не запускайте Paperclip с trusted-local UI на публичном адресе. Его запуск и связка
 с Hermes — следующий отдельный этап. Существующий бот CRM сохраняет свой webhook.
 Не предоставляйте агенту docker.sock или каталоги существующих сервисов.
+
+## Первый запуск Paperclip без публикации панели
+
+`prepare_paperclip.py` создаёт только собственные секреты Paperclip и его БД,
+повторный запуск не меняет пароли. `compose.paperclip.yaml` добавляет отдельную
+PostgreSQL и Paperclip с аутентификацией, отключённой регистрацией/телеметрией,
+выключенным scheduler агентов и отдельной внутренней сетью. Ключ OpenAI и папки
+рабочих сервисов Paperclip не получает. На хосте открыт только 127.0.0.1:3101.
+
+```bash
+sudo python3 prepare_paperclip.py
+sudo docker --host=unix:///var/run/docker.sock compose \
+  -f compose.yaml -f compose.paperclip.yaml \
+  up -d --wait --wait-timeout 240 paperclip-db paperclip
+```
+
+Это подготовительный закрытый запуск; учётная запись владельца и внешний защищённый
+доступ настраиваются следующим шагом. Browser localhost на компьютере пользователя
+не относится к localhost VPS. Не открывайте порт 3101 в Google Cloud firewall.
+Пароли/claim-ссылки и полные разрешённые Compose env-конфигурации не присылаются в чат.

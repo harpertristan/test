@@ -1,0 +1,71 @@
+services:
+  paperclip-db:
+    image: postgres:16-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
+    env_file: /srv/hermes-stack/private/paperclip-postgres.env
+    volumes:
+      - paperclip_db:/var/lib/postgresql/data
+    networks: [paperclip-control]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1
+    shm_size: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U paperclip -d paperclip]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+  paperclip:
+    image: workspace-paperclip:7e3caa7
+    user: '1000:1000'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    env_file: /srv/hermes-stack/private/paperclip.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3100'
+      SERVE_UI: 'true'
+      HOME: /paperclip
+      PAPERCLIP_HOME: /paperclip
+      PAPERCLIP_DEPLOYMENT_MODE: authenticated
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: private
+      PAPERCLIP_AUTH_BASE_URL_MODE: explicit
+      PAPERCLIP_AUTH_PUBLIC_BASE_URL: http://localhost:3101
+      PAPERCLIP_PUBLIC_URL: http://localhost:3101
+      PAPERCLIP_AUTH_DISABLE_SIGN_UP: 'true'
+      PAPERCLIP_TELEMETRY_DISABLED: '1'
+      DO_NOT_TRACK: '1'
+      HEARTBEAT_SCHEDULER_ENABLED: 'false'
+    volumes:
+      - type: bind
+        source: /srv/hermes-stack/state/paperclip
+        target: /paperclip
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=512m"]
+    ports: ['127.0.0.1:3101:3100']
+    networks: [paperclip-control]
+    depends_on:
+      paperclip-db:
+        condition: service_healthy
+    mem_limit: 2g
+    cpus: 1
+    pids_limit: 256
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+volumes:
+  paperclip_db: {}
+networks:
+  paperclip-control:
+    internal: true

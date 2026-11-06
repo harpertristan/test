@@ -219,6 +219,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path != "/v1/chat/completions":
+            # Drain small bodies before closing the Unix HTTP connection; otherwise
+            # a fast rejection can race the client's send and hide the 403.
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                if 0 < size <= 65536 and not self.headers.get("Transfer-Encoding"):
+                    self.rfile.read(size)
+            except (ValueError, OSError):
+                pass
             return self.reply(403, {"error": "Endpoint not allowed"})
         try:
             if self.headers.get("Transfer-Encoding"):
