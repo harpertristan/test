@@ -99,7 +99,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     )
                     payload["instructions"] = payload.get("instructions", "") + (
                         "\nДоверенная настройка запуска: отвечай пользователю по-русски. "
-                        "После выполнения задачи вызови mcp_paperclip_task__submit_result, "
+                        "После выполнения задачи вызови mcp__paperclip_task__submit_result, "
                         "записав краткий результат по-русски. Это передаёт задачу пользователю на проверку. "
                         "Не утверждай, что статус изменён, если инструмент вернул ошибку. "
                         "Не публикуй capability в ответах или комментариях. "

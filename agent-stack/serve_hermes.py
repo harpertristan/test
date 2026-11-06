@@ -19,6 +19,13 @@ async def serve():
     from hermes_cli.config import load_config
     from hermes_cli.tools_config import _get_platform_tools
 
+    from tools.mcp_tool_schema import mcp_prefixed_tool_name
+
+    allowed_task_tools = {
+        mcp_prefixed_tool_name("paperclip_task", name)
+        for name in ("current_task", "submit_result")
+    }
+
     # Only the explicitly scoped task server may add tools.
     selected = _get_platform_tools(load_config(), "api_server")
     if selected - {"paperclip_task"}:
@@ -27,26 +34,18 @@ async def serve():
         from tools.mcp_tool_discovery import discover_mcp_tools
 
         tools = await asyncio.to_thread(discover_mcp_tools, ["paperclip_task"])
-        allowed = {
-            "mcp_paperclip_task__current_task",
-            "mcp_paperclip_task__submit_result",
-        }
-        if set(tools) != allowed:
+        if set(tools) != allowed_task_tools:
             raise RuntimeError("Scoped task tools not available; startup refused")
     key = Path(KEY_FILE).read_text().strip()
 
     class ScopedAPI(APIServerAdapter):
         def _create_agent(self, *args, **kwargs):
             agent = super()._create_agent(*args, **kwargs)
-            allowed = {
-                "mcp_paperclip_task__current_task",
-                "mcp_paperclip_task__submit_result",
-            }
             exposed = {
                 tool.get("function", {}).get("name")
                 for tool in (getattr(agent, "tools", []) or [])
             }
-            expected = allowed if "paperclip_task" in selected else set()
+            expected = allowed_task_tools if "paperclip_task" in selected else set()
             if exposed != expected:
                 raise RuntimeError("Unexpected tool surface; run refused")
             return agent
