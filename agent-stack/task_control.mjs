@@ -25,7 +25,17 @@ function apiPatch(issueId, runId, summary) {
       let body = '';
       response.on('data', b => { body += b; if (body.length > 1048576) response.destroy(); });
       response.on('end', () => {
-        if (response.statusCode !== 200) return reject(Error('Task update rejected'));
+        if (response.statusCode !== 200) {
+          const error = Error('Task update rejected');
+          error.safeCode = 'API_REJECTED';
+          error.httpStatus = response.statusCode;
+          try {
+            const value = JSON.parse(body);
+            const code = value.code ?? value.details?.code;
+            if (typeof code === 'string' && /^[A-Za-z][A-Za-z0-9_]{1,79}$/.test(code)) error.nativeCode = code;
+          } catch {}
+          return reject(error);
+        }
         try {
           const value = JSON.parse(body);
           if (value.status !== 'in_review') return reject(Error('Task update not confirmed'));
@@ -44,6 +54,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') return reply(200,{status:'ok'});
   let runId;
   let acquired = false;
+  let stage = "request";
   try {
     if (req.method !== 'POST' || !['/current','/submit'].includes(req.url)) return reply(403,{error:'Operation disabled'});
     let raw = '';
@@ -51,19 +62,26 @@ const server = http.createServer(async (req, res) => {
     const body = JSON.parse(raw);
     validateRequest(req.url, body);
     if (req.url === '/submit' && body.summary.includes(body.capability)) throw Error('Capability cannot be published');
+    stage = "grant";
     runId = verifyCapability(signingKey, body.capability);
     if (inFlight.has(runId)) return reply(409, {error:'Run request already active'});
     inFlight.add(runId);
     acquired = true;
+    stage = "binding";
     const [run] = await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.id,runId)).limit(1);
     const issueId = run?.issueId ?? run?.contextSnapshot?.issueId ?? run?.contextSnapshot?.taskId;
     if (typeof issueId !== 'string') throw Error('No task binding');
     const [issue] = await db.select().from(issues).where(eq(issues.id,issueId)).limit(1);
     bindTask(run, issue, identity);
     if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status});
+    stage = 'api';
     return reply(200, await apiPatch(issue.id,runId,body.summary));
-  } catch {
-    return reply(403,{error:'Task operation refused; no permission or task state changed'});
+  } catch (error) {
+    const event = {event:'task_control_refused',stage,
+      code:error.safeCode || 'TASK_OPERATION_REFUSED',httpStatus:error.httpStatus || null,
+      nativeCode:error.nativeCode || null};
+    console.log(JSON.stringify(event));
+    return reply(403,{error:'Task operation refused; no permission or task state changed',code:event.code});
   } finally {
     if (acquired) inFlight.delete(runId);
   }

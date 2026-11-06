@@ -22,7 +22,10 @@ def call(path, payload):
         response = connection.getresponse()
         data = json.loads(response.read(65536))
         if response.status != 200:
-            return {"error": "Операция не выполнена. Не утверждай, что статус изменён."}
+            return {
+                "error": "Операция не выполнена. Не утверждай, что статус изменён.",
+                "code": data.get("code", "TASK_OPERATION_REFUSED"),
+            }
         return data
     except Exception:
         return {

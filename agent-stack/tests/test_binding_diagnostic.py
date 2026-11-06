@@ -52,3 +52,24 @@ class BindingDiagnosticTests(unittest.TestCase):
             self.assertIn('"signatureValid": false', output.getvalue())
             for secret in [capability, bad, key.decode(), "private task text"]:
                 self.assertNotIn(secret, output.getvalue())
+
+    def test_denial_logs_emit_only_codes_and_never_raw_arguments(self):
+        from diagnose_task_control_log import safe_events
+
+        raw = "task-control | " + json.dumps(
+            {
+                "event": "task_control_refused",
+                "stage": "api",
+                "code": "API_REJECTED",
+                "httpStatus": 409,
+                "nativeCode": "native_run_status_reported_by_finish",
+                "capability": "synthetic-private-grant",
+                "summary": "private-task-text",
+            },
+            separators=(",", ":"),
+        )
+        output = json.dumps(list(safe_events(raw)))
+        self.assertIn("native_run_status_reported_by_finish", output)
+        self.assertNotIn("synthetic-private-grant", output)
+        self.assertNotIn("private-task-text", output)
+        self.assertEqual(list(safe_events("ordinary private log line")), [])
