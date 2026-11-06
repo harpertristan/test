@@ -106,3 +106,17 @@ class BindingDiagnosticTests(unittest.TestCase):
         message = "Нет активного доверенного контекста задачи. private-grant"
         nested = json.dumps({"content": [{"text": json.dumps({"error": message})}]})
         self.assertIn(message, decoded_strings(nested))
+
+    def test_prefixed_json_error_is_decoded(self):
+        from diagnose_task_binding import decoded_strings
+
+        message = "Нет активного доверенного контекста задачи. synthetic-secret"
+        content = "[TOOL_ERROR] " + json.dumps({"error": message})
+        self.assertIn(message, decoded_strings(content))
+
+    def test_bare_unicode_error_is_decoded(self):
+        from diagnose_task_binding import decoded_strings
+
+        message = "Передавай только поля"
+        content = "[TOOL_ERROR] " + json.dumps(message)[1:-1]
+        self.assertTrue(any(message in value for value in decoded_strings(content)))

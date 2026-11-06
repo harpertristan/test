@@ -130,7 +130,22 @@ def decoded_strings(value, depth=0):
             if parsed != value:
                 values += decoded_strings(parsed, depth + 1)
         except (ValueError, TypeError):
-            pass
+            # Native tool errors can prefix a JSON body with [TOOL_ERROR].
+            decoder = json.JSONDecoder()
+            for match in list(re.finditer(r"[\[{]", value))[:32]:
+                try:
+                    parsed, _ = decoder.raw_decode(value[match.start():])
+                except ValueError:
+                    continue
+                values += decoded_strings(parsed, depth + 1)
+                break
+            decoded = re.sub(
+                r"\\u([0-9a-fA-F]{4})",
+                lambda match: chr(int(match.group(1), 16)),
+                value,
+            )
+            if decoded != value:
+                values += decoded_strings(decoded, depth + 1)
         return values
     if isinstance(value, dict):
         return [
@@ -166,6 +181,12 @@ def inspect_results(root=ROOT):
                 ("Локальный контроллер недоступен", "CONTROLLER_UNAVAILABLE"),
                 ("Операция не выполнена", "CONTROLLER_REFUSED"),
                 ("Task operation refused", "CONTROLLER_REFUSED"),
+                ("unexpected keyword argument", "UNEXPECTED_KEYWORD_ARGUMENT"),
+                ("multiple values for argument", "DUPLICATE_ARGUMENT"),
+                ("required positional argument", "REQUIRED_ARGUMENT_MISSING"),
+                ("Invalid request", "MCP_INVALID_REQUEST"),
+                ("rejected the last", "MCP_CIRCUIT_BREAKER"),
+                ("fix the arguments/URL/target", "MCP_CIRCUIT_BREAKER"),
                 ("circuit", "MCP_CIRCUIT_BREAKER"),
                 ("temporarily disabled", "MCP_CIRCUIT_BREAKER"),
                 ("in_review", "RESULT_IN_REVIEW"),
