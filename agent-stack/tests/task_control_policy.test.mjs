@@ -41,3 +41,9 @@ test('no requested status, task id, URL, approval or external action is accepted
   for (const route of ['/send-mail','/publish','/approve','https://example.com/'])
     assert.throws(() => validateRequest(route,{capability,summary:'x'}));
 });
+
+test('accepts native checkout lock and rejects conflicting execution ownership', () => {
+  assert.equal(bindTask(run,{...issue,executionRunId:null,checkoutRunId:runId},identity),issueId);
+  assert.throws(() => bindTask(run,{...issue,executionRunId:null,checkoutRunId:null},identity));
+  assert.throws(() => bindTask(run,{...issue,executionRunId:runId,checkoutRunId:issueId},identity));
+});

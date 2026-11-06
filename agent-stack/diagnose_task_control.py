@@ -32,6 +32,10 @@ try:
     from tools.mcp_tool_discovery import discover_mcp_tools
     discovered = discover_mcp_tools(["paperclip_task"])
     print("Discovered tools:", json.dumps(sorted(discovered)), flush=True)
+    from tools.registry import registry
+    from tools.mcp_tool_schema import mcp_prefixed_tool_name
+    from task_runtime_context import TaskBindings, install_task_handlers
+    install_task_handlers(registry, TaskBindings(), mcp_prefixed_tool_name)
     from model_tools import get_tool_definitions
     definitions = get_tool_definitions(enabled_toolsets=["paperclip_task"], quiet_mode=True)
     exposed = sorted(tool.get("function", {}).get("name", "") for tool in definitions)
@@ -39,7 +43,9 @@ try:
     from tools.mcp_tool_schema import mcp_prefixed_tool_name
     expected = {mcp_prefixed_tool_name("paperclip_task", name)
                 for name in ("current_task", "submit_result")}
-    print("Exact two-tool contract:", "PASS" if set(discovered) == expected and set(exposed) == expected else "FAIL", flush=True)
+    hidden = all("capability" not in tool.get("function",{}).get("parameters",{}).get("properties",{}) for tool in definitions)
+    print("Model does not handle grants:", "PASS" if hidden else "FAIL", flush=True)
+    print("Exact two-tool contract:", "PASS" if set(discovered) == expected and set(exposed) == expected and hidden else "FAIL", flush=True)
 except Exception as error:
     print("Diagnostic error type:", type(error).__name__, flush=True)
     name = getattr(error, "name", None)

@@ -10,6 +10,7 @@ import http.server
 
 from hermes_gateway_bridge import KEY_FILE, native_bridge
 from launch_hermes import LocalHandler
+from task_runtime_context import TaskBindings, extract_grant, install_task_handlers
 
 
 async def serve():
@@ -30,16 +31,29 @@ async def serve():
     selected = _get_platform_tools(load_config(), "api_server")
     if selected - {"paperclip_task"}:
         raise RuntimeError("Unexpected enabled toolsets; startup refused")
+    bindings = TaskBindings()
     if "paperclip_task" in selected:
         from tools.mcp_tool_discovery import discover_mcp_tools
 
         tools = await asyncio.to_thread(discover_mcp_tools, ["paperclip_task"])
         if set(tools) != allowed_task_tools:
             raise RuntimeError("Scoped task tools not available; startup refused")
+        from tools.registry import registry
+
+        install_task_handlers(registry, bindings, mcp_prefixed_tool_name)
     key = Path(KEY_FILE).read_text().strip()
 
     class ScopedAPI(APIServerAdapter):
         def _create_agent(self, *args, **kwargs):
+            capability = None
+            if "paperclip_task" in selected:
+                install_task_handlers(registry, bindings, mcp_prefixed_tool_name)
+                if args:
+                    raise RuntimeError("Unexpected native agent invocation")
+                cleaned, capability = extract_grant(
+                    kwargs.get("ephemeral_system_prompt")
+                )
+                kwargs["ephemeral_system_prompt"] = cleaned
             agent = super()._create_agent(*args, **kwargs)
             exposed = {
                 tool.get("function", {}).get("name")
@@ -48,6 +62,14 @@ async def serve():
             expected = allowed_task_tools if "paperclip_task" in selected else set()
             if exposed != expected:
                 raise RuntimeError("Unexpected tool surface; run refused")
+            if capability:
+                original = agent.run_conversation
+
+                def run_with_context(*run_args, **run_kwargs):
+                    with bindings.bind(agent.session_id, capability):
+                        return original(*run_args, **run_kwargs)
+
+                agent.run_conversation = run_with_context
             return agent
 
     adapter = ScopedAPI(

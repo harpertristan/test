@@ -19,7 +19,8 @@ export function bindTask(run, issue, identity) {
       run.agentId !== identity.agentId || run.companyId !== identity.companyId ||
       !issue || issue.id !== issueId || issue.companyId !== identity.companyId ||
       issue.assigneeAgentId !== identity.agentId || issue.status !== 'in_progress' ||
-      issue.executionRunId !== run.id) throw Error('Task is not owned by this active run');
+      ![issue.executionRunId,issue.checkoutRunId].some(id => id === run.id) ||
+      [issue.executionRunId,issue.checkoutRunId].some(id => id && id !== run.id)) throw Error('Task is not owned by this active run');
   return issueId;
 }
 
