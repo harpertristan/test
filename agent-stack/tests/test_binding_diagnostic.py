@@ -99,3 +99,10 @@ class BindingDiagnosticTests(unittest.TestCase):
                 inspect_results(root)
             self.assertIn("RUNTIME_CONTEXT_MISSING", output.getvalue())
             self.assertNotIn("private-result-and-key", output.getvalue())
+
+    def test_escaped_nested_json_errors_are_decoded_without_printing_text(self):
+        from diagnose_task_binding import decoded_strings
+
+        message = "Нет активного доверенного контекста задачи. private-grant"
+        nested = json.dumps({"content": [{"text": json.dumps({"error": message})}]})
+        self.assertIn(message, decoded_strings(nested))

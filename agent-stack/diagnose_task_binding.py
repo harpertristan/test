@@ -120,6 +120,27 @@ def inspect_calls(root=ROOT):
         connection.close()
 
 
+def decoded_strings(value, depth=0):
+    if depth > 5:
+        return []
+    if isinstance(value, str):
+        values = [value]
+        try:
+            parsed = json.loads(value)
+            if parsed != value:
+                values += decoded_strings(parsed, depth + 1)
+        except (ValueError, TypeError):
+            pass
+        return values
+    if isinstance(value, dict):
+        return [
+            text for item in value.values() for text in decoded_strings(item, depth + 1)
+        ]
+    if isinstance(value, list):
+        return [text for item in value for text in decoded_strings(item, depth + 1)]
+    return []
+
+
 def inspect_results(root=ROOT):
     database = root / "state/hermes-gateway/state.db"
     if not database.exists():
@@ -136,7 +157,7 @@ def inspect_results(root=ROOT):
                 "mcp__paperclip_task__submit_result",
             ):
                 continue
-            text = content if isinstance(content, str) else ""
+            text = "\n".join(decoded_strings(content))
             patterns = (
                 ("Нет активного доверенного контекста", "RUNTIME_CONTEXT_MISSING"),
                 ("Передавай только поля", "MODEL_ARGUMENTS_INVALID"),
