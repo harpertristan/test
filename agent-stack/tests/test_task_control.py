@@ -37,6 +37,7 @@ console.log(verifyCapability(Buffer.from('synthetic-test-key'),{json.dumps(capab
         self.assertEqual(server["tools"]["include"], ["current_task", "submit_result"])
         self.assertEqual(server["command"], "/opt/hermes/.venv/bin/python")
         self.assertNotIn("url", server)
+        self.assertEqual(config["tools"]["tool_search"]["enabled"], "off")
 
     def test_grant_is_stable_across_bridge_retries_and_restarts(self):
         import tempfile

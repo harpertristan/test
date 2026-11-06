@@ -28,8 +28,8 @@ async def serve():
 
         tools = await asyncio.to_thread(discover_mcp_tools, ["paperclip_task"])
         allowed = {
-            "mcp_paperclip_task_current_task",
-            "mcp_paperclip_task_submit_result",
+            "mcp_paperclip_task__current_task",
+            "mcp_paperclip_task__submit_result",
         }
         if set(tools) != allowed:
             raise RuntimeError("Scoped task tools not available; startup refused")
@@ -39,8 +39,8 @@ async def serve():
         def _create_agent(self, *args, **kwargs):
             agent = super()._create_agent(*args, **kwargs)
             allowed = {
-                "mcp_paperclip_task_current_task",
-                "mcp_paperclip_task_submit_result",
+                "mcp_paperclip_task__current_task",
+                "mcp_paperclip_task__submit_result",
             }
             exposed = {
                 tool.get("function", {}).get("name")

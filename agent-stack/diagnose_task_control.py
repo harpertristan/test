@@ -36,7 +36,7 @@ try:
     definitions = get_tool_definitions(enabled_toolsets=["paperclip_task"], quiet_mode=True)
     exposed = sorted(tool.get("function", {}).get("name", "") for tool in definitions)
     print("Model tool surface:", json.dumps(exposed), flush=True)
-    expected = {"mcp_paperclip_task_current_task", "mcp_paperclip_task_submit_result"}
+    expected = {"mcp_paperclip_task__current_task", "mcp_paperclip_task__submit_result"}
     print("Exact two-tool contract:", "PASS" if set(discovered) == expected and set(exposed) == expected else "FAIL", flush=True)
 except Exception as error:
     print("Diagnostic error type:", type(error).__name__, flush=True)

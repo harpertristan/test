@@ -19,6 +19,8 @@ mcp_servers:
       include: [current_task, submit_result]""",
 )
 
+CONFIG += '\ntools:\n  tool_search:\n    enabled: "off"\n'
+
 PROVISION = r"""
 import { createRequire } from 'node:module';
 const require = createRequire('/app/server/package.json');
