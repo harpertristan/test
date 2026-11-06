@@ -121,7 +121,7 @@ def inspect_calls(root=ROOT):
 
 
 def decoded_strings(value, depth=0):
-    if depth > 5:
+    if depth > 12:
         return []
     if isinstance(value, str):
         values = [value]
@@ -177,7 +177,30 @@ def inspect_results(root=ROOT):
             )
             print(
                 json.dumps(
-                    {"tool": name, "resultCode": code, "resultLength": len(text)}
+                    {
+                        "tool": name,
+                        "resultCode": code,
+                        "resultLength": len(text),
+                        "diagnosticWords": [
+                            word
+                            for word in (
+                                "permission",
+                                "context",
+                                "argument",
+                                "capability",
+                                "schema",
+                                "validation",
+                                "session",
+                                "blocked",
+                                "circuit",
+                                "missing",
+                                "timeout",
+                                "TypeError",
+                                "ValueError",
+                            )
+                            if word.lower() in text.lower()
+                        ],
+                    }
                 )
             )
         print("Only diagnostic labels printed; no tool result text printed.")
