@@ -87,3 +87,26 @@ class OwnerBootstrapTests(unittest.TestCase):
     def test_external_post_paths_are_rejected(self):
         with self.assertRaises(ValueError):
             bootstrap_owner.post(None, "https://example.com", {})
+
+
+class NativeCliDirectoryTests(unittest.TestCase):
+    def test_bootstrap_loader_resolves_from_cli_workspace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "state/paperclip").mkdir(parents=True)
+            token = "pcp_bootstrap_" + "c" * 48
+            with (
+                patch.object(bootstrap_owner, "ROOT", root),
+                patch.object(bootstrap_owner.os, "chown"),
+                patch.object(
+                    bootstrap_owner,
+                    "run",
+                    return_value="Invite URL: http://localhost:3101/invite/" + token,
+                ) as run,
+            ):
+                self.assertEqual(bootstrap_owner.create_invite(), token)
+            command = run.call_args.args[0]
+            index = command.index("--workdir")
+            self.assertEqual(command[index + 1], "/app/cli")
+            self.assertLess(index, command.index("paperclip"))
+            self.assertIn("tsx", command)

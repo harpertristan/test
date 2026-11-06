@@ -91,6 +91,8 @@ await bootstrapCeoInvite({config:'/paperclip/owner-bootstrap.json', baseUrl:'htt
         + [
             "exec",
             "-T",
+            "--workdir",
+            "/app/cli",
             "paperclip",
             "node",
             "--import",
