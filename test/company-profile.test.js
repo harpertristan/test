@@ -56,3 +56,33 @@ test('selected Director role can use one document identity without claiming regi
 test('different company names with the same official registration number are not blocked as unrelated entities',t=>{
  const db=setup(t);publish(db,completedProfile({}, {company_name:'OLD EXAMPLE GOODS LTD'}));note(db,'current','CERTIFICATE OF INCORPORATION\nCompany Name: EXAMPLE GOODS LTD\nCompany number: 12345678\nIncorporated on 03.10.2025');const rows=db.prepare("SELECT note FROM extracted_fields WHERE document_id='current'").all();assert.ok(rows.length);assert.equal(rows.some(row=>row.note.startsWith('Название в документе отличается')),false);
 });
+
+test('passport birth date appears in master sheet and supports director role and external DD/MM/YYYY input',async t=>{
+ const {suggest}=await import('../lib/fields.js');const db=setup(t);
+ note(db,'passport','PASSPORT\nSurname: EXAMPLE\nGiven names: Alice\nDate of birth: 15/07/1990');
+ const draft=profileState(db,'company');assert.equal(draft.values.contact_birth_date,'1990-07-15');assert.equal(draft.schema.find(f=>f.key==='contact_birth_date').english,'Date of birth');
+ publish(db,completedProfile(draft.values,{applicant_role:'director'}));
+ const facts=primaryFacts(db,'company',[]);assert.equal(facts.find(f=>f.key==='director_birth_date').value,'1990-07-15');
+ assert.equal(suggest({label:'Date of birth',type:'text',placeholder:'DD/MM/YYYY'},facts,{personRole:'director'}).value,'15/07/1990');
+ assert.ok(validateProfile(completedProfile({}, {contact_birth_date:'1990-02-31'})).errors.contact_birth_date);
+});
+
+test('passport birth date follows the selected representative rather than an unrelated passport majority',t=>{
+ const db=setup(t);note(db,'passport-a','PASSPORT\nSurname: EXAMPLE\nGiven names: Alice\nDate of birth: 15/07/1990');
+ note(db,'passport-b','PASSPORT\nSurname: OTHER\nGiven names: Bob\nDate of birth: 20/08/1980');
+ publish(db,completedProfile({}, {contact_first_name:'Alice',contact_last_name:'EXAMPLE'}));
+ const state=profileState(db,'company');assert.equal(state.values.contact_birth_date,'1990-07-15');
+});
+
+test('operating address can explicitly use the director home without changing registered office',()=>{
+ const values=completedProfile({}, {applicant_role:'director',operating_address_mode:'director_home',contact_address_line1:'Sample iela 12-3',contact_city:'Riga',contact_postal_code:'LV-1009',contact_country:'Latvia'});
+ const result=validateProfile(values);assert.deepEqual(result.errors,{});assert.equal(result.values.operating_city,'Riga');assert.equal(result.values.operating_country,'Latvia');assert.equal(result.values.city,'Example City');assert.equal(result.values.registered_country,'United Kingdom');
+ assert.ok(validateProfile({...values,contact_city:''}).errors.contact_city);assert.ok(validateProfile({...values,applicant_role:'contact'}).errors.operating_address_mode);
+});
+
+test('UBO narrative answers are stored in the master sheet and proposed only from their own sources',async t=>{
+ const {suggest}=await import('../lib/fields.js');const db=setup(t);
+ note(db,'ubo','Description of shares owned: 100% of the ordinary shares held directly.\nLevel of control: Voting rights stated in the shareholder register.\nActing on own behalf or nominee: Acting on my own behalf.\nPrimary source of wealth: Employment income supported by payslips.');
+ const state=profileState(db,'company');assert.equal(state.values.source_of_wealth,'Employment income supported by payslips.');publish(db,completedProfile(state.values));
+ const result=suggest({label:'Primary source of wealth',type:'textarea'},primaryFacts(db,'company',[]));assert.equal(result.value,'Employment income supported by payslips.');assert.equal(result.status,'suggested');
+});

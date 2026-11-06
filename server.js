@@ -11,7 +11,7 @@ import {dirname,resolve,join,extname,basename} from 'node:path';
 import {mkdirSync,writeFileSync,unlinkSync,existsSync,readFileSync,rmSync,realpathSync} from 'node:fs';
 import {openDatabase} from './lib/database.js';
 import {extractDocument} from './lib/extraction.js';
-import {FIELDS,suggest,normalize,sensitive} from './lib/fields.js';
+import {FIELDS,suggest,fixedRuleProposal,normalize,sensitive} from './lib/fields.js';
 import {token,digest,verifyPassword,hashPassword,requireString,fail} from './lib/security.js';
 import {reanalyze,listExtracted,resolveExtracted,refreshAutoFacts} from './lib/auto-facts.js';
 import {valueGrounded} from './lib/normalization.js';
@@ -21,7 +21,7 @@ import {aiConfiguration,aiStatus,saveAISettings} from './lib/ai-settings.js';
 import {analyzeForm,fieldFingerprint,fieldMetadata,mappingAllowed,consumeAICall} from './lib/form-agent.js';
 import {requestOpenAI,publicAIError} from './lib/openai-request.js';
 import {profileState,saveProfile,primaryFacts,PRIMARY_KEYS,effectiveReview} from './lib/company-profile.js';
-import {helpFor} from './lib/field-help.js';
+import {helpFor,helpForField} from './lib/field-help.js';
 import {resolveFieldKey} from './lib/fields.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -232,13 +232,14 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     const corrections=db.prepare('SELECT field,message FROM corrections WHERE company_id=? AND host=?').all(company.id,host);
     res.json({company:{id:company.id,name:company.name},review,fields:req.body.fields.map(field=>{
       if(!field || typeof field.id!=='string' || field.id.length>100 || (field.options && (!Array.isArray(field.options)||field.options.length>500)))fail('Некорректное поле.');
+      const fixed=fixedRuleProposal(field);if(fixed)return {id:field.id,label:String(field.label||'').slice(0,300),...fixed};
       const saved=corrections.filter(c=>normalize(c.field)===normalize(field.label));
-      if(!review.approved)return {id:field.id,label:String(field.label||'').slice(0,300),key:resolveFieldKey(field),guidance:helpFor(resolveFieldKey(field)),status:'needs_confirmation',reason:review.profileStale?'Документы изменились. Проверьте и сохраните основную анкету компании заново.':'Заполните и сохраните основную анкету компании в кабинете документов. Обязательные поля отмечены красным.'};
+      if(!review.approved)return {id:field.id,label:String(field.label||'').slice(0,300),key:resolveFieldKey(field),guidance:helpForField(field,resolveFieldKey(field)),status:'needs_confirmation',reason:review.profileStale?'Документы изменились. Проверьте и сохраните основную анкету компании заново.':'Заполните и сохраните основную анкету компании в кабинете документов. Обязательные поля отмечены красным.'};
       const known=resolveFieldKey(field),mapping=!known?db.prepare('SELECT * FROM form_mappings WHERE company_id=? AND host=? AND fingerprint=?').get(company.id,host,fieldFingerprint(field)):null;
       const key=known||(mapping&&mappingAllowed(field,mapping.key)?mapping.key:undefined);
       const registrationContact=['company_email','company_phone','phone_dial_code','phone_national','phone_country'].includes(key);
       const proposal=registrationContact?{status:'manual',reason:'Email и телефон выбираются для текущей регистрации. Сохранённые контакты компании автоматически не подставляются.'}:saved.length?{status:'manual',reason:'Для этого поля сохранено исправление. Проверьте его перед ручным заполнением.',corrections:saved.map(c=>c.message)}:suggest(field,facts,{personRole:['director','beneficiary'].includes(req.body.personRole)?req.body.personRole:'contact',mappedKey:mapping?.status==='approved'?key:undefined});
-      return {id:field.id,label:String(field.label||'').slice(0,300),key,guidance:helpFor(key),...proposal,...(mapping&&mappingAllowed(field,mapping.key)?{mappingId:mapping.id,mappingKey:mapping.key,mappingStatus:mapping.status,agentComment:mapping.reason}:{})};
+      return {id:field.id,label:String(field.label||'').slice(0,300),key,guidance:helpForField(field,key),...proposal,...(mapping&&mappingAllowed(field,mapping.key)?{mappingId:mapping.id,mappingKey:mapping.key,mappingStatus:mapping.status,agentComment:mapping.reason}:{})};
     })});
   });
   app.post('/api/analyze-form',async(req,res)=>{
@@ -246,7 +247,7 @@ export function createApp({dataDir=resolve(process.env.DATA_DIR || './data'),ori
     if(!Array.isArray(req.body.fields)||req.body.fields.length>100||req.body.fields.some(f=>!f||typeof f!=='object'||typeof f.id!=='string'||f.id.length>200))fail('До 100 полей за запрос.');
     const host=requireString(req.body.host,'Домен',253),before=effectiveReview(db,company.id);
     const result=await analyzeForm(db,company.id,host,req.body.fields,aiFor(req),aiFetch,{page:req.body.page,evidence:evidenceFor(company.id),reviewApproved:before.approved,availableKeys:factsFor(company.id).filter(f=>!f.conflicted&&[1,2].includes(f.confirmed)).map(f=>f.key)});
-    if(effectiveReview(db,company.id).signature!==before.signature)fail('Анкета или документы изменились во время разбора. Обновите подсказки.',409);res.json(result);
+    if(effectiveReview(db,company.id).signature!==before.signature)fail('Анкета или документы изменились во время разбора. Обновите подсказки.',409);res.json({...result,sourceSignature:before.signature,reviewApproved:before.approved});
   });
   app.post('/api/form-mapping-confirm',(req,res)=>{const company=companyFor(req,req.body.companyId);const mapping=db.prepare('SELECT * FROM form_mappings WHERE id=? AND company_id=? AND host=?').get(req.body.mappingId,company.id,req.body.host);if(!mapping||fieldFingerprint(req.body.field)!==mapping.fingerprint||!mappingAllowed(req.body.field,mapping.key))fail('Анкета изменилась. Повторите разбор.',409);db.prepare("UPDATE form_mappings SET status='approved' WHERE id=?").run(mapping.id);res.json({ok:true});});
   app.post('/api/explain',rateLimit({windowMs:60000,limit:10,legacyHeaders:false}),async(req,res)=>{

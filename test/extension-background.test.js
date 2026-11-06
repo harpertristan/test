@@ -21,3 +21,12 @@ test('extension service worker limits destinations, sender access and API scope'
   result=await send({type:'api',path:'/companies'},{id:extensionId,url:'https://bank.example/application',tab:{id:1}});assert.equal(result.ok,true);assert.equal(calls.at(-1).url,'https://scout.example/assistant/api/companies');
   result=await send({type:'settings',origin:'https://scout.example/other/',token:'a'.repeat(43)});assert.equal(result.ok,false);
 });
+
+test('action requests only embedded origins and chooses the form frame; API requests stay bound to sender frame',async()=>{
+ let action,listener;const scripts=[],id='b'.repeat(32),frames=[{frameId:0,url:'https://bank.example/app'},{frameId:7,url:'https://verify.example/flow'}];let requested;
+ const chrome={runtime:{id,getURL:p=>'chrome-extension://'+id+'/'+p,onMessage:{addListener:f=>listener=f},openOptionsPage:async()=>{throw Error('unexpected options')}},action:{onClicked:{addListener:f=>action=f}},webNavigation:{getAllFrames:async()=>frames,getFrame:async()=>frames[1]},permissions:{request:async v=>{requested=v;return true}},scripting:{executeScript:async arg=>{scripts.push(arg);if(arg.files?.[0]==='dom.js'&&arg.files.length===1)return [{frameId:0},{frameId:7}];if(arg.func&&arg.target.frameIds?.length===2&&String(arg.func).includes('entries'))return [{frameId:0,result:{fields:15}},{frameId:7,result:{fields:5}}];return [];}},storage:{session:{get:async()=>({origin:'https://assistant.example',token:'synthetic-token'})}},tabs:{get:async()=>({url:frames[0].url})}};
+ vm.runInNewContext(readFileSync(new URL('../extension/background.js',import.meta.url),'utf8'),{chrome,URL,AbortSignal,fetch:async()=>({ok:true,json:async()=>({})})});
+ await action({id:1,url:frames[0].url});assert.equal(requested.origins.join(','),'https://bank.example/*,https://verify.example/*');assert.equal(scripts.at(-1).target.frameIds[0],7);assert.equal(scripts.at(-1).files.join(','),'dom.js,panel.js');
+ const send=body=>new Promise(resolve=>listener({type:'api',path:'/propose',method:'POST',body},{id,tab:{id:1},frameId:7,url:frames[1].url},resolve));
+ assert.equal((await send({host:'verify.example'})).ok,true);assert.equal((await send({host:'bank.example'})).ok,false);
+});

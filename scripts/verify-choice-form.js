@@ -24,7 +24,7 @@ try{
  for(const id of ['pricing','terms','privacy'])assert.ok(entries.some(e=>e.elementId===id&&e.type==='checkbox'&&e.consent===true),id+' must be a separate consent');
  assert.equal(entries.find(e=>e.elementId==='terms').linkTitles[0],'Terms & Conditions');
  assert.equal(entries.find(e=>e.elementId==='certificate').type,'file');assert.equal(entries.find(e=>e.elementId==='certificate').accept,'.pdf,.jpg');assert.equal(entries.find(e=>e.elementId==='registry-name').readOnly,true);assert.equal(entries.find(e=>e.elementId==='verified-email').invalid,true);assert.ok(entries.find(e=>e.elementId==='verified-email').help.includes('Use your company email address.'));
- assert.ok(await page.evaluate(()=>window.__panel.textContent.includes('iframe — 1')));assert.ok(await page.evaluate(()=>window.__panel.textContent.includes('текущий шаг')));
+ assert.ok(await page.evaluate(()=>window.__panel.textContent.includes('Вложенные страницы: 1')));assert.ok(await page.evaluate(()=>window.__panel.textContent.includes('текущий шаг')));
  assert.equal(entries.find(e=>e.elementId==='ubo').options.length,80);assert.equal(entries.filter(e=>/^Country \d/.test(e.label)).length,0);assert.equal(entries.some(e=>/^(?:Cancel|Continue)/.test(e.label)),false);
  const custom=entries.find(e=>e.type==='custom-select');assert.equal(custom.options.length,2);assert.equal(custom.options.find(o=>o.selected).text,'Retail');
  assert.equal(entries.find(e=>e.elementId==='counterparties').choiceMode,'single');assert.equal(entries.find(e=>e.elementId==='counterparties').options.find(o=>o.selected).text,'Legal entities');
