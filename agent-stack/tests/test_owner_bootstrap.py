@@ -21,6 +21,7 @@ class OwnerBootstrapTests(unittest.TestCase):
             output = io.StringIO()
             with (
                 patch.object(bootstrap_owner, "ROOT", root),
+                patch.object(bootstrap_owner, "check_api"),
                 patch.object(bootstrap_owner.os, "geteuid", return_value=0),
                 patch.object(
                     bootstrap_owner,
@@ -56,6 +57,7 @@ class OwnerBootstrapTests(unittest.TestCase):
             (root / "private").mkdir()
             with (
                 patch.object(bootstrap_owner, "ROOT", root),
+                patch.object(bootstrap_owner, "check_api"),
                 patch.object(bootstrap_owner.os, "geteuid", return_value=0),
                 patch.object(
                     bootstrap_owner,
@@ -97,6 +99,7 @@ class NativeCliDirectoryTests(unittest.TestCase):
             token = "pcp_bootstrap_" + "c" * 48
             with (
                 patch.object(bootstrap_owner, "ROOT", root),
+                patch.object(bootstrap_owner, "check_api"),
                 patch.object(bootstrap_owner.os, "chown"),
                 patch.object(
                     bootstrap_owner,
@@ -110,3 +113,22 @@ class NativeCliDirectoryTests(unittest.TestCase):
             self.assertEqual(command[index + 1], "/app/cli")
             self.assertLess(index, command.index("paperclip"))
             self.assertIn("tsx", command)
+
+
+class LocalApiDiagnosticsTests(unittest.TestCase):
+    def test_connection_error_does_not_request_or_print_credentials(self):
+        output = io.StringIO()
+        opener = unittest.mock.Mock()
+        opener.open.side_effect = urllib.error.URLError(
+            ConnectionRefusedError(111, "synthetic-sensitive-error")
+        )
+        with (
+            patch.object(
+                bootstrap_owner.urllib.request, "build_opener", return_value=opener
+            ),
+            contextlib.redirect_stdout(output),
+            self.assertRaises(RuntimeError),
+        ):
+            bootstrap_owner.check_api()
+        self.assertIn("ConnectionRefusedError", output.getvalue())
+        self.assertNotIn("synthetic-sensitive-error", output.getvalue())

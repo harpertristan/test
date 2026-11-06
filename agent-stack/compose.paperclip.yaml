@@ -37,6 +37,7 @@ services:
       PAPERCLIP_AUTH_BASE_URL_MODE: explicit
       PAPERCLIP_AUTH_PUBLIC_BASE_URL: http://localhost:3101
       PAPERCLIP_PUBLIC_URL: http://localhost:3101
+      BETTER_AUTH_TRUSTED_ORIGINS: http://localhost:3101
       PAPERCLIP_AUTH_DISABLE_SIGN_UP: 'true'
       PAPERCLIP_TELEMETRY_DISABLED: '1'
       DO_NOT_TRACK: '1'

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 
@@ -127,9 +128,55 @@ def post(opener, path, payload):
         return json.load(response)
 
 
+def check_api():
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    for method, path, body in [
+        ("GET", "/api/health", None),
+        ("POST", "/api/auth/sign-in/email", b"{}"),
+    ]:
+        request = urllib.request.Request(
+            BASE_URL + path,
+            data=body,
+            method=method,
+            headers={"Content-Type": "application/json", "Origin": BASE_URL},
+        )
+        try:
+            with opener.open(request, timeout=10) as response:
+                print(f"{method} {path}: HTTP {response.status}", flush=True)
+        except urllib.error.HTTPError as error:
+            code = ""
+            try:
+                data = json.loads(error.read(4096))
+                candidate = data.get("code", "")
+                if isinstance(candidate, str) and re.fullmatch(
+                    r"[A-Z0-9_]{1,100}", candidate
+                ):
+                    code = candidate
+            except (ValueError, AttributeError):
+                pass
+            print(f"{method} {path}: HTTP {error.code} {code}", flush=True)
+            if method == "GET" or error.code in (403, 429):
+                raise RuntimeError(
+                    "Проверка локального API не пройдена. Пароль вводить не нужно"
+                ) from None
+        except urllib.error.URLError as error:
+            reason = getattr(error, "reason", None)
+            print(
+                f"{method} {path}: {type(reason).__name__}; errno={getattr(reason, 'errno', None)}",
+                flush=True,
+            )
+            raise RuntimeError(
+                "Локальный API пока недоступен. Пароль вводить не нужно"
+            ) from None
+    print(
+        "Проверка выполнена без email и пароля. Пустой запрос входа должен получить отказ."
+    )
+
+
 def main():
     if os.geteuid() != 0:
         raise SystemExit("Запустите через sudo")
+    check_api()
     email, name, password = read_identity()
     token = create_invite()
     temporary = ROOT / "private/paperclip-owner-bootstrap.yaml"
@@ -176,10 +223,24 @@ def main():
                     "Paperclip отклонил создание учётной записи"
                 ) from None
             # Recover an interrupted bootstrap only when the same credentials authenticate.
-        post(opener, "/api/auth/sign-in/email", {"email": email, "password": password})
-        accepted = post(
-            opener, "/api/invites/" + token + "/accept", {"requestType": "human"}
-        )
+        try:
+            post(
+                opener,
+                "/api/auth/sign-in/email",
+                {"email": email, "password": password},
+            )
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(
+                f"Вход в Paperclip отклонён: HTTP {error.code}. Регистрация закрывается"
+            ) from None
+        try:
+            accepted = post(
+                opener, "/api/invites/" + token + "/accept", {"requestType": "human"}
+            )
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(
+                f"Принятие приглашения отклонено: HTTP {error.code}. Регистрация закрывается"
+            ) from None
         if accepted.get("bootstrapAccepted") is not True:
             raise RuntimeError("Paperclip не подтвердил назначение владельца")
         success = True
@@ -216,7 +277,10 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        if sys.argv[1:] == ["--check"]:
+            check_api()
+        else:
+            main()
     except (urllib.error.URLError, urllib.error.HTTPError):
         raise SystemExit(
             "Локальный API Paperclip отклонил запрос. Регистрация закрыта; пароль не выводился"
