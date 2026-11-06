@@ -200,3 +200,32 @@ class PersistentQuotaTests(unittest.TestCase):
                 daily_bytes=8 * 1024 * 1024,
             ) as second:
                 self.assertFalse(second.allowed(1))
+
+
+class HermesCompatibilityTests(unittest.TestCase):
+    def test_custom_profile_reasoning_hint_is_not_forwarded_to_nonreasoning_model(self):
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Synthetic test"}],
+            "reasoning_effort": "medium",
+            "options": {"num_ctx": 64000},
+            "prompt_cache_key": "synthetic-cache-key",
+            "max_tokens": 16384,
+        }
+        result = validate(payload, ["gpt-4o-mini"])
+        self.assertNotIn("reasoning_effort", result)
+        self.assertNotIn("options", result)
+        self.assertNotIn("prompt_cache_key", result)
+        self.assertEqual(result["max_tokens"], 8192)
+        self.assertFalse(result["store"])
+
+    def test_local_options_cannot_smuggle_an_external_url(self):
+        with self.assertRaises(ValueError):
+            validate(
+                {
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": "test"}],
+                    "options": {"num_ctx": 64000, "url": "https://example.com"},
+                },
+                ["gpt-4o-mini"],
+            )

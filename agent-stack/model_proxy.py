@@ -33,6 +33,10 @@ ALLOWED_FIELDS = {
     "frequency_penalty",
     "presence_penalty",
     "store",
+    "reasoning_effort",
+    "prompt_cache_key",
+    "prompt_cache_retention",
+    "options",
 }
 
 
@@ -69,12 +73,44 @@ def validate(payload, models):
             raise ValueError("Only client-side function tools are allowed")
     for key in ("max_tokens", "max_completion_tokens"):
         if key in payload and (
-            type(payload[key]) is not int or not 1 <= payload[key] <= 8192
+            type(payload[key]) is not int or not 1 <= payload[key] <= 65536
         ):
             raise ValueError("Output token limit exceeded")
     if payload.get("store") not in (None, False):
         raise ValueError("Stored completions are disabled")
+    effort = payload.get("reasoning_effort")
+    if effort is not None and effort not in (
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "default",
+    ):
+        raise ValueError("Invalid reasoning option")
+    options = payload.get("options")
+    if options is not None and (
+        not isinstance(options, dict)
+        or set(options) - {"num_ctx"}
+        or type(options.get("num_ctx")) is not int
+        or not 1 <= options["num_ctx"] <= 1000000
+    ):
+        raise ValueError("Unsupported local-model options")
     result = dict(payload)
+    # Hermes custom profile emits these local/provider hints. GPT-4o-mini does
+    # not accept reasoning_effort or Ollama options. Cache hints are unnecessary.
+    for field in (
+        "reasoning_effort",
+        "options",
+        "prompt_cache_key",
+        "prompt_cache_retention",
+    ):
+        result.pop(field, None)
+    for field in ("max_tokens", "max_completion_tokens"):
+        if field in result:
+            result[field] = min(result[field], 8192)
     result["store"] = False
     if not {"max_tokens", "max_completion_tokens"} & result.keys():
         result["max_tokens"] = 4096
@@ -191,8 +227,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not 0 < size <= MAX_BODY:
                 raise ValueError("Invalid request size")
             payload = validate(json.loads(self.rfile.read(size)), self.server.models)
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return self.reply(400, {"error": "Request rejected by model policy"})
+        except json.JSONDecodeError:
+            return self.reply(
+                400,
+                {"error": "Request rejected by model policy", "reason": "Invalid JSON"},
+            )
+        except ValueError as error:
+            # Every validator message is fixed text, never a payload/key value.
+            reason = (
+                str(error)
+                if str(error)
+                in {
+                    "Unsupported fields",
+                    "Model not allowed",
+                    "Invalid messages",
+                    "Invalid message",
+                    "Only text content is allowed",
+                    "Only client-side function tools are allowed",
+                    "Output token limit exceeded",
+                    "Stored completions are disabled",
+                    "Invalid reasoning option",
+                    "Unsupported local-model options",
+                    "Invalid request size",
+                    "Chunked requests not supported",
+                }
+                else "Invalid request format"
+            )
+            return self.reply(
+                400, {"error": "Request rejected by model policy", "reason": reason}
+            )
+        except TypeError:
+            return self.reply(
+                400,
+                {
+                    "error": "Request rejected by model policy",
+                    "reason": "Invalid request format",
+                },
+            )
         if not self.server.allowed(size) or not self.server.active.acquire(
             blocking=False
         ):
