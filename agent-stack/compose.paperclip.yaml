@@ -35,9 +35,9 @@ services:
       PAPERCLIP_DEPLOYMENT_MODE: authenticated
       PAPERCLIP_DEPLOYMENT_EXPOSURE: private
       PAPERCLIP_AUTH_BASE_URL_MODE: explicit
-      PAPERCLIP_AUTH_PUBLIC_BASE_URL: http://localhost:3101
-      PAPERCLIP_PUBLIC_URL: http://localhost:3101
-      BETTER_AUTH_TRUSTED_ORIGINS: http://localhost:3101
+      PAPERCLIP_AUTH_PUBLIC_BASE_URL: ${PAPERCLIP_PANEL_ORIGIN:-http://localhost:3101}
+      PAPERCLIP_PUBLIC_URL: ${PAPERCLIP_PANEL_ORIGIN:-http://localhost:3101}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${PAPERCLIP_PANEL_ORIGIN:-http://localhost:3101}
       PAPERCLIP_AUTH_DISABLE_SIGN_UP: 'true'
       PAPERCLIP_TELEMETRY_DISABLED: '1'
       DO_NOT_TRACK: '1'
@@ -48,7 +48,10 @@ services:
         target: /paperclip
     tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=512m"]
     ports: ['127.0.0.1:3101:3100']
-    networks: [paperclip-control]
+    networks:
+      paperclip-control: {}
+      paperclip-web:
+        aliases: [paperclip-panel]
     depends_on:
       paperclip-db:
         condition: service_healthy
@@ -69,4 +72,6 @@ volumes:
   paperclip_db: {}
 networks:
   paperclip-control:
+    internal: true
+  paperclip-web:
     internal: true

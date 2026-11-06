@@ -53,6 +53,8 @@ class PaperclipComposeTests(unittest.TestCase):
                 [
                     "docker",
                     "compose",
+                    "--profile",
+                    "interactive",
                     "-f",
                     str(root / "compose.yaml"),
                     "-f",
@@ -80,3 +82,9 @@ class PaperclipComposeTests(unittest.TestCase):
         self.assertNotIn("model-egress", app["networks"])
         self.assertTrue(config["networks"]["paperclip-control"]["internal"])
         self.assertEqual(app["tmpfs"], ["/tmp:rw,nosuid,nodev,noexec,size=512m"])
+
+        self.assertTrue(config["networks"]["paperclip-web"]["internal"])
+        self.assertNotIn(
+            "paperclip-web", config["services"]["paperclip-db"]["networks"]
+        )
+        self.assertEqual(config["services"]["hermes"]["network_mode"], "none")
