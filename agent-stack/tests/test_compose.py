@@ -134,3 +134,59 @@ class HermesRuntimeComposeTests(unittest.TestCase):
         self.assertEqual(bridge["network_mode"], "service:paperclip")
         self.assertNotIn("ports", bridge)
         self.assertNotIn("networks", bridge)
+
+
+class TaskControllerComposeTests(unittest.TestCase):
+    def test_only_trusted_controller_gets_database_and_agent_key(self):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            empty = base / "empty.env"
+            empty.write_text("")
+            files = [str(root / "compose.yaml")]
+            for filename in (
+                "compose.paperclip.yaml",
+                "compose.hermes-gateway.yaml",
+                "compose.task-control.yaml",
+            ):
+                contents = (root / filename).read_text()
+                for name in (
+                    "paperclip-postgres.env",
+                    "paperclip.env",
+                    "task-control.env",
+                ):
+                    contents = contents.replace(
+                        "/srv/hermes-stack/private/" + name, str(empty)
+                    )
+                path = base / filename
+                path.write_text(contents)
+                files.append(str(path))
+            command = ["docker", "compose"]
+            for filename in files:
+                command += ["-f", filename]
+            command += ["config", "--no-env-resolution", "--format", "json"]
+            config = json.loads(
+                subprocess.run(
+                    command, check=True, capture_output=True, text=True
+                ).stdout
+            )
+        runtime = config["services"]["hermes-runtime"]
+        self.assertEqual(runtime["network_mode"], "none")
+        sources = [v.get("source", "") for v in runtime["volumes"]]
+        for forbidden in (
+            "/srv/hermes-stack/private/task-control.json",
+            "/srv/hermes-stack/private/task-capability.key",
+            "/srv/hermes-stack/private/openai.key",
+        ):
+            self.assertNotIn(forbidden, sources)
+        self.assertNotIn("DATABASE_URL", runtime.get("environment", {}))
+        controller = config["services"]["task-control"]
+        self.assertEqual(controller["network_mode"], "service:paperclip")
+        self.assertTrue(controller["read_only"])
+        self.assertNotIn("ports", controller)
+        self.assertTrue(
+            any(
+                v.get("source") == "/srv/hermes-stack/private/task-control.json"
+                for v in controller["volumes"]
+            )
+        )

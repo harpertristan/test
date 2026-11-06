@@ -82,6 +82,31 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 raise ValueError("Incomplete request")
             if self.command == "POST":
                 validate_body(self.path, body)
+            if (
+                not self.server.native_side
+                and self.command == "POST"
+                and self.path == "/v1/runs"
+            ):
+                capability_key = Path("/run/secrets/task-capability.key")
+                if capability_key.exists():
+                    from task_capability import persistent_issue
+
+                    payload = json.loads(body)
+                    capability = persistent_issue(
+                        capability_key.read_bytes(),
+                        self.headers.get("Idempotency-Key", ""),
+                        "/state/task-capabilities.sqlite3",
+                    )
+                    payload["instructions"] = payload.get("instructions", "") + (
+                        "\nДоверенная настройка запуска: отвечай пользователю по-русски. "
+                        "После выполнения задачи вызови mcp_paperclip_task_submit_result, "
+                        "записав краткий результат по-русски. Это передаёт задачу пользователю на проверку. "
+                        "Не утверждай, что статус изменён, если инструмент вернул ошибку. "
+                        "Не публикуй capability в ответах или комментариях. "
+                        "Используй только эту capability для локальных task-инструментов: "
+                        + capability
+                    )
+                    body = json.dumps(payload).encode()
             if self.server.native_side:
                 connection = http.client.HTTPConnection("127.0.0.1", 8643, timeout=900)
             else:

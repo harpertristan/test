@@ -1,0 +1,44 @@
+services:
+  task-control:
+    image: workspace-paperclip:7e3caa7
+    user: '10000:10000'
+    network_mode: service:paperclip
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    working_dir: /app/cli
+    entrypoint: [node, --import, tsx, /opt/workspace-agent/task_control.mjs]
+    env_file: /srv/hermes-stack/private/task-control.env
+    volumes:
+      - .:/opt/workspace-agent:ro
+      - /srv/hermes-stack/private/task-control.json:/run/secrets/task-control.json:ro
+      - /srv/hermes-stack/private/task-capability.key:/run/secrets/task-capability.key:ro
+      - /srv/hermes-stack/task-control:/run/task-control
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=64m"]
+    depends_on:
+      paperclip:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, node, -e, "require('http').get({socketPath:'/run/task-control/control.sock',path:'/health'},r=>{r.resume();if(r.statusCode!==200)process.exit(1)}).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+  hermes-runtime:
+    volumes:
+      - /srv/hermes-stack/task-control:/run/task-control:ro
+    depends_on:
+      task-control:
+        condition: service_healthy
+  hermes-paperclip-bridge:
+    volumes:
+      - /srv/hermes-stack/state/task-bridge:/state
+      - /srv/hermes-stack/private/task-capability.key:/run/secrets/task-capability.key:ro

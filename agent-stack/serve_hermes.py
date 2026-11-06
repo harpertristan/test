@@ -19,19 +19,39 @@ async def serve():
     from hermes_cli.config import load_config
     from hermes_cli.tools_config import _get_platform_tools
 
-    # First integration stage is text-only; refuse unexpected tool enablement.
-    if _get_platform_tools(load_config(), "api_server"):
+    # Only the explicitly scoped task server may add tools.
+    selected = _get_platform_tools(load_config(), "api_server")
+    if selected - {"paperclip_task"}:
         raise RuntimeError("Unexpected enabled toolsets; startup refused")
+    if "paperclip_task" in selected:
+        from tools.mcp_tool_discovery import discover_mcp_tools
+
+        tools = await asyncio.to_thread(discover_mcp_tools, ["paperclip_task"])
+        allowed = {
+            "mcp_paperclip_task_current_task",
+            "mcp_paperclip_task_submit_result",
+        }
+        if set(tools) != allowed:
+            raise RuntimeError("Scoped task tools not available; startup refused")
     key = Path(KEY_FILE).read_text().strip()
 
-    class TextOnlyAPI(APIServerAdapter):
+    class ScopedAPI(APIServerAdapter):
         def _create_agent(self, *args, **kwargs):
             agent = super()._create_agent(*args, **kwargs)
-            if getattr(agent, "tools", None):
-                raise RuntimeError("Text-only API refused an agent with tools")
+            allowed = {
+                "mcp_paperclip_task_current_task",
+                "mcp_paperclip_task_submit_result",
+            }
+            exposed = {
+                tool.get("function", {}).get("name")
+                for tool in (getattr(agent, "tools", []) or [])
+            }
+            expected = allowed if "paperclip_task" in selected else set()
+            if exposed != expected:
+                raise RuntimeError("Unexpected tool surface; run refused")
             return agent
 
-    adapter = TextOnlyAPI(
+    adapter = ScopedAPI(
         PlatformConfig(
             enabled=True,
             extra={
@@ -49,7 +69,7 @@ async def serve():
     for sig in (signal.SIGTERM, signal.SIGINT):
         asyncio.get_running_loop().add_signal_handler(sig, stopped.set)
     print(
-        "Native Hermes API ready; network disabled; text-only tools configuration",
+        "Native Hermes API ready; network disabled; restricted task tools configuration",
         flush=True,
     )
     try:
