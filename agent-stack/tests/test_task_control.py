@@ -69,6 +69,11 @@ console.log(verifyCapability(Buffer.from('synthetic-test-key'),{json.dumps(capab
                 patch.object(install, "prepare"),
                 patch.object(install, "run", return_value=""),
                 patch.object(
+                    install.subprocess,
+                    "run",
+                    side_effect=OSError("diagnostic unavailable"),
+                ),
+                patch.object(
                     install, "up", side_effect=[RuntimeError("synthetic failure"), None]
                 ) as up,
                 contextlib.redirect_stdout(io.StringIO()),

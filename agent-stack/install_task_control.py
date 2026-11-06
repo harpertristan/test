@@ -1,6 +1,8 @@
 """Install the current-task bridge, preserving a text-only rollback path."""
 
 from bootstrap_owner import BASE, HERE, ROOT, run
+import os
+import subprocess
 from prepare_task_control import CONFIG, main as prepare
 
 ALL = BASE + [
@@ -52,6 +54,28 @@ def main():
             end="",
         )
     except Exception:
+        # Keep startup diagnostics private before recreating a failed container.
+        try:
+            failure = subprocess.run(
+                ALL
+                + [
+                    "logs",
+                    "--no-color",
+                    "--tail",
+                    "80",
+                    "hermes-runtime",
+                    "task-control",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            diagnostic = ROOT / "private/task-control-startup.log"
+            with diagnostic.open("w") as output:
+                os.fchmod(output.fileno(), 0o600)
+                output.write(failure.stdout)
+        except (OSError, subprocess.SubprocessError):
+            pass  # Diagnostics must never prevent rollback.
         # Restore the previous text-only run path instead of relaxing a policy.
         config.write_text(old)
         try:
