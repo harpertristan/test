@@ -97,3 +97,38 @@ Origin панели сохраняется в игнорируемом Git фа�
 и данным трёх приложений. Scheduler агентов остаётся выключенным.
 После публикации `bootstrap_owner.py` больше не требуется и с прежним localhost Origin
 не используется; учётная запись уже создана.
+
+## Первый внутренний Hermes Gateway (только текст)
+
+После готовности Paperclip выполните `sudo python3 prepare_hermes_gateway.py`.
+Три файла Compose применяются вместе: `compose.yaml`, `compose.paperclip.yaml`,
+`compose.hermes-gateway.yaml`. Запускаются `hermes-runtime` и `hermes-paperclip-bridge`.
+Сборка образов повторно не нужна. Runtime использует штатный `APIServerAdapter`
+закреплённой версии Hermes, собственное хранилище и конфигурацию; Telegram/scheduler
+Hermes на этом шаге не запускаются. Инструменты выключены, неожиданное их включение
+прерывает запуск/создание агента. Данные трёх приложений ещё не подключены.
+
+Paperclip обращается к `http://127.0.0.1:8642` в своей сетевой namespace.
+Sidecar, разделяющий эту namespace, передаёт только health/models/capabilities,
+создание текстового run, чтение результата/событий и остановку через Unix socket.
+Hermes остаётся с `network_mode: none`, не видит Docker, секрет OpenAI или папки
+приложений. Через мост запрещены Files, cron/jobs, сессии/профили, одобрение tool calls,
+произвольные URL, смена провайдера и параметров сети в запросах.
+Отдельный API_SERVER_KEY лежит в `/srv/hermes-stack/private/hermes-gateway.key`;
+он не является OpenAI key и не выводится подготовкой/проверками.
+
+```bash
+sudo docker --host=unix:///var/run/docker.sock compose \
+  -f compose.yaml -f compose.paperclip.yaml -f compose.hermes-gateway.yaml \
+  up -d --wait --wait-timeout 180 hermes-runtime hermes-paperclip-bridge
+sudo docker --host=unix:///var/run/docker.sock compose \
+  -f compose.yaml -f compose.paperclip.yaml -f compose.hermes-gateway.yaml \
+  exec -T hermes-runtime /opt/hermes/.venv/bin/python /opt/workspace-agent/probe_hermes_gateway.py
+```
+
+Проверки не выполняют задач и не вызывают OpenAI. Успешный health не подтверждает
+работу модели: отдельный синтетический run и результат проверяются следующим этапом.
+Реальный запуск native runtime проверяется на VPS; локальные тесты покрывают транспорт,
+авторизацию, подготовку секрета и Compose. В Paperclip прежний API key OpenAI не вводится.
+При пересоздании Paperclip также пересоздавайте `hermes-paperclip-bridge` (общая namespace).
+Пока адрес и отдельный секрет не настроены в карточке агента, Finish setup не выполняется.

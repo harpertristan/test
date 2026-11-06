@@ -88,3 +88,49 @@ class PaperclipComposeTests(unittest.TestCase):
             "paperclip-web", config["services"]["paperclip-db"]["networks"]
         )
         self.assertEqual(config["services"]["hermes"]["network_mode"], "none")
+
+
+class HermesRuntimeComposeTests(unittest.TestCase):
+    def test_runtime_network_none_and_only_loopback_bridge_has_panel_network(self):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            empty = base / "empty.env"
+            empty.write_text("")
+            panel = base / "panel.yaml"
+            panel.write_text(
+                (root / "compose.paperclip.yaml")
+                .read_text()
+                .replace("/srv/hermes-stack/private/paperclip-postgres.env", str(empty))
+                .replace("/srv/hermes-stack/private/paperclip.env", str(empty))
+            )
+            command = [
+                "docker",
+                "compose",
+                "-f",
+                str(root / "compose.yaml"),
+                "-f",
+                str(panel),
+                "-f",
+                str(root / "compose.hermes-gateway.yaml"),
+                "config",
+                "--no-env-resolution",
+                "--format",
+                "json",
+            ]
+            config = json.loads(
+                subprocess.run(
+                    command, check=True, capture_output=True, text=True
+                ).stdout
+            )
+        runtime = config["services"]["hermes-runtime"]
+        self.assertEqual(runtime["network_mode"], "none")
+        self.assertTrue(runtime["read_only"])
+        self.assertNotIn("ports", runtime)
+        sources = [v.get("source", "") for v in runtime["volumes"]]
+        self.assertNotIn("/srv/hermes-stack/private/openai.key", sources)
+        self.assertFalse(any("docker.sock" in source for source in sources))
+        bridge = config["services"]["hermes-paperclip-bridge"]
+        self.assertEqual(bridge["network_mode"], "service:paperclip")
+        self.assertNotIn("ports", bridge)
+        self.assertNotIn("networks", bridge)
