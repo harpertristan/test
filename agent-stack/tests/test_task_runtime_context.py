@@ -110,7 +110,10 @@ class RuntimeContextTests(unittest.TestCase):
                 execution_timeout=None,
             )
         bindings = TaskBindings()
-        name_for = lambda server, method: "mcp__" + server + "__" + method
+
+        def name_for(server, method):
+            return "mcp__" + server + "__" + method
+
         install_task_handlers(registry, bindings, name_for)
         install_task_handlers(
             registry, bindings, name_for
