@@ -27,6 +27,12 @@ services:
         source: /srv/hermes-stack/state/model-proxy
         target: /state
     networks: [model-egress]
+    healthcheck:
+      test: [CMD, /opt/hermes/.venv/bin/python, /opt/workspace-agent/probe_gateway.py]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
     tmpfs: [/tmp:rw,nosuid,nodev,noexec,size=64m]
     mem_limit: 256m
     cpus: 0.5
