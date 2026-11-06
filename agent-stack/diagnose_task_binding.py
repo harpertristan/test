@@ -1,6 +1,12 @@
 """Read run/task ownership metadata and controller authentication; never mutate tasks."""
 
-from bootstrap_owner import BASE, HERE, run
+import hashlib
+import hmac
+import json
+import re
+import sqlite3
+
+from bootstrap_owner import BASE, HERE, ROOT, run
 
 PROGRAM = r"""
 import {createRequire} from 'node:module';
@@ -23,13 +29,15 @@ try {
     console.log(JSON.stringify({runId:row.id,runStatus:row.status,
       companyMatches:row.companyId === identity.companyId,
       directIssueId:row.issueId ?? null,
-      contextKeys:Object.keys(context),
+
       issueId:typeof context.issueId === 'string'?context.issueId:null,
       taskId:typeof context.taskId === 'string'?context.taskId:null,
       taskFound:!!issue,taskStatus:issue?.status ?? null,
       assigneeMatches:issue?.assigneeAgentId === identity.agentId,
       executionRunId:issue?.executionRunId ?? null,
-      executionMatches:issue?.executionRunId === row.id}));
+      executionMatches:issue?.executionRunId === row.id,
+      checkoutRunId:issue?.checkoutRunId ?? null,
+      checkoutMatches:issue?.checkoutRunId === row.id}));
   }
   await new Promise(resolve => {
     const request = http.get({hostname:'127.0.0.1',port:3100,path:'/api/agents/me',
@@ -46,6 +54,70 @@ try {
   process.exit(0);
 }
 """
+
+
+def inspect_calls(root=ROOT):
+    """Compare recorded grants privately, emit only booleans and public run UUIDs."""
+    database = root / "state/hermes-gateway/state.db"
+    signing = root / "private/task-capability.key"
+    if not database.exists() or not signing.exists():
+        print("Local call diagnostic: no recorded database")
+        return
+    key = signing.read_bytes()
+    connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)
+    count = 0
+    try:
+        rows = connection.execute(
+            "SELECT tool_calls FROM messages WHERE role='assistant' AND tool_calls IS NOT NULL ORDER BY id DESC LIMIT 8"
+        )
+        for (raw,) in rows:
+            try:
+                calls = json.loads(raw)
+                if not isinstance(calls, list):
+                    continue
+                for call in calls:
+                    function = call.get("function", {})
+                    name = function.get("name")
+                    if name not in (
+                        "mcp__paperclip_task__current_task",
+                        "mcp__paperclip_task__submit_result",
+                    ):
+                        continue
+                    args = function.get("arguments", {})
+                    if isinstance(args, str):
+                        args = json.loads(args)
+                    value = args.get("capability")
+                    valid_format = isinstance(value, str) and bool(
+                        re.fullmatch(
+                            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9]{10}:[0-9a-f]{64}",
+                            value,
+                        )
+                    )
+                    valid_signature = False
+                    run_id = None
+                    if valid_format:
+                        run_id, expiry, signature = value.split(":")
+                        expected = hmac.new(
+                            key, f"{run_id}:{expiry}".encode(), hashlib.sha256
+                        ).hexdigest()
+                        valid_signature = hmac.compare_digest(signature, expected)
+                    print(
+                        json.dumps(
+                            {
+                                "tool": name,
+                                "capabilityPresent": isinstance(value, str),
+                                "formatValid": valid_format,
+                                "signatureValid": valid_signature,
+                                "runId": run_id,
+                            }
+                        )
+                    )
+                    count += 1
+            except (ValueError, TypeError, AttributeError):
+                print("Recorded call could not be parsed; arguments were not printed.")
+        print(f"Recorded task calls inspected: {count}. No capability values printed.")
+    finally:
+        connection.close()
 
 
 def main():
@@ -65,10 +137,13 @@ def main():
         PROGRAM,
     ]
     print(run(command), end="")
+    inspect_calls()
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (RuntimeError, OSError) as error:
-        raise SystemExit(str(error)) from None
+    except (RuntimeError, OSError, sqlite3.Error):
+        raise SystemExit(
+            "Read-only diagnostic unavailable; secret details suppressed"
+        ) from None
