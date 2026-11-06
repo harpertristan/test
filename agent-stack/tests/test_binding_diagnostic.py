@@ -73,3 +73,29 @@ class BindingDiagnosticTests(unittest.TestCase):
         self.assertNotIn("synthetic-private-grant", output)
         self.assertNotIn("private-task-text", output)
         self.assertEqual(list(safe_events("ordinary private log line")), [])
+
+    def test_result_classifier_does_not_print_private_result_text(self):
+        from diagnose_task_binding import inspect_results
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "state/hermes-gateway").mkdir(parents=True)
+            connection = sqlite3.connect(root / "state/hermes-gateway/state.db")
+            connection.execute(
+                "CREATE TABLE messages (id INTEGER, role TEXT, tool_name TEXT, content TEXT)"
+            )
+            connection.execute(
+                "INSERT INTO messages VALUES (1,?,?,?)",
+                (
+                    "tool",
+                    "mcp__paperclip_task__submit_result",
+                    "Нет активного доверенного контекста задачи. private-result-and-key",
+                ),
+            )
+            connection.commit()
+            connection.close()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                inspect_results(root)
+            self.assertIn("RUNTIME_CONTEXT_MISSING", output.getvalue())
+            self.assertNotIn("private-result-and-key", output.getvalue())

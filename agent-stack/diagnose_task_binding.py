@@ -120,6 +120,50 @@ def inspect_calls(root=ROOT):
         connection.close()
 
 
+def inspect_results(root=ROOT):
+    database = root / "state/hermes-gateway/state.db"
+    if not database.exists():
+        print("No local results database")
+        return
+    connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)
+    try:
+        rows = connection.execute(
+            "SELECT tool_name,content FROM messages WHERE role='tool' ORDER BY id DESC LIMIT 12"
+        )
+        for name, content in rows:
+            if name not in (
+                "mcp__paperclip_task__current_task",
+                "mcp__paperclip_task__submit_result",
+            ):
+                continue
+            text = content if isinstance(content, str) else ""
+            patterns = (
+                ("Нет активного доверенного контекста", "RUNTIME_CONTEXT_MISSING"),
+                ("Передавай только поля", "MODEL_ARGUMENTS_INVALID"),
+                ("Служебное разрешение", "MODEL_ARGUMENTS_INVALID"),
+                ("Нужен краткий", "EMPTY_SUMMARY"),
+                ("Локальный контроллер недоступен", "CONTROLLER_UNAVAILABLE"),
+                ("Операция не выполнена", "CONTROLLER_REFUSED"),
+                ("Task operation refused", "CONTROLLER_REFUSED"),
+                ("circuit", "MCP_CIRCUIT_BREAKER"),
+                ("temporarily disabled", "MCP_CIRCUIT_BREAKER"),
+                ("in_review", "RESULT_IN_REVIEW"),
+                ("in_progress", "CURRENT_TASK_IN_PROGRESS"),
+            )
+            code = next(
+                (code for pattern, code in patterns if pattern.lower() in text.lower()),
+                "UNCLASSIFIED_TOOL_RESULT",
+            )
+            print(
+                json.dumps(
+                    {"tool": name, "resultCode": code, "resultLength": len(text)}
+                )
+            )
+        print("Only diagnostic labels printed; no tool result text printed.")
+    finally:
+        connection.close()
+
+
 def main():
     command = BASE + [
         "-f",
@@ -138,6 +182,7 @@ def main():
     ]
     print(run(command), end="")
     inspect_calls()
+    inspect_results()
 
 
 if __name__ == "__main__":
