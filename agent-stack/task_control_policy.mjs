@@ -17,12 +17,18 @@ export function verifyCapability(key, capability, now = Math.floor(Date.now() / 
 
 export function bindTask(run, issue, identity) {
   const issueId = run?.issueId ?? run?.contextSnapshot?.issueId ?? run?.contextSnapshot?.taskId;
-  if (!UUID.test(issueId || '') || !run || run.status !== 'running' ||
-      run.agentId !== identity.agentId || run.companyId !== identity.companyId ||
-      !issue || issue.id !== issueId || issue.companyId !== identity.companyId ||
-      issue.assigneeAgentId !== identity.agentId || issue.status !== 'in_progress' ||
-      ![issue.executionRunId,issue.checkoutRunId].some(id => id === run.id) ||
-      [issue.executionRunId,issue.checkoutRunId].some(id => id && id !== run.id)) refuse('TASK_RUN_OWNERSHIP');
+  if (!UUID.test(issueId || '')) refuse('TASK_BINDING_MISSING');
+  if (!run || run.status !== 'running') refuse('TASK_RUN_INACTIVE');
+  if (run.agentId !== identity.agentId || run.companyId !== identity.companyId)
+    refuse('TASK_RUN_IDENTITY');
+  if (!issue || issue.id !== issueId || issue.companyId !== identity.companyId)
+    refuse('TASK_ISSUE_IDENTITY');
+  if (issue.assigneeAgentId !== identity.agentId) refuse('TASK_ASSIGNEE_MISMATCH');
+  if (issue.status !== 'in_progress') refuse('TASK_NOT_IN_PROGRESS');
+  if (![issue.executionRunId, issue.checkoutRunId].some(id => id === run.id))
+    refuse('TASK_RUN_LOCK_MISSING');
+  if ([issue.executionRunId, issue.checkoutRunId].some(id => id && id !== run.id))
+    refuse('TASK_RUN_LOCK_CONFLICT');
   return issueId;
 }
 
