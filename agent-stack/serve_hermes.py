@@ -24,7 +24,7 @@ async def serve():
 
     allowed_task_tools = {
         mcp_prefixed_tool_name("paperclip_task", name)
-        for name in ("current_task", "submit_result")
+        for name in ("current_task", "submit_result", "scout_read", "assistant_read", "mail_crm_read")
     }
 
     # Only the explicitly scoped task server may add tools.
