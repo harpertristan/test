@@ -15,6 +15,81 @@ const socket = '/run/task-control/control.sock';
 fs.rmSync(socket, { force:true });
 const inFlight = new Set();
 
+// A native review interaction is required before an agent may set in_review.
+// The idempotency key is deterministic per run so a failed PATCH cannot create duplicates.
+function createReviewPath(issueId, runId, summary) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({
+      kind: 'request_confirmation',
+      idempotencyKey: 'hermes-submit-result-' + runId,
+      title: 'Проверка результата Hermes',
+      summary: summary.slice(0, 1000),
+      continuationPolicy: 'none',
+      payload: {
+        version: 1,
+        prompt: 'Подтвердите результат работы Hermes или отклоните его для доработки.',
+        detailsMarkdown: summary,
+        acceptLabel: 'Принять',
+        rejectLabel: 'На доработку'
+      }
+    });
+    const req = http.request({
+      hostname: '127.0.0.1', port: 3100,
+      path: `/api/issues/${issueId}/interactions`, method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data),
+        'Authorization': `Bearer ${identity.token}`,
+        'X-Paperclip-Run-Id': runId
+      }
+    }, response => {
+      let result = '';
+      response.on('data', chunk => {
+        result += chunk;
+        if (result.length > 1048576) response.destroy();
+      });
+      response.on('end', () => {
+        if (![200, 201].includes(response.statusCode)) {
+          const error = Error('Review request rejected');
+          error.safeCode = 'REVIEW_CREATE_REJECTED';
+          error.httpStatus = response.statusCode;
+          try {
+            const value = JSON.parse(result);
+            const code = value.code ?? value.details?.code;
+            if (typeof code === 'string' && /^[A-Za-z][A-Za-z0-9_]{1,79}$/.test(code))
+              error.nativeCode = code;
+          } catch {}
+          return reject(error);
+        }
+        try {
+          const review = JSON.parse(result);
+          if (review.kind !== 'request_confirmation' || review.status !== 'pending' ||
+              typeof review.id !== 'string') {
+            const error = Error('Review creation unconfirmed');
+            error.safeCode = 'REVIEW_CREATE_UNCONFIRMED';
+            return reject(error);
+          }
+          resolve(review.id);
+        } catch {
+          const error = Error('Review creation response invalid');
+          error.safeCode = 'REVIEW_CREATE_RESPONSE_INVALID';
+          reject(error);
+        }
+      });
+    });
+    req.setTimeout(15000, () => {
+      const error = Error('Review API timeout'); error.safeCode = 'REVIEW_API_TIMEOUT';
+      req.destroy(error);
+    });
+    req.on('error', error => {
+      const failure = Error('Review API unavailable');
+      failure.safeCode = error.safeCode || 'REVIEW_API_UNAVAILABLE';
+      reject(failure);
+    });
+    req.end(data);
+  });
+}
+
 function apiPatch(issueId, runId, summary) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({ status:'in_review', comment:summary });
@@ -77,6 +152,8 @@ const server = http.createServer(async (req, res) => {
     stage = 'binding';
     bindTask(run, issue, identity);
     if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status});
+    stage = 'review_create';
+    await createReviewPath(issue.id, runId, body.summary);
     stage = 'api';
     return reply(200, await apiPatch(issue.id,runId,body.summary));
   } catch (error) {
