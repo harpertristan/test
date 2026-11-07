@@ -2,6 +2,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import {resolveReadOperation} from "./three_tool_read_policy.mjs";
+import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 const SOCKET="/run/three-tools/read.sock";
 const CONTROL="/run/task-control/control.sock";
 const GATEWAY="multi-mail-crm-tool-gateway-1";
@@ -51,13 +52,15 @@ const server=http.createServer(async(req,res)=>{
     const current=JSON.parse(task.body);
     if(!current||!["in_progress"].includes(current.status))
       return reply(403,{code:"TASK_NOT_IN_PROGRESS"});
+    const scope=JSON.parse(fs.readFileSync("/run/secrets/three-tool-scope.json","utf8"));
+    authorizeReadScope(scope,current,payload.operation,payload.params);
     const result=await upstream(PATH_PREFIX[op.service]+op.path);
     if(result.status!==200||!result.contentType.toLowerCase().includes("application/json"))
       return reply(502,{code:"UPSTREAM_UNAVAILABLE"});
     let data;
     try{data=JSON.parse(result.body);}catch{return reply(502,{code:"INVALID_UPSTREAM_RESPONSE"});}
     return reply(200,{operation:payload.operation,data});
-  }catch(e){return reply(400,{code:"READ_REFUSED"});}
+  }catch(e){return reply(403,{code:"READ_REFUSED"});}
 });
 server.requestTimeout=10000;
 server.headersTimeout=5000;
