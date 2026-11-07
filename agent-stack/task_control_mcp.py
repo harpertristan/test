@@ -35,6 +35,29 @@ def call(path, payload):
         connection.close()
 
 
+class ThreeToolConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect("/run/three-tools/read.sock")
+
+
+def read_tool(capability: str, operation: str, params: dict) -> dict:
+    connection = ThreeToolConnection("three-tools", timeout=12)
+    try:
+        payload = json.dumps({"capability": capability, "operation": operation, "params": params})
+        connection.request("POST", "/read", payload, {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        data = json.loads(response.read(65536))
+        if response.status != 200:
+            return {"error": "Чтение не разрешено или сервис недоступен.", "code": data.get("code", "READ_REFUSED")}
+        return data
+    except Exception:
+        return {"error": "Сервис чтения недоступен. Не выдумывай данные.", "code": "READ_UNAVAILABLE"}
+    finally:
+        connection.close()
+
+
 def current_task(capability: str) -> dict:
     """Проверить привязку текущего запуска. capability берётся только из runtime instructions."""
     return call("/current", {"capability": capability})
@@ -80,6 +103,24 @@ TOOLS = [
 ]
 
 
+for _name, _prefix in (("scout_read", "scout_"), ("assistant_read", "assistant_"), ("mail_crm_read", "mail_")):
+    TOOLS.append({
+        "name": _name,
+        "description": "Разрешённые операции чтения; служебное разрешение подставляется автоматически.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "capability": {"type": "string"},
+                "operation": {"type": "string", "pattern": "^" + _prefix + "[a-z_]+$"},
+                "params": {"type": "object", "additionalProperties": {"type": "string"}},
+            },
+            "required": ["capability", "operation", "params"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    })
+
+
 def dispatch(method, params):
     if method == "initialize":
         supported = {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
@@ -97,27 +138,35 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
+        if name not in {"current_task", "submit_result", "scout_read", "assistant_read", "mail_crm_read"}:
+            raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name == "current_task" else {"capability", "summary"}
+            {"capability"} if name == "current_task"
+            else {"capability", "summary"} if name == "submit_result"
+            else {"capability", "operation", "params"}
         )
-        if name not in ("current_task", "submit_result") or set(arguments) != expected:
-            raise ValueError("Invalid tool")
+        if set(arguments) != expected:
+            raise ValueError("Invalid arguments")
         capability = arguments.get("capability")
         if not isinstance(capability, str) or not 1 <= len(capability) <= 160:
             raise ValueError("Invalid capability")
         if name == "submit_result":
             summary = arguments.get("summary")
-            if (
-                not isinstance(summary, str)
-                or not summary.strip()
-                or len(summary) > 8000
-            ):
+            if not isinstance(summary, str) or not summary.strip() or len(summary) > 8000:
                 raise ValueError("Invalid summary")
-        result = (
-            current_task(**arguments)
-            if name == "current_task"
-            else submit_result(**arguments)
-        )
+        if name in ("scout_read", "assistant_read", "mail_crm_read"):
+            operation = arguments.get("operation")
+            prefix = {"scout_read": "scout_", "assistant_read": "assistant_", "mail_crm_read": "mail_"}[name]
+            if not isinstance(operation, str) or not operation.startswith(prefix):
+                raise ValueError("Operation prefix mismatch")
+            tool_params = arguments.get("params")
+            if not isinstance(tool_params, dict) or len(tool_params) > 2:
+                raise ValueError("Invalid params")
+            result = read_tool(capability, operation, tool_params)
+        elif name == "current_task":
+            result = current_task(**arguments)
+        else:
+            result = submit_result(**arguments)
         return {
             "content": [
                 {"type": "text", "text": json.dumps(result, ensure_ascii=False)}
