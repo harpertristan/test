@@ -38,13 +38,13 @@ function apiPatch(issueId, runId, summary) {
         }
         try {
           const value = JSON.parse(body);
-          if (value.status !== 'in_review') return reject(Error('Task update not confirmed'));
+          if (value.status !== 'in_review') { const error = Error('Task update not confirmed'); error.safeCode = 'API_STATUS_UNCONFIRMED'; return reject(error); }
           resolve({status:'in_review', message:'Результат записан. Задача передана на проверку пользователю.'});
-        } catch { reject(Error('Task response invalid')); }
+        } catch { const error = Error('Task response invalid'); error.safeCode = 'API_RESPONSE_INVALID'; reject(error); }
       });
     });
-    req.setTimeout(15000, () => req.destroy());
-    req.on('error', () => reject(Error('Task API unavailable')));
+    req.setTimeout(15000, () => { const error = Error('Task API timeout'); error.safeCode = 'API_TIMEOUT'; req.destroy(error); });
+    req.on('error', error => { const failure = Error('Task API unavailable'); failure.safeCode = error.safeCode || 'API_UNAVAILABLE'; reject(failure); });
     req.end(data);
   });
 }
@@ -67,19 +67,22 @@ const server = http.createServer(async (req, res) => {
     if (inFlight.has(runId)) return reply(409, {error:'Run request already active'});
     inFlight.add(runId);
     acquired = true;
-    stage = "binding";
+    stage = 'run_lookup';
     const [run] = await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.id,runId)).limit(1);
-    const issueId = run?.issueId ?? run?.contextSnapshot?.issueId ?? run?.contextSnapshot?.taskId;
-    if (typeof issueId !== 'string') throw Error('No task binding');
+    if (!run) { const error = Error('Run not found'); error.safeCode = 'RUN_NOT_FOUND'; throw error; }
+    stage = 'issue_lookup';
+    const issueId = run.issueId ?? run.contextSnapshot?.issueId ?? run.contextSnapshot?.taskId;
+    if (typeof issueId !== 'string') { const error = Error('No task binding'); error.safeCode = 'TASK_BINDING_MISSING'; throw error; }
     const [issue] = await db.select().from(issues).where(eq(issues.id,issueId)).limit(1);
+    stage = 'binding';
     bindTask(run, issue, identity);
     if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status});
     stage = 'api';
     return reply(200, await apiPatch(issue.id,runId,body.summary));
   } catch (error) {
     const event = {event:'task_control_refused',stage,
-      code:error.safeCode || 'TASK_OPERATION_REFUSED',httpStatus:error.httpStatus || null,
-      nativeCode:error.nativeCode || null};
+      code:error.safeCode || (stage === 'run_lookup' || stage === 'issue_lookup' ? 'DB_LOOKUP_FAILED' : 'TASK_OPERATION_REFUSED'),
+      httpStatus:error.httpStatus || null, nativeCode:error.nativeCode || null};
     console.log(JSON.stringify(event));
     return reply(403,{error:'Task operation refused; no permission or task state changed',code:event.code});
   } finally {
