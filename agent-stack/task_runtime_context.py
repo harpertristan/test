@@ -18,10 +18,34 @@ def extract_grant(prompt):
     return TAG.sub("", prompt), matches[-1].group(1)
 
 
+
+def _verified_read_result(raw, operation):
+    """Require a structured successful result from the trusted read sidecar."""
+    if not isinstance(raw, str):
+        return False
+    try:
+        value = json.loads(raw)
+        if isinstance(value, dict) and value.get("operation") == operation:
+            return "data" in value and "error" not in value
+        if not isinstance(value, dict) or value.get("isError") is not False:
+            return False
+        content = value.get("content")
+        if not isinstance(content, list):
+            return False
+        return any(
+            isinstance(entry, dict)
+            and entry.get("type") == "text"
+            and _verified_read_result(entry.get("text"), operation)
+            for entry in content
+        )
+    except (TypeError, ValueError, RecursionError):
+        return False
+
 class TaskBindings:
     def __init__(self):
         self._active = {}
         self._lock = threading.RLock()
+        self._successful_reads = {}
 
     @contextmanager
     def bind(self, session_id, capability):
@@ -31,11 +55,13 @@ class TaskBindings:
             if session_id in self._active:
                 raise RuntimeError("Task session already active")
             self._active[session_id] = capability
+            self._successful_reads[session_id] = set()
         try:
             yield
         finally:
             with self._lock:
                 self._active.pop(session_id, None)
+                self._successful_reads.pop(session_id, None)
 
     def wrap(self, original, method):
         def handler(arguments, **context):
@@ -60,7 +86,21 @@ class TaskBindings:
                         "error": "Нет активного доверенного контекста задачи. Статус не изменён."
                     }
                 )
+            if method == "submit_result":
+                with self._lock:
+                    has_verified_read = bool(self._successful_reads.get(context.get("session_id")))
+                if not has_verified_read:
+                    return json.dumps({
+                        "error": "Нет подтверждённого успешного чтения данных. Результат не передан на проверку.",
+                        "code": "READ_EVIDENCE_MISSING",
+                    }, ensure_ascii=False)
             result = original({**arguments, "capability": capability}, **context)
+            if method in {"scout_read", "assistant_read", "mail_crm_read"} and _verified_read_result(
+                result, arguments["operation"]
+            ):
+                with self._lock:
+                    if self._active.get(context.get("session_id")) == capability:
+                        self._successful_reads[context["session_id"]].add(arguments["operation"])
             if not isinstance(result, str):
                 return json.dumps(
                     {
