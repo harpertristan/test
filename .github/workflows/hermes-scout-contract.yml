@@ -13,6 +13,7 @@ on:
       - "agent-stack/ops/scout_start_preflight.sh"
       - "agent-stack/ops/install_scout_start.sh"
       - "agent-stack/ops/enable_hermes_three_service_reads.sh"
+      - "agent-stack/ops/diagnose_hermes_run.sh"
       - "agent-stack/scout_start_policy.mjs"
       - "agent-stack/scout_start_gateway.mjs"
       - "agent-stack/task_control_mcp.py"
@@ -44,6 +45,7 @@ jobs:
           bash -n agent-stack/ops/scout_start_preflight.sh
           bash -n agent-stack/ops/install_scout_start.sh
           bash -n agent-stack/ops/enable_hermes_three_service_reads.sh
+          bash -n agent-stack/ops/diagnose_hermes_run.sh
       - name: Validate embedded Python and simulated permission update
         run: |
           python3 - <<'PY'
