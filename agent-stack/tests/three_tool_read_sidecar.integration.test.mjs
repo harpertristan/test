@@ -22,7 +22,7 @@ function send(socket,route,data){
 }
 test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream error",async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),"hermes-sidecar-"));
- const socket=path.join(temp,"read.sock"),controllerSocket=path.join(temp,"control.sock"),scope=path.join(temp,"scope.json");
+ const socket=path.join(temp,"read.sock"),controllerSocket=path.join(temp,"control.sock"),scoutSocket=path.join(temp,"scout.sock"),scope=path.join(temp,"scope.json");
  const taskId="22222222-2222-4222-8222-222222222222",agentId="test-hermes";
  const policy={version:1,grants:{},agentGrants:{[agentId]:{
   agentId,companyId:"test-company",operations:["scout_findings","mail_messages"],
@@ -35,6 +35,10 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
   res.end(taskStatus===200?JSON.stringify({id:taskId,identifier:"WOR-TEST",status:"in_progress",
     agentId,companyId:"test-company"}):JSON.stringify({code:"TASK_NOT_IN_PROGRESS"}));
  });
+ const scout=http.createServer((req,res)=>{
+  res.writeHead(upstreamStatus,{"content-type":"application/json"});
+  res.end(JSON.stringify({operation:"scout_findings",data:{items:[{name:"Synthetic Bank"}]}}));
+ });
  const upstream=http.createServer((req,res)=>{
   res.writeHead(upstreamStatus,{"content-type":"application/json"});
   res.end(JSON.stringify(req.url==="/mail-crm/messages"?
@@ -44,10 +48,11 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
  let child;
  try{
   await listen(controller,controllerSocket);
+  await listen(scout,scoutSocket);
   await listen(upstream,{host:"127.0.0.1",port:0});
   child=spawn(process.execPath,[path.join(root,"three_tool_read_sidecar.mjs")],{
    env:{...process.env,HERMES_TEST_MODE:"1",HERMES_TEST_SOCKET:socket,
-    HERMES_TEST_CONTROL:controllerSocket,HERMES_TEST_SCOPE:scope,
+    HERMES_TEST_CONTROL:controllerSocket,HERMES_TEST_SCOUT_SOCKET:scoutSocket,HERMES_TEST_SCOPE:scope,
     HERMES_TEST_GATEWAY:"127.0.0.1",HERMES_TEST_PORT:String(upstream.address().port),
     HERMES_TEST_DIR:temp},stdio:"ignore"
   });
@@ -75,7 +80,7 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
   taskStatus=200;upstreamStatus=500;
   const broken=await get("scout_findings");
   assert.equal(broken.status,502);
-  assert.equal(broken.body.code,"UPSTREAM_UNAVAILABLE");
+  assert.equal(broken.body.code,"SCOUT_READ_UNAVAILABLE");
   // Never expose a private mailbox to a disallowed task when an explicit grant overrides defaults.
   policy.grants[taskId]={issueIdentifier:"WOR-TEST",operations:["scout_findings"],workspaceWide:true,
     mailConsent:false,companyIds:[]};
@@ -87,6 +92,7 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
  } finally {
   child?.kill("SIGTERM");
   await close(controller).catch(()=>{});
+  await close(scout).catch(()=>{});
   await close(upstream).catch(()=>{});
   fs.rmSync(temp,{recursive:true,force:true});
  }
