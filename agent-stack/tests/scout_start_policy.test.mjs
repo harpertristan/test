@@ -13,6 +13,14 @@ test('one scoped task chooses only preapproved web source IDs',()=>{
  assert.deepEqual(scoutPayload(grant),{ids:['web:one','web:two'],analyse:false,allowPaid:false,requestId:issue});
  assert.deepEqual(Object.keys(validateStartRequest({capability:'synthetic'})),Object.keys('synthetic'));
 });
+test('allows catalogue-backed nonpaid financial source when no web sources exist',()=>{
+  const specialized={version:1,grants:{[issue]:{
+    ...scope.grants[issue],scoutSourceIds:['social:ecb']
+  }}};
+  assert.deepEqual(scoutPayload(authorizeScoutStart(specialized,task)),{
+    ids:['social:ecb'],analyse:false,allowPaid:false,requestId:issue
+  });
+});
 test('no caller-provided URL, source IDs, paid flag or task selector',()=>{
  for(const extra of [{ids:['web:bad']},{allowPaid:true},{url:'http://a'},{taskId:issue},{requestId:'another'}])
    assert.throws(()=>validateStartRequest({capability:'synthetic',...extra}));
