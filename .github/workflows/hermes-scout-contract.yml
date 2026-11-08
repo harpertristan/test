@@ -10,6 +10,7 @@ on:
       - "agent-stack/tests/test_task_read_gate.py"
       - "agent-stack/tests/test_scoped_mcp_contract.py"
       - "agent-stack/ops/hermes_safe_deploy.sh"
+      - "agent-stack/ops/scout_start_preflight.sh"
       - "agent-stack/task_control_policy.mjs"
       - "agent-stack/three_tool_read_policy.mjs"
       - "agent-stack/three_tool_read_scope.mjs"
@@ -30,7 +31,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Validate one-command deployment script
-        run: bash -n agent-stack/ops/hermes_safe_deploy.sh
+        run: |
+          bash -n agent-stack/ops/hermes_safe_deploy.sh
+          bash -n agent-stack/ops/scout_start_preflight.sh
       - name: Cross-language task authorization and read scope
         working-directory: agent-stack
         run: |
