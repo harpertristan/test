@@ -12,7 +12,7 @@ READ=workspace-agent-three-tool-read-1
 RUN=workspace-agent-hermes-runtime-1
 BRIDGE=workspace-agent-hermes-paperclip-bridge-1
 START=workspace-agent-scout-start-gateway-1
-FILES="task_control_policy.mjs task_control.mjs three_tool_read_scope.mjs three_tool_read_sidecar.mjs task_control_mcp.py"
+FILES="task_control_policy.mjs task_control.mjs three_tool_read_scope.mjs three_tool_read_sidecar.mjs scout_start_gateway.mjs task_control_mcp.py"
 test "$EUID" -eq 0 || { echo "sudo is required";exit 2; }
 for cmd in git docker python3 tar mktemp install;do command -v "$cmd" >/dev/null;done
 test -d "$REPO/.git" && test -s "$SCOPE" && test -s "$IDENTITY"
@@ -28,7 +28,7 @@ rollback(){
   cat "$BACKUP/scope.json" > "$SCOPE" || true
   chown 10000:10000 "$SCOPE" || true
   chmod 0400 "$SCOPE" || true
-  docker restart "$CONTROL" "$READ" "$RUN" "$BRIDGE" >/dev/null 2>&1 || true
+  docker restart "$CONTROL" "$START" "$READ" "$RUN" "$BRIDGE" >/dev/null 2>&1 || true
  fi
 }
 failure(){ code=$?; trap - ERR; rollback;echo "FAILED ($code), backup $BACKUP" >&2;exit "$code"; }
@@ -82,12 +82,12 @@ cat "$WORK/scope.json" > "$SCOPE"
 chown 10000:10000 "$SCOPE"
 chmod 0400 "$SCOPE"
 echo "=== RESTART ONLY AFFECTED SERVICES ==="
-docker restart "$CONTROL" "$READ" "$RUN" "$BRIDGE" >/dev/null
+docker restart "$CONTROL" "$START" "$READ" "$RUN" "$BRIDGE" >/dev/null
 echo "=== HEALTH ==="
 ready=0
 for j in $(seq 1 36);do
  good=1
- for c in "$CONTROL" "$READ" "$RUN";do
+ for c in "$CONTROL" "$START" "$READ" "$RUN";do
   state=$(docker inspect -f '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$c")
   [ "$state" = running:healthy ] || good=0
  done
@@ -97,6 +97,12 @@ for j in $(seq 1 36);do
 done
 [ "$ready" = 1 ]
 [ "$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$RUN")" = none ]
+echo "=== VERIFY SCOUT NETWORK BRIDGE (NO RECORD DATA) ==="
+docker exec "$START" node -e '
+require("node:http").get({hostname:"play-scout-app-1",port:3000,path:"/api/monitor",timeout:5000},r=>{
+ r.resume();r.on("end",()=>{console.log("Scout monitor HTTP",r.statusCode);if(r.statusCode!==200)process.exitCode=1});
+}).on("error",()=>{process.exitCode=1});
+'
 echo "=== VERIFY INVALID TASK CAPABILITY IS DENIED ==="
 docker exec "$READ" node -e '
 const http=require("node:http"),d=JSON.stringify({capability:"invalid",operation:"scout_findings",params:{}});
