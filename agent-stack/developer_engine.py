@@ -248,16 +248,24 @@ def validate_changes(repo: Path, proposal: dict) -> tuple[dict[str, str], str]:
 def copy_fixture(repo: Path, stage: Path, updates: dict[str, str]):
     # Fixed source tree, never .git/private/secrets, and never symlinks.
     stage.mkdir(parents=True, exist_ok=True)
+    os.chmod(stage, 0o755)
     for item in repo.iterdir():
         if item.is_file() and not item.is_symlink() and item.suffix in PERMITTED_EXTENSIONS:
             if item.stat().st_size <= 200_000:
-                (stage / item.name).write_bytes(item.read_bytes())
+                dest = stage / item.name
+                dest.write_bytes(item.read_bytes())
+                os.chmod(dest, 0o644)
     for path in (repo / "tests").glob("*") if (repo / "tests").is_dir() else ():
         if path.is_file() and not path.is_symlink() and path.suffix in (".py", ".mjs"):
             (stage / "tests").mkdir(exist_ok=True)
-            (stage / "tests" / path.name).write_bytes(path.read_bytes())
+            os.chmod(stage / "tests", 0o755)
+            dest = stage / "tests" / path.name
+            dest.write_bytes(path.read_bytes())
+            os.chmod(dest, 0o644)
     for name, value in updates.items():
-        (stage / name).write_text(value, encoding="utf8")
+        dest = stage / name
+        dest.write_text(value, encoding="utf8")
+        os.chmod(dest, 0o644)
 
 
 def _sandbox_cmd(image: str, entry: str, args: list[str], stage: Path) -> list[str]:
