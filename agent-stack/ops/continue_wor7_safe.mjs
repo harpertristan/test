@@ -36,7 +36,6 @@ export function continuationPayload(issue, identity){
   status:"todo",
   parentId:issue.id,
   assigneeAgentId:identity.agentId,
-  priority:["low","medium","high","urgent"].includes(issue.priority)?issue.priority:"medium",
  };
 }
 export function isReplayBlocked(action){
