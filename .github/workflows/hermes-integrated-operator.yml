@@ -39,6 +39,7 @@ jobs:
           bash -n agent-stack/ops/install_integrated_hermes.sh
           bash -n agent-stack/ops/install_public_search_fix.sh
           bash -n agent-stack/ops/install_scout_review_reader.sh
+          bash -n agent-stack/ops/install_hermes_all_tools.sh
           python3 - <<'PY'
           import ast,json,pathlib,re,subprocess,tempfile
           script=pathlib.Path("agent-stack/ops/install_integrated_hermes.sh").read_text()
@@ -76,6 +77,42 @@ jobs:
             mcp.write_text(json.dumps({"result":{"tools":[{"name":x} for x in tools]}}))
             subprocess.run(["python3","-c",blocks[1],str(mcp)],check=True)
           print("PASS: installer syntax, embedded scripts, grant preservation and 11-tool manifest")
+          PY
+      - name: Test all-service installer scoped grants and no outgoing actions
+        run: |
+          python3 - <<'PY'
+          import ast,json,pathlib,re,subprocess,tempfile
+          code=pathlib.Path("agent-stack/ops/install_hermes_all_tools.sh").read_text()
+          py=re.findall(r"<<'PY'\n(.*?)\nPY",code,re.S)
+          assert len(py)==3,len(py)
+          for s in py:ast.parse(s)
+          with tempfile.TemporaryDirectory() as tmp:
+           root=pathlib.Path(tmp)
+           scope=root/"scope.json";identity=root/"identity.json"
+           config=root/"config.yaml";stage=root/"stage";stage.mkdir()
+           scope.write_text(json.dumps({"version":1,"grants":{"old":{"issueIdentifier":"WOR-7",
+             "workspaceWide":True,"operations":["scout_start"],"scoutSourceIds":["social:ecb"]}},
+             "agentGrants":{"hermes-agent":{"agentId":"hermes-agent","companyId":"workspace",
+                "workspaceWide":True,"mailConsent":True,"companyIds":[],
+                "operations":["mail_messages","scout_web"]}}}))
+           identity.write_text(json.dumps({"agentId":"hermes-agent","companyId":"workspace"}))
+           baseline=["current_task","begin_task","submit_result","request_approval",
+             "web_research","skills_memory","developer_status","scout_start",
+             "scout_read","assistant_read","mail_crm_read"]
+           config.write_text("mcp_servers:\n  paperclip_task:\n    tools:\n      include: ["+", ".join(baseline)+"]\n")
+           catalog=re.findall(r"(?m)^\s*((?:scout|mail|assistant)_[a-z_]+): \{service:",pathlib.Path("agent-stack/three_tool_read_policy.mjs").read_text())
+           assert len(catalog)>=35
+           (stage/"catalog.json").write_text(json.dumps(catalog))
+           subprocess.run(["python3","-c",py[1],str(scope),str(identity),str(config),str(stage)],check=True)
+           result=json.loads((stage/"scope.next").read_text())
+           agent=result["agentGrants"]["hermes-agent"]
+           assert agent["assistantConsent"] and agent["assistantAllCompanies"] and agent["mailConsent"]
+           assert {"assistant_documents","scout_ai_inbox","mail_accounts","scout_collect","scout_web"}<=set(agent["operations"])
+           assert not {"mail_send","mail_delete","external_upload","shell"}&set(agent["operations"])
+           assert result["grants"]["old"]["scoutSourceIds"]==["social:ecb"]
+           assert "scout_collect" in (stage/"config.next").read_text()
+           assert "send_mail" not in (stage/"config.next").read_text()
+           print("PASS: 12 tools, full bounded read catalogue, preserved source ids and no send")
           PY
       - name: Native task binding and web safety policies
         working-directory: agent-stack
