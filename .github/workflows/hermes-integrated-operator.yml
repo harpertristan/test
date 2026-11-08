@@ -102,8 +102,25 @@ jobs:
         working-directory: agent-stack
         run: |
           node --input-type=module <<'JS'
-          import {publicSearch} from "./scout_web_fetch.mjs";
-          const result=await publicSearch("UK business account EMI company FCA");
+          import {publicSearch,publicOpen} from "./scout_web_fetch.mjs";
+          const query="UK business account EMI company FCA";
+          const result=await publicSearch(query);
+          if(!result.results.length){
+            for(const url of [
+              "https://www.google.com/search?q="+encodeURIComponent(query),
+              "https://www.bing.com/search?q="+encodeURIComponent(query),
+              "https://html.duckduckgo.com/html/?q="+encodeURIComponent(query)
+            ]){
+              try{
+                const page=await publicOpen(url);
+                console.log(JSON.stringify({source:new URL(url).hostname,title:page.title,
+                  textLength:page.text.length,
+                  sample:page.text.slice(0,180),
+                  linkCount:page.links.length,
+                  linkHosts:page.links.slice(0,10).map(x=>new URL(x).hostname)}));
+              }catch(e){console.log("provider probe unavailable",new URL(url).hostname,e.message)}
+            }
+          }
           console.log(JSON.stringify({
             status:result.code??"ok",
             provider:result.provider??null,
