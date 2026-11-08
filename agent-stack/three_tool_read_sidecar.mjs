@@ -3,9 +3,12 @@ import http from "node:http";
 import fs from "node:fs";
 import {resolveReadOperation} from "./three_tool_read_policy.mjs";
 import {authorizeReadScope} from "./three_tool_read_scope.mjs";
-const SOCKET="/run/three-tools/read.sock";
-const CONTROL="/run/task-control/control.sock";
-const GATEWAY="multi-mail-crm-tool-gateway-1";
+const TEST=process.env.HERMES_TEST_MODE==="1";
+const SOCKET=TEST?process.env.HERMES_TEST_SOCKET:"/run/three-tools/read.sock";
+const CONTROL=TEST?process.env.HERMES_TEST_CONTROL:"/run/task-control/control.sock";
+const SCOPE=TEST?process.env.HERMES_TEST_SCOPE:"/run/secrets/three-tool-scope.json";
+const GATEWAY=TEST?process.env.HERMES_TEST_GATEWAY:"multi-mail-crm-tool-gateway-1";
+const GATEWAY_PORT=TEST?Number(process.env.HERMES_TEST_PORT):3200;
 const LIMIT=131072;
 const PATH_PREFIX=Object.freeze({scout:"",assistant:"/assistant",mail:"/mail-crm"});
 function postUnix(socketPath,path,body) {
@@ -24,7 +27,7 @@ function postUnix(socketPath,path,body) {
 }
 function upstream(path) {
   return new Promise((resolve,reject)=>{
-    const req=http.get({hostname:GATEWAY,port:3200,path,timeout:8000,headers:{accept:"application/json"}},r=>{
+    const req=http.get({hostname:GATEWAY,port:GATEWAY_PORT,path,timeout:8000,headers:{accept:"application/json"}},r=>{
       let bytes=0;const parts=[];
       r.on("data",b=>{bytes+=b.length;if(bytes>LIMIT){r.destroy(new Error("Response too large"));return;}parts.push(b);});
       r.on("end",()=>resolve({status:r.statusCode,contentType:r.headers["content-type"]||"",body:Buffer.concat(parts).toString("utf8")}));
@@ -58,7 +61,7 @@ const server=http.createServer(async(req,res)=>{
     const current=JSON.parse(task.body);
     if(!current||!["in_progress"].includes(current.status))
       return reply(403,{code:"TASK_NOT_IN_PROGRESS"});
-    const scope=JSON.parse(fs.readFileSync("/run/secrets/three-tool-scope.json","utf8"));
+    const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
     try {authorizeReadScope(scope,current,payload.operation,payload.params);}
     catch{return reply(403,{code:"OPERATION_NOT_GRANTED"});}
     const result=await upstream(PATH_PREFIX[op.service]+op.path);
@@ -79,6 +82,6 @@ const server=http.createServer(async(req,res)=>{
 });
 server.requestTimeout=10000;
 server.headersTimeout=5000;
-fs.mkdirSync("/run/three-tools",{recursive:true});
+fs.mkdirSync(TEST?fs.realpathSync(process.env.HERMES_TEST_DIR):"/run/three-tools",{recursive:true});
 try{fs.unlinkSync(SOCKET);}catch(e){if(e.code!=="ENOENT")throw e;}
 server.listen(SOCKET,()=>{fs.chmodSync(SOCKET,0o600);console.log("Three-tool read sidecar ready");});
