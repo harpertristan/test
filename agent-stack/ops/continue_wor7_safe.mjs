@@ -135,7 +135,7 @@ async function main(){
  }
  const fresh=await request(identity.token,
   "/api/agents/"+identity.agentId+"/wakeup","POST",{
-   source:"assignment",triggerDetail:"manual",
+   source:"on_demand",triggerDetail:"manual",
    reason:"New remaining-work continuation task created with native Paperclip API",
    payload:{issueId:child.id},
    idempotencyKey:"wor7-research-continuation-"+child.id
