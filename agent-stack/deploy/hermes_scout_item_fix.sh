@@ -13,7 +13,7 @@ test "$(id -u)" = 0 || { echo "Please run as root"; exit 1; }
 test -f "$FILE" && test ! -L "$FILE" || { echo "Scout source missing"; exit 1; }
 cd "$WORK"
 test "$(git rev-parse --is-inside-work-tree)" = true
-git remote get-url origin | grep -Eq 'harpertristan/test(\\.git)?$'
+git remote get-url origin | grep -Eq 'harpertristan/test([.]git)?$' || { echo 'Unexpected git origin'; exit 1; }
 git cat-file -e "$COMMIT^{commit}" || { echo "Fetch release branch first"; exit 1; }
 # Match the pre-change Git blob exactly; refuse to replace local edits.
 EXPECTED=$(git rev-parse "$COMMIT^:agent-stack/scout_start_gateway.mjs")
