@@ -45,7 +45,7 @@ class ThreeToolConnection(http.client.HTTPConnection):
 
 
 def read_tool(capability: str, operation: str, params: dict) -> dict:
-    connection = ThreeToolConnection("three-tools", timeout=12)
+    connection = ThreeToolConnection("three-tools", timeout=40 if operation in ("scout_review_queue", "scout_review_item") else 15)
     try:
         payload = json.dumps({"capability": capability, "operation": operation, "params": params})
         connection.request("POST", "/read", payload, {"Content-Type": "application/json"})
@@ -81,6 +81,29 @@ def scout_start(capability: str) -> dict:
     except Exception:
         return {"error": "Шлюз запуска Scout недоступен. Запуск не подтвержден.",
                 "code": "SCOUT_START_UNAVAILABLE"}
+    finally:
+        connection.close()
+
+
+def scout_collect(capability: str, source: str) -> dict:
+    """Collect one preapproved public Play Scout source, without paid Apify, email or upload."""
+    if source not in ("play", "web", "watch", "ecb", "finextra",
+                      "linkedin", "facebook", "sifted"):
+        return {"error": "Unknown public Scout source", "code": "INVALID_SOURCE"}
+    connection = ScoutStartConnection("scout-collect", timeout=25)
+    try:
+        connection.request("POST", "/collect",
+                           json.dumps({"capability": capability, "source": source}),
+                           {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        data = json.loads(response.read(8192))
+        if response.status != 200:
+            return {"error": "Scout source did not confirm its start",
+                    "code": data.get("code", "COLLECTION_REFUSED")}
+        return data
+    except Exception:
+        return {"error": "Scout collector unavailable; start not confirmed",
+                "code": "COLLECTION_UNAVAILABLE"}
     finally:
         connection.close()
 
@@ -199,6 +222,18 @@ TOOLS.append({
 })
 
 TOOLS.append({
+    "name": "scout_collect",
+    "description": "Запустить один источник Play Scout для текущей задачи: Google Play, веб, наблюдение, ECB, Finextra, LinkedIn, Facebook, Sifted. Только заранее утверждённые источники, без Apify и внешних отправок.",
+    "inputSchema": {"type": "object", "properties": {
+        "capability": {"type": "string"},
+        "source": {"type": "string", "enum": ["play", "web", "watch", "ecb",
+                          "finextra", "linkedin", "facebook", "sifted"]}},
+        "required": ["capability", "source"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
+
+TOOLS.append({
     "name": "scout_start",
     "description": "Один разрешённый запуск выбранных веб-источников Scout для активной задачи. Не повторяй запуск при ошибке подтверждения.",
     "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}},
@@ -301,10 +336,11 @@ def dispatch(method, params):
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
         if name not in {"current_task", "begin_task", "request_approval", "web_research", "skills_memory", "developer_status",
-                     "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
+                     "submit_result", "scout_start", "scout_collect", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
             {"capability"} if name in ("current_task", "begin_task", "scout_start", "developer_status")
+            else {"capability", "source"} if name == "scout_collect"
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "action", "destination", "subject", "details"} if name == "request_approval"
             else ({"capability", "action", "query"} if arguments.get("action") == "search"
@@ -349,6 +385,8 @@ def dispatch(method, params):
             result = memory_tool(**arguments)
         elif name == "scout_start":
             result = scout_start(**arguments)
+        elif name == "scout_collect":
+            result = scout_collect(**arguments)
         else:
             result = submit_result(**arguments)
         return {
