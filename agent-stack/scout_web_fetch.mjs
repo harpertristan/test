@@ -37,6 +37,18 @@ export function parsePage(html,base,maxLinks=65){
     /<meta\s+[^>]*(?:name=["']description["']|property=["']og:description["'])[^>]*content=["']([^"']{1,700})/i
   )?.[1]||"").slice(0,500);
   const seen=new Set(),links=[];
+  // Search provider RSS feeds expose direct destination URLs in <item><link>.
+  // Treat them as unverified candidates, never as regulator-confirmed findings.
+  const feedItems=/<item\\b[^>]*>([\\s\\S]*?)<\\/item>/gi;
+  let feed;
+  while((feed=feedItems.exec(html))&&links.length<maxLinks){
+    const body=feed[1];
+    const link=body.match(/<link\\b[^>]*>([\\s\\S]*?)<\\/link>/i)?.[1];
+    if(link){
+      const direct=resolveResultLink(link.trim(),base);
+      if(direct&&!seen.has(direct)){seen.add(direct);links.push(direct);}
+    }
+  }
   const href=/\b(?:href|data-url)\s*=\s*(?:"([^"]{1,1800})"|'([^']{1,1800})')/gi;
   let hit;
   while((hit=href.exec(html))&&links.length<maxLinks){
@@ -86,7 +98,7 @@ function httpsGet(url,address){
         res.resume();return reject(Error("REMOTE_HTTP_"+res.statusCode));
       }
       const type=String(res.headers['content-type']||"").toLowerCase();
-      if(!/(text\/html|text\/plain|application\/xhtml\+xml)/.test(type)){
+      if(!/(text\/html|text\/plain|application\/xhtml\+xml|application\/rss\+xml|application\/xml|text\/xml)/.test(type)){
         res.resume();return reject(Error("REMOTE_TYPE_REFUSED"));
       }
       let size=0;const parts=[];
@@ -129,6 +141,7 @@ export async function publicOpen(value,network={resolve:resolvePublic,get:httpsG
 export async function publicSearch(query,network){
   const text=safePublicText(query,180);
   const providers=[
+    "https://www.bing.com/search?format=rss&q="+encodeURIComponent(text),
     "https://www.google.com/search?q="+encodeURIComponent(text)+"&num=10",
     "https://www.bing.com/search?q="+encodeURIComponent(text)+"&count=10",
     "https://html.duckduckgo.com/html/?q="+encodeURIComponent(text)
