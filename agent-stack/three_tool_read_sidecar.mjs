@@ -96,8 +96,10 @@ const server=http.createServer(async(req,res)=>{
       return reply(200,parsed);
     }
     const result=await upstream(PATH_PREFIX[op.service]+op.path,op.service);
-    if(result.status!==200||!result.contentType.toLowerCase().includes("application/json"))
-      return reply(502,{code:"UPSTREAM_UNAVAILABLE"});
+    if(result.status!==200)
+      return reply(502,{code:"UPSTREAM_HTTP_"+String(result.status)});
+    if(!result.contentType.toLowerCase().includes("application/json"))
+      return reply(502,{code:"UPSTREAM_NOT_JSON"});
     let data;
     try{data=JSON.parse(result.body);}catch{return reply(502,{code:"INVALID_UPSTREAM_RESPONSE"});}
     return reply(200,{operation:payload.operation,data});
