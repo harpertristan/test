@@ -8,6 +8,8 @@ import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 import {validateWebAction,webReadScope} from "./scout_web_policy.mjs";
 import {publicOpen,publicSearch} from "./scout_web_fetch.mjs";
 import {reviewQueue,reviewItem} from "./scout_review_projection.mjs";
+import {createHash} from "node:crypto";
+import {validateCollection,authorizeCollection,collectionPayload} from "./scout_collect_policy.mjs";
 
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_SCOUT_SOCKET:"/run/three-tools/start.sock";
@@ -142,6 +144,44 @@ const server=http.createServer(async(req,res)=>{
       const status=["INVALID_WEB_REQUEST","PUBLIC_QUERY_INVALID","PRIVATE_DATA_IN_QUERY","URL_REJECTED"].includes(code)?400:
         ["SCOPE_DENIED","TASK_NOT_ACTIVE"].includes(code)?403:502;
       return reply(res,status,{code});
+    }
+  }
+  if(req.method==="POST"&&req.url==="/collect"){
+    try{
+      let size=0,parts=[];
+      for await(const part of req){size+=part.length;if(size>1200)throw Error("INVALID_COLLECT_REQUEST");parts.push(part);}
+      const input=validateCollection(JSON.parse(Buffer.concat(parts).toString("utf8")));
+      const current=await request({socketPath:TASK,path:"/current",method:"POST"},
+        {capability:input.capability},8192);
+      if(current.status!==200)return reply(res,403,{code:"TASK_NOT_AUTHORIZED"});
+      const task=parseJSON(current);
+      const policy=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
+      const grant=authorizeCollection(policy,task,input.mode);
+      const mon=await request({hostname:SCOUT,port:SCOUT_PORT,path:grant.monitor,method:"GET"},null);
+      if(mon.status!==200)return reply(res,502,{code:"SCOUT_MONITOR_UNAVAILABLE"});
+      const status=parseJSON(mon);
+      if(status.busy!==false||status.activeJobId)return reply(res,409,{code:"SCOUT_SOURCE_BUSY"});
+      const lockPath=path.join(STATE,"collection-"+grant.issueId+"-"+grant.mode+".json");
+      let fd;
+      try{fd=fs.openSync(lockPath,"wx",0o600);}
+      catch(e){if(e.code==="EEXIST")return reply(res,409,{code:"SCOUT_COLLECTION_ALREADY_REQUESTED"});throw e;}
+      const digest=createHash("sha256").update(grant.issueId+":"+grant.sourceId).digest("hex");
+      const requestId=digest.slice(0,8)+"-"+digest.slice(8,12)+"-4"+
+        digest.slice(13,16)+"-8"+digest.slice(17,20)+"-"+digest.slice(20,32);
+      try{fs.writeFileSync(fd,JSON.stringify({issueId:grant.issueId,mode:grant.mode,
+        sourceId:grant.sourceId,requestId,createdAt:new Date().toISOString()}));}
+      finally{fs.closeSync(fd);}
+      const result=await request({hostname:SCOUT,port:SCOUT_PORT,path:"/api/sources/start-many",
+        method:"POST"},collectionPayload(grant,requestId),16384,12000);
+      if(result.status!==202)return reply(res,502,{code:"SCOUT_COLLECTION_UNCONFIRMED"});
+      parseJSON(result);
+      return reply(res,200,{status:"accepted",mode:grant.mode,
+        sourceId:grant.sourceId,notice:"Source accepted, no results claimed until Scout findings are read"});
+    }catch(e){
+      const code=["INVALID_COLLECT_REQUEST","COLLECT_NOT_AUTHORIZED","COLLECT_ISSUE_MISMATCH",
+        "COLLECT_NOT_GRANTED"].includes(e?.message)?e.message:"SCOUT_COLLECTION_UNAVAILABLE";
+      return reply(res,code==="INVALID_COLLECT_REQUEST"?400:
+        code.startsWith("COLLECT_")?403:502,{code});
     }
   }
   if(req.method!=="POST"||req.url!=="/start")return reply(res,404,{code:"NOT_FOUND"});
