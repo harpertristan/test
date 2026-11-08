@@ -17,7 +17,7 @@ test("mail requires separate consent even with workspace scope",()=>{
  assert.equal(authorizeReadScope(mk({workspaceWide:true,mailConsent:true,operations:["mail_messages"]}),issue,"mail_messages"),true);
 });
 test("company-specific reads require matching company ID",()=>{
- const grant=mk({companyIds:["123"],operations:["assistant_profile"]});
+ const grant=mk({assistantConsent:true,companyIds:["123"],operations:["assistant_profile"]});
  assert.equal(authorizeReadScope(grant,issue,"assistant_profile",{companyId:"123"}),true);
  assert.throws(()=>authorizeReadScope(grant,issue,"assistant_profile",{companyId:"456"}));
  assert.throws(()=>authorizeReadScope(grant,issue,"assistant_profile",{companyId:"../../456"}));
@@ -26,7 +26,7 @@ test("company-specific reads require matching company ID",()=>{
 test("one verified Hermes agent can read allowed services across assigned active tasks",()=>{
   const agentId="hermes-one",companyId="company-one";
   const global={version:1,grants:{},agentGrants:{
-    [agentId]:{agentId,companyId,workspaceWide:true,mailConsent:true,companyIds:[],
+    [agentId]:{agentId,companyId,workspaceWide:true,mailConsent:true,assistantConsent:true,companyIds:[],
       operations:["scout_findings","mail_messages","mail_message","assistant_companies"]}
   }};
   const assigned={...issue,agentId,companyId};
@@ -41,4 +41,28 @@ test("one verified Hermes agent can read allowed services across assigned active
   // A mismatched explicit issue grant cannot be bypassed by agent defaults.
   const wrong={...global,grants:{[issue.id]:{issueIdentifier:"WRONG",operations:["scout_findings"],workspaceWide:true}}};
   assert.throws(()=>authorizeReadScope(wrong,assigned,"scout_findings"));
+});
+
+test("Explicitly approved assistant workspace scope allows company-specific reads without guessing IDs",()=>{
+ const id="hermes-one",company="workspace-owner";
+ const agent={...issue,agentId:id,companyId:company};
+ const allow={version:1,grants:{},agentGrants:{[id]:{
+   agentId:id,companyId:company,workspaceWide:true,mailConsent:true,
+   assistantConsent:true,assistantAllCompanies:true,companyIds:[],
+   operations:["assistant_companies","assistant_facts","assistant_review","assistant_documents","mail_accounts","scout_ai_results"]
+ }}};
+ assert.equal(authorizeReadScope(allow,agent,"assistant_facts",{companyId:"1a2b3c"}),true);
+ assert.equal(authorizeReadScope(allow,agent,"assistant_companies",{}),true);
+ assert.equal(authorizeReadScope(allow,agent,"mail_accounts",{}),true);
+ const noConsent=structuredClone(allow);
+ noConsent.agentGrants[id].assistantConsent=false;
+ assert.throws(()=>authorizeReadScope(noConsent,agent,"assistant_facts",{companyId:"1a2b3c"}));
+ assert.throws(()=>authorizeReadScope(noConsent,agent,"assistant_companies",{}));
+ const noAll=structuredClone(allow);
+ noAll.agentGrants[id].assistantAllCompanies=false;
+ assert.throws(()=>authorizeReadScope(noAll,agent,"assistant_review",{companyId:"1a2b3c"}));
+ const wrongWorkspace=structuredClone(allow);
+ wrongWorkspace.agentGrants[id].companyId="someone-else";
+ assert.throws(()=>authorizeReadScope(wrongWorkspace,agent,"assistant_facts",{companyId:"1a2b3c"}));
+ assert.throws(()=>authorizeReadScope(allow,agent,"mail_send"));
 });
