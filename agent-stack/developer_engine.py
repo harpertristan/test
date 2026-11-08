@@ -327,7 +327,8 @@ def write_private(path: Path, data: str):
 
 
 def run(repo: Path, out: Path, *, propose: bool = False, model_socket: str = "",
-        allow_external_model: bool = False, fixture_telemetry: dict | None = None) -> dict:
+        allow_external_model: bool = False, fixture_telemetry: dict | None = None,
+        only_new_incident: bool = False) -> dict:
     repo = repo.resolve()
     if not repo.is_dir():
         raise Rejected("Agent source directory does not exist")
@@ -340,6 +341,26 @@ def run(repo: Path, out: Path, *, propose: bool = False, model_socket: str = "",
         "telemetry": incident, "proposalStatus": "not_requested",
         "tests": None, "productionChanged": False, "mailSent": False,
     }
+    if propose and only_new_incident:
+        previous = None
+        try:
+            file = out / "report.json"
+            if file.is_file() and not file.is_symlink() and file.stat().st_size < 40000:
+                previous = json.loads(file.read_text(encoding="utf8"))
+        except (OSError, ValueError, TypeError):
+            previous = None
+        errors = incident.get("errors") or {}
+        unhealthy = any(
+            isinstance(value, dict) and
+            (value.get("state") != "running" or value.get("health") not in ("healthy", "none"))
+            for value in (incident.get("services") or {}).values()
+        )
+        if not errors and not unhealthy:
+            report["proposalStatus"] = "healthy_no_proposal"
+            propose = False
+        elif isinstance(previous, dict) and previous.get("fingerprint") == fingerprint:
+            report["proposalStatus"] = "already_analyzed"
+            propose = False
     if propose:
         if not allow_external_model:
             raise Rejected("Explicit --allow-external-model required before transmitting source")
@@ -377,7 +398,15 @@ def run(repo: Path, out: Path, *, propose: bool = False, model_socket: str = "",
             report["proposalStatus"] = "rejected"
             report["error"] = str(e)
     out.mkdir(parents=True, exist_ok=True, mode=0o700)
-    write_private(out / "report.json", json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    report_file = out / "report.json"
+    write_private(report_file, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    if os.geteuid() == 0:
+        # Hermes can only read this bounded metadata report through its existing
+        # restricted MCP tool; it cannot execute or approve model patches.
+        os.chown(out, 10000, 10000)
+        os.chown(report_file, 10000, 10000)
+        os.chmod(out, 0o700)
+        os.chmod(report_file, 0o600)
     return report
 
 
@@ -387,10 +416,12 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--propose", action="store_true")
     parser.add_argument("--allow-external-model", action="store_true")
+    parser.add_argument("--only-new-incident", action="store_true")
     parser.add_argument("--model-socket", default="/srv/hermes-stack/model-bridge/openai.sock")
     args = parser.parse_args()
     report = run(Path(args.repo), Path(args.out), propose=args.propose,
-                 model_socket=args.model_socket, allow_external_model=args.allow_external_model)
+                 model_socket=args.model_socket, allow_external_model=args.allow_external_model,
+                 only_new_incident=args.only_new_incident)
     # Structured metadata only, never code, mail bodies or tokens.
     print(json.dumps({
         "fingerprint": report["fingerprint"],
