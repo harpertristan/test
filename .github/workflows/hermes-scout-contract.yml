@@ -23,6 +23,10 @@ on:
       - "agent-stack/task_control_policy.mjs"
       - "agent-stack/three_tool_read_policy.mjs"
       - "agent-stack/three_tool_read_scope.mjs"
+      - "agent-stack/three_tool_read_sidecar.mjs"
+      - "agent-stack/tests/three_tool_read_sidecar.integration.test.mjs"
+      - "agent-stack/task_control.mjs"
+      - "agent-stack/tests/task_control_policy.test.mjs"
       - "agent-stack/tests/hermes_scout_contract.test.mjs"
       - ".github/workflows/hermes-scout-contract.yml"
 permissions:
@@ -87,6 +91,6 @@ jobs:
       - name: Cross-language task authorization and read scope
         working-directory: agent-stack
         run: |
-          node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs
+          node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/three_tool_read_sidecar.integration.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs
           python3 -m unittest discover -s tests -p 'test_*mcp_contract.py' -v
           python3 -m unittest discover -s tests -p test_task_read_gate.py -v
