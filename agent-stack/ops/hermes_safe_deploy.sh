@@ -19,7 +19,7 @@ fi
 if [[ "$EUID" -ne 0 ]]; then
   echo "Run with sudo. This script backs up the old files first." >&2; exit 2
 fi
-for tool in git docker python3 mktemp install sha256sum; do
+for tool in git docker python3 mktemp install cmp tar; do
   command -v "$tool" >/dev/null || { echo "Missing executable: $tool" >&2; exit 2; }
 done
 [[ -d "$ROOT/.git" && -f "$BASE/task_runtime_context.py" ]] || {
@@ -54,16 +54,15 @@ trap cleanup EXIT
 trap on_error ERR
 
 echo "=== EXTRACT APPROVED FILES ($BRANCH) ==="
-# Fetches only the named remote branch. Never merges, resets or changes your checkout.
-git -C "$ROOT" fetch --no-tags origin "refs/heads/$BRANCH" >&2
-REF="$(git -C "$ROOT" rev-parse FETCH_HEAD)"
+# FETCH_HEAD was fetched by the calling non-root user. Never alter repo ownership.
+REF="$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse FETCH_HEAD)"
 echo "Commit: $REF"
 mkdir -p "$STAGE/agent-stack"
 for file in "${FILES[@]}"; do
-  git -C "$ROOT" show "$REF:agent-stack/$file" > "$STAGE/agent-stack/$file"
+  git -c safe.directory="$ROOT" -C "$ROOT" show "$REF:agent-stack/$file" > "$STAGE/agent-stack/$file"
 done
 # Unpack source code for offline regression tests; no scripts are run from network.
-git -C "$ROOT" archive "$REF" agent-stack | tar -x -C "$STAGE"
+git -c safe.directory="$ROOT" -C "$ROOT" archive "$REF" agent-stack | tar -x -C "$STAGE"
 export PYTHONDONTWRITEBYTECODE=1
 python3 -m py_compile "$STAGE/agent-stack/task_runtime_context.py" "$STAGE/agent-stack/hermes_gateway_bridge.py"
 echo "=== OFFLINE PYTHON REGRESSION TESTS ==="
