@@ -10,6 +10,7 @@ import {publicOpen,publicSearch} from "./scout_web_fetch.mjs";
 import {reviewQueue,reviewItem} from "./scout_review_projection.mjs";
 import {createHash} from "node:crypto";
 import {validateCollection,authorizeCollection,collectionPayload} from "./scout_collect_policy.mjs";
+import {validateScoutDecision,authorizeScoutDecision,proposeStatus} from "./scout_crm_manage_policy.mjs";
 
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_SCOUT_SOCKET:"/run/three-tools/start.sock";
@@ -144,6 +145,63 @@ const server=http.createServer(async(req,res)=>{
       const status=["INVALID_WEB_REQUEST","PUBLIC_QUERY_INVALID","PRIVATE_DATA_IN_QUERY","URL_REJECTED"].includes(code)?400:
         ["SCOPE_DENIED","TASK_NOT_ACTIVE"].includes(code)?403:502;
       return reply(res,status,{code});
+    }
+  }
+  if(req.method==="POST"&&req.url==="/crm-decide"){
+    try{
+      let size=0,parts=[];
+      for await(const chunk of req){size+=chunk.length;if(size>6000)throw Error("INVALID_CRM_DECISION");parts.push(chunk);}
+      const input=validateScoutDecision(JSON.parse(Buffer.concat(parts).toString("utf8")));
+      const current=await request({socketPath:TASK,path:"/current",method:"POST"},
+        {capability:input.capability},8192);
+      if(current.status!==200)return reply(res,403,{code:"TASK_NOT_AUTHORIZED"});
+      const task=parseJSON(current);
+      const policy=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
+      authorizeScoutDecision(policy,task);
+      // No model-controlled path, method or arbitrary POST body.
+      const target="/api/crm/item?id="+encodeURIComponent(input.reviewId);
+      const found=await request({hostname:SCOUT,port:SCOUT_PORT,path:target,method:"GET"},
+        null,3*1024*1024,18000);
+      if(found.status!==200)return reply(res,404,{code:"CRM_ITEM_NOT_FOUND"});
+      const item=parseJSON(found);
+      const evidenceUrls=[item.url,item.developerWebsite,item.webPresence?.officialWebsite,
+        item.webPresence?.website,...(item.documents??[]).map(d=>d.url)].filter(Boolean);
+      // Previously discovered public URLs can be used, too.
+      const discovered=evidenceUrls.includes(input.sourceUrl)||
+        trustedResearchUrl(task.id,input.sourceUrl);
+      const update=proposeStatus(item,input,discovered);
+      const lock=path.join(STATE,"crm-"+createHash("sha256").update(task.id+":"+input.reviewId).digest("hex")+".json");
+      let fd;
+      try{fd=fs.openSync(lock,"wx",0o600);}
+      catch(e){
+        if(e.code==="EEXIST")return reply(res,409,{code:"CRM_ITEM_ALREADY_PROCESSED_BY_RUN"});
+        throw e;
+      }
+      const audit={issue:task.identifier,rowId:input.reviewId,decision:input.decision,
+        sourceUrl:input.sourceUrl,evidence:input.evidence,createdAt:new Date().toISOString(),
+        state:"pending"};
+      try{fs.writeFileSync(fd,JSON.stringify(audit));}finally{fs.closeSync(fd);}
+      const result=await request({hostname:SCOUT,port:SCOUT_PORT,
+        path:"/api/crm/update",method:"POST"},update,32768,18000);
+      if(result.status!==200)return reply(res,502,{code:"CRM_UPDATE_UNCONFIRMED"});
+      parseJSON(result);
+      const after=await request({hostname:SCOUT,port:SCOUT_PORT,path:target,method:"GET"},null,3*1024*1024,18000);
+      if(after.status!==200)return reply(res,502,{code:"CRM_VERIFY_READ_FAILED"});
+      const confirmed=parseJSON(after);
+      if(confirmed.id!==input.reviewId||confirmed.status!==update.status)
+        return reply(res,502,{code:"CRM_WRITE_NOT_CONFIRMED"});
+      try{fs.writeFileSync(lock,JSON.stringify({...audit,state:"confirmed",status:confirmed.status}));}
+      catch{return reply(res,502,{code:"CRM_AUDIT_UNCONFIRMED"});}
+      return reply(res,200,{id:confirmed.id,status:confirmed.status,
+        decision:input.decision,verified:true,
+        note:"Internal Scout CRM updated. No external transmission."});
+    }catch(e){
+      const code=e?.message;
+      const invalid=["INVALID_CRM_DECISION","INVALID_EVIDENCE_URL"].includes(code);
+      const denied=["CRM_NOT_AUTHORIZED","CRM_ISSUE_MISMATCH","CRM_PERMISSION_DENIED",
+        "CRM_EVIDENCE_NOT_DISCOVERED"].includes(code);
+      return reply(res,invalid?400:denied?403:502,
+        {code:invalid||denied?code:"CRM_ACTION_FAILED"});
     }
   }
   if(req.method==="POST"&&req.url==="/collect"){
