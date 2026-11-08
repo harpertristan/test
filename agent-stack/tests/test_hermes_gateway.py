@@ -98,6 +98,65 @@ class GatewayPolicyTests(unittest.TestCase):
         native.shutdown()
         native.server_close()
 
+    def test_verified_chat_context_uses_signed_unix_controller_without_exposing_token(self):
+        import json
+        import socket
+        import socketserver
+
+        class Controller(socketserver.UnixStreamServer):
+            allow_reuse_address = True
+
+        class Handler(socketserver.BaseRequestHandler):
+            def handle(self):
+                head = b""
+                while b"\\r\\n\\r\\n" not in head:
+                    chunk = self.request.recv(4096)
+                    if not chunk:
+                        return
+                    head += chunk
+                headers, _, body = head.partition(b"\\r\\n\\r\\n")
+                import re
+                length = re.search(br"(?im)^Content-Length: (\\d+)$", headers)
+                size = int(length.group(1)) if length else 0
+                while len(body) < size:
+                    body += self.request.recv(4096)
+                value = json.loads(body[:size])
+                if value != {"capability": "synthetic-token"}:
+                    status, content = 403, b'{"error":"invalid"}'
+                else:
+                    status, content = 200, b'{"mode":"chat"}'
+                response = (
+                    "HTTP/1.1 " + str(status) + " OK\\r\\nContent-Type: application/json\\r\\n"
+                    + "Content-Length: " + str(len(content)) + "\\r\\nConnection: close\\r\\n\\r\\n"
+                )
+                self.request.sendall(response.encode() + content)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            socket_path = str(Path(tmp) / "control.sock")
+            server = Controller(socket_path, Handler)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                with patch.object(bridge, "TASK_SOCKET", socket_path):
+                    self.assertEqual(bridge.verified_execution_mode("synthetic-token"), "chat")
+                    with self.assertRaises(RuntimeError):
+                        bridge.verified_execution_mode("different-token")
+            finally:
+                server.shutdown()
+                server.server_close()
+
+    def test_chat_prompt_is_normal_dialogue_without_task_checkout_or_review(self):
+        prompt = bridge.build_chat_instructions(
+            "Paperclip conversation. ", "synthetic-signed-grant"
+        )
+        self.assertIn("обычная беседа", prompt)
+        self.assertIn("включая приветствия", prompt)
+        self.assertIn("не вызывай begin_task или submit_result", prompt)
+        self.assertNotIn("Сначала вызови current_task", prompt)
+        self.assertIn("[[workspace-task-grant:synthetic-signed-grant]]", prompt)
+        self.assertNotIn("secret", prompt)
+        with self.assertRaises(ValueError):
+            bridge.build_chat_instructions(None, "synthetic-token")
+
     def test_preparation_preserves_key_and_does_not_print_it(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
