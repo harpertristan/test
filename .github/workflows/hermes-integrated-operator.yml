@@ -28,6 +28,7 @@ jobs:
           node --check agent-stack/scout_start_gateway.mjs
           node --check agent-stack/scout_web_policy.mjs
           node --check agent-stack/scout_web_fetch.mjs
+          node --check agent-stack/scout_review_projection.mjs
           node --check agent-stack/ops/diagnose_paperclip_skip.mjs
           node --check agent-stack/ops/continue_wor7_safe.mjs
           python3 -m py_compile agent-stack/task_control_mcp.py agent-stack/task_runtime_context.py agent-stack/serve_hermes.py agent-stack/hermes_gateway_bridge.py agent-stack/developer_engine.py agent-stack/skills_memory.py
@@ -78,7 +79,7 @@ jobs:
         working-directory: agent-stack
         run: |
           set -Eeuo pipefail
-          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/scout_web_fetch.test.mjs tests/paperclip_wakeup_diagnostic.test.mjs tests/continue_wor7_safe.test.mjs
+          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/scout_web_fetch.test.mjs tests/scout_review_projection.test.mjs tests/three_tool_read_policy.test.mjs tests/paperclip_wakeup_diagnostic.test.mjs tests/continue_wor7_safe.test.mjs
       - name: Live HTTPS through production Scout DNS pin
         working-directory: agent-stack
         run: |
