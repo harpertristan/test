@@ -35,8 +35,36 @@ export function bindTask(run, issue, identity, {requireLock = true, allowTodo = 
   return issueId;
 }
 
+// Paperclip's standing Agent Chat is a task-backed conversation, not a work issue.
+// It may inspect approved data in its own active run; it must not be checked out,
+// completed or sent through ordinary issue review/disposition.
+export function isConversation(issue) {
+  return Boolean(issue?.conversationAgentId && issue?.conversationUserId);
+}
+export function bindConversation(run, issue, identity) {
+  const issueId = run?.issueId ?? run?.contextSnapshot?.issueId ?? run?.contextSnapshot?.taskId;
+  if (!UUID.test(issueId || '') || !run || run.status !== 'running')
+    refuse('CHAT_RUN_INACTIVE');
+  if (run.agentId !== identity.agentId || run.companyId !== identity.companyId)
+    refuse('CHAT_RUN_IDENTITY');
+  if (!issue || issue.id !== issueId || issue.companyId !== identity.companyId ||
+      issue.assigneeAgentId !== identity.agentId ||
+      issue.conversationAgentId !== identity.agentId ||
+      !issue.conversationUserId || issue.conversationState !== 'active' ||
+      ['done','cancelled','blocked'].includes(issue.status))
+    refuse('CHAT_CONVERSATION_INACTIVE');
+  const generation = run.contextSnapshot?.conversationSessionGeneration;
+  if (typeof generation === 'number' &&
+      typeof issue.conversationSessionGeneration === 'number' &&
+      generation !== issue.conversationSessionGeneration)
+    refuse('CHAT_SESSION_SUPERSEDED');
+  const locks = [issue.executionRunId, issue.checkoutRunId].filter(Boolean);
+  if (locks.some(id => id !== run.id)) refuse('CHAT_RUN_LOCK_CONFLICT');
+  return issueId;
+}
+
 export function validateRequest(path, body) {
-  if (!['/current', '/begin', '/submit', '/approve-request'].includes(path) || !body || typeof body !== 'object' || Array.isArray(body) ||
+  if (!['/current', '/context', '/begin', '/submit', '/approve-request'].includes(path) || !body || typeof body !== 'object' || Array.isArray(body) ||
       Object.keys(body).some(k => !['capability', 'summary', 'action', 'destination', 'subject', 'details'].includes(k))) throw Error('Invalid request');
   const expected = path === '/submit' ? ['capability','summary'] :
     path === '/approve-request' ? ['action','capability','destination','details','subject'] : ['capability'];
