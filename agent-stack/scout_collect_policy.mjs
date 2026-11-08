@@ -1,5 +1,6 @@
 // Fixed, non-paid Scout source menu for one verified Hermes agent.
 // No caller-supplied source URLs, payment flags, credentials or API methods.
+import {activeReadContext} from "./active_run_scope.mjs";
 const MODES=Object.freeze({
   play: {id:"play",monitor:"/api/monitor"},
   web: {id:"web",monitor:"/api/web/monitor"},
@@ -22,7 +23,7 @@ export function validateCollection(body){
 }
 export function authorizeCollection(policy,task,mode){
  if(!policy||policy.version!==1||!policy.grants||typeof policy.grants!=="object"||
-    !task||!UUID.test(task.id||"")||task.status!=="in_progress"||
+    !activeReadContext(task)||!UUID.test(task.id||"")||
     typeof task.identifier!=="string"||!Object.hasOwn(MODES,mode))
     throw Error("COLLECT_NOT_AUTHORIZED");
  const specific=policy.grants[task.id];
