@@ -26,9 +26,10 @@ test("Scout gateway reads only signed scoped Scout source and rejects non-Scout 
  scopeFile=path.join(dir,"scope.json"),state=path.join(dir,"state");
  fs.mkdirSync(state);
  const issue="22222222-2222-4222-8222-222222222222",agent="synthetic-hermes";
+ let crmStatus="review",crmWrites=0;
  fs.writeFileSync(scopeFile,JSON.stringify({version:1,grants:{},
   agentGrants:{[agent]:{agentId:agent,companyId:"company-test",workspaceWide:true,
-   mailConsent:false,companyIds:[],operations:["scout_findings","scout_review_queue","scout_review_item","scout_collect"]}}}));
+   mailConsent:false,companyIds:[],operations:["scout_findings","scout_review_queue","scout_review_item","scout_collect","scout_crm_manage"]}}}));
  const control=http.createServer((req,res)=>{
   let b="";req.on("data",part=>b+=part);
   req.on("end",()=>{
@@ -48,8 +49,18 @@ test("Scout gateway reads only signed scoped Scout source and rejects non-Scout 
       res.end(JSON.stringify({jobIds:["synthetic-play"]}));
     });return;
   }
+  if(req.url==="/api/crm/update"&&req.method==="POST"){
+    let content="";req.on("data",part=>content+=part);
+    req.on("end",()=>{
+      const body=JSON.parse(content);
+      assert.deepEqual(body,{id:"app:com.example.bank",status:"confirmed"});
+      crmStatus=body.status;crmWrites++;
+      res.writeHead(200,{"content-type":"application/json"});
+      res.end(JSON.stringify({ok:true}));
+    });return;
+  }
   res.writeHead(200,{"content-type":"application/json"});
-  const row={id:"app:com.example.bank",title:"Synthetic UK EMI",status:"review",
+  const row={id:"app:com.example.bank",title:"Synthetic UK EMI",status:crmStatus,
      url:"https://bank.example/business",appId:"com.example.bank",
      facts:{business:{status:"yes"},account:{status:"unknown"},euIban:{status:"unknown"}},
      sources:["play"],screening:{eligible:true},
@@ -117,6 +128,25 @@ test("Scout gateway reads only signed scoped Scout source and rejects non-Scout 
   const injection=await call(gatewaySocket,"/collect",
     {capability:"synthetic-valid",source:"apify:facebook"});
   assert.equal(injection.status,400);
+  const action={capability:"synthetic-valid",reviewId:"app:com.example.bank",
+    decision:"suitable",sourceUrl:"https://bank.example/business",
+    evidence:"Official public business account terms support company accounts and required services."};
+  const denied=await call(gatewaySocket,"/crm-decide",{...action,capability:"invalid"});
+  assert.equal(denied.status,403);
+  assert.equal(crmWrites,0);
+  const injected=await call(gatewaySocket,"/crm-decide",
+    {...action,sourceUrl:"https://127.0.0.1/admin"});
+  assert.equal(injected.status,400);
+  assert.equal(crmWrites,0);
+  const managed=await call(gatewaySocket,"/crm-decide",action);
+  assert.equal(managed.status,200);
+  assert.equal(managed.body.verified,true);
+  assert.equal(managed.body.status,"confirmed");
+  assert.equal(crmWrites,1);
+  const repeated=await call(gatewaySocket,"/crm-decide",action);
+  assert.equal(repeated.status,502); // no longer in the review queue
+  assert.equal(crmWrites,1);
+
 
  }finally{
   child?.kill("SIGTERM");
