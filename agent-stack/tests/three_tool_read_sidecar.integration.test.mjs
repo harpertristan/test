@@ -29,11 +29,13 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
   mailConsent:true,assistantConsent:true,workspaceWide:true,companyIds:["company-a"]
  }}};
  fs.writeFileSync(scope,JSON.stringify(policy));
- let taskStatus=200,upstreamStatus=200;
+ let taskStatus=200,upstreamStatus=200,conversationState=null;
  const upstreamPaths=[];
  const controller=http.createServer((req,res)=>{
   res.writeHead(taskStatus,{"content-type":"application/json"});
-  res.end(taskStatus===200?JSON.stringify({id:taskId,identifier:"WOR-TEST",status:"in_progress",
+  res.end(taskStatus===200?JSON.stringify({id:taskId,identifier:"WOR-TEST",
+    status:conversationState?"in_review":"in_progress",
+    mode:conversationState?"chat":"task",conversationState,
     agentId,companyId:"test-company"}):JSON.stringify({code:"TASK_NOT_IN_PROGRESS"}));
  });
  const scout=http.createServer((req,res)=>{
@@ -101,6 +103,19 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
   assert.equal(mail.body.data.items[0].body,"synthetic private mail text");
   assert.ok(upstreamPaths.includes("/mail-crm/api/messages"),"Mail must reach /api/messages, not frontend HTML");
   assert.ok(!upstreamPaths.includes("/mail-crm/messages"),"Do not use the SPA fallback route");
+  // Paperclip Chat uses a conversation-specific lifecycle. An active signed
+  // chat may read approved tools without checkout or issue review.
+  conversationState="active";
+  const chatMail=await get("mail_messages");
+  assert.equal(chatMail.status,200);
+  assert.equal(chatMail.body.data.items[0].body,"synthetic private mail text");
+  const chatAssistant=await get("assistant_companies");
+  assert.equal(chatAssistant.status,200);
+  conversationState="waiting";
+  const idleChat=await get("mail_messages");
+  assert.equal(idleChat.status,403);
+  assert.equal(idleChat.body.code,"TASK_NOT_IN_PROGRESS");
+  conversationState=null;
   const unknown=await get("mail_send");
   assert.equal(unknown.status,400);
   assert.equal(unknown.body.code,"UNKNOWN_OR_INVALID_READ_OPERATION");
