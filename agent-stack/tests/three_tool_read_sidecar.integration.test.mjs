@@ -26,7 +26,7 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
  const taskId="22222222-2222-4222-8222-222222222222",agentId="test-hermes";
  const policy={version:1,grants:{},agentGrants:{[agentId]:{
   agentId,companyId:"test-company",operations:["scout_findings","mail_messages","assistant_companies","assistant_review"],
-  mailConsent:true,workspaceWide:true,companyIds:["company-a"]
+  mailConsent:true,assistantConsent:true,workspaceWide:true,companyIds:["company-a"]
  }}};
  fs.writeFileSync(scope,JSON.stringify(policy));
  let taskStatus=200,upstreamStatus=200;
