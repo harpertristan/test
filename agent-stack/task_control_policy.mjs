@@ -15,7 +15,7 @@ export function verifyCapability(key, capability, now = Math.floor(Date.now() / 
   return runId;
 }
 
-export function bindTask(run, issue, identity, {requireLock = true} = {}) {
+export function bindTask(run, issue, identity, {requireLock = true, allowTodo = false} = {}) {
   const issueId = run?.issueId ?? run?.contextSnapshot?.issueId ?? run?.contextSnapshot?.taskId;
   if (!UUID.test(issueId || '')) refuse('TASK_BINDING_MISSING');
   if (!run || run.status !== 'running') refuse('TASK_RUN_INACTIVE');
@@ -24,7 +24,7 @@ export function bindTask(run, issue, identity, {requireLock = true} = {}) {
   if (!issue || issue.id !== issueId || issue.companyId !== identity.companyId)
     refuse('TASK_ISSUE_IDENTITY');
   if (issue.assigneeAgentId !== identity.agentId) refuse('TASK_ASSIGNEE_MISMATCH');
-  if (issue.status !== 'in_progress') refuse('TASK_NOT_IN_PROGRESS');
+  if (issue.status !== 'in_progress' && !(allowTodo && issue.status === 'todo')) refuse('TASK_NOT_IN_PROGRESS');
   const locks = [issue.executionRunId, issue.checkoutRunId].filter(Boolean);
   // Never allow a different active run to impersonate the owner, even for reads.
   if (locks.some(id => id !== run.id)) refuse('TASK_RUN_LOCK_CONFLICT');
@@ -36,8 +36,21 @@ export function bindTask(run, issue, identity, {requireLock = true} = {}) {
 }
 
 export function validateRequest(path, body) {
-  if (!['/current', '/submit'].includes(path) || !body || typeof body !== 'object' || Array.isArray(body) ||
-      Object.keys(body).some(k => !['capability', 'summary'].includes(k))) throw Error('Invalid request');
+  if (!['/current', '/begin', '/submit', '/approve-request'].includes(path) || !body || typeof body !== 'object' || Array.isArray(body) ||
+      Object.keys(body).some(k => !['capability', 'summary', 'action', 'destination', 'subject', 'details'].includes(k))) throw Error('Invalid request');
+  const expected = path === '/submit' ? ['capability','summary'] :
+    path === '/approve-request' ? ['action','capability','destination','details','subject'] : ['capability'];
+  if(Object.keys(body).sort().join(',')!==expected.sort().join(','))
+    throw Error('Unexpected request fields');
+  if (typeof body.capability!=='string' || !body.capability) throw Error('Capability required');
   if (path === '/submit' && (typeof body.summary !== 'string' || !body.summary.trim() || body.summary.length > 8000))
     throw Error('A short result is required');
+  if (path === '/approve-request') {
+    if (!['email_send','external_upload','production_change'].includes(body.action))
+      throw Error('Action type not allowed');
+    for(const [field,max] of [['destination',254],['subject',200],['details',6000]]) {
+      if(typeof body[field]!=='string'||!body[field].trim()||body[field].length>max)
+        throw Error('Invalid outbound action proposal');
+    }
+  }
 }
