@@ -87,6 +87,11 @@ class TaskBindings:
                 set() if method in {"current_task", "begin_task", "scout_start", "developer_status", "operator_capabilities"}
                 else {"source"} if method == "scout_collect"
                 else {"reviewId", "decision", "sourceUrl", "evidence"} if method == "scout_crm_manage"
+                else ({"action"} if arguments.get("action") in ("list", "reset")
+                    else {"action", "path"} if arguments.get("action") == "read"
+                    else {"action", "path", "old", "new"} if arguments.get("action") == "patch"
+                    else {"action", "suite"} if arguments.get("suite") == "all_syntax"
+                    else {"action", "suite", "path"}) if method == "developer_workspace"
                 else {"summary"} if method == "submit_result"
                 else {"action", "destination", "subject", "details"} if method == "request_approval"
                 else ({"action"} if arguments.get("action") == "recall" else {"action", "lesson", "evidence"}) if method == "skills_memory"
@@ -149,7 +154,7 @@ class TaskBindings:
 
 def install_task_handlers(registry, bindings, name_for):
     for method in ("current_task", "begin_task", "developer_status", "submit_result", "request_approval",
-                   "web_research", "skills_memory", "scout_start", "scout_collect", "scout_crm_manage", "operator_capabilities", "scout_read", "assistant_read", "mail_crm_read"):
+                   "web_research", "skills_memory", "scout_start", "scout_collect", "scout_crm_manage", "operator_capabilities", "developer_workspace", "scout_read", "assistant_read", "mail_crm_read"):
         name = name_for("paperclip_task", method)
         entry = registry.get_entry(name)
         if entry is not None and getattr(entry.handler, "_workspace_task_bound", False):
@@ -173,6 +178,7 @@ def install_task_handlers(registry, bindings, name_for):
             else "Исследовать публичный веб через Scout: search/query или open/url. Не отправляй приватные данные в поиск." if method == "web_research"
             else "Вспомни проверенные навыки (recall) или предложи новый (propose) с доказательством. Утверждает только оператор." if method == "skills_memory"
             else "Уточни у установленной системы фактические доступные операции и ограничения. Без аргументов." if method == "operator_capabilities"
+            else "Рабочая изолированная копия кода: list/read/patch/test/reset; не меняет production и не выполняет shell." if method == "developer_workspace"
             else "Перенести найденного кандидата Play Scout из «На проверку» в «Подходит»/«Отсеяно»/«Наблюдать» после проверки официального источника." if method == "scout_crm_manage"
             else "Запустить один выбранный источник Play Scout по каталогу (play, web, watch, ecb, finextra, linkedin, facebook, sifted). Не отправляет почту." if method == "scout_collect"
             else "Запустить один ранее одобренный Scout источник." if method == "scout_start"
