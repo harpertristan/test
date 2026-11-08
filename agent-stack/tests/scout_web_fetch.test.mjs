@@ -61,5 +61,5 @@ test("Provider search failures are explicit, never invented findings",async()=>{
  const result=await publicSearch("UK EMI banks",network);
  assert.deepEqual(result.results,[]);
  assert.equal(result.code,"SEARCH_RESULTS_UNAVAILABLE");
- assert.equal(result.providerErrors.length,2);
+ assert.equal(result.providerErrors.length,3);
 });
