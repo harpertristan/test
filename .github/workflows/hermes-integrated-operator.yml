@@ -89,7 +89,7 @@ jobs:
           docker compose -f compose.yaml -f compose.paperclip.yaml \
             -f compose.hermes-gateway.yaml -f compose.task-control.yaml \
             -f compose.three-tools.yaml -f compose.scout-start.yaml \
-            -f compose.developer-workspace.yaml config -q
+            -f compose.developer-workspace.yaml config --no-env-resolution -q
       - name: Test all-service installer scoped grants and no outgoing actions
         run: |
           python3 - <<'PY'
