@@ -3,6 +3,7 @@ import http from "node:http";
 import fs from "node:fs";
 import {resolveReadOperation} from "./three_tool_read_policy.mjs";
 import {authorizeReadScope} from "./three_tool_read_scope.mjs";
+import {activeReadContext} from "./active_run_scope.mjs";
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_SOCKET:"/run/three-tools/read.sock";
 const CONTROL=TEST?process.env.HERMES_TEST_CONTROL:"/run/task-control/control.sock";
@@ -73,7 +74,7 @@ const server=http.createServer(async(req,res)=>{
       return reply(403,{code});
     }
     const current=JSON.parse(task.body);
-    if(!current||!["in_progress"].includes(current.status))
+    if(!activeReadContext(current))
       return reply(403,{code:"TASK_NOT_IN_PROGRESS"});
     const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
     try {authorizeReadScope(scope,current,payload.operation,payload.params);}
