@@ -1,0 +1,12 @@
+[Unit]
+Description=Run safe Hermes Developer Engine checks every six hours
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+RandomizedDelaySec=1min
+Persistent=false
+Unit=hermes-developer-engine.service
+
+[Install]
+WantedBy=timers.target
