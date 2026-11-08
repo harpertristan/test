@@ -109,14 +109,14 @@ class GatewayPolicyTests(unittest.TestCase):
         class Handler(socketserver.BaseRequestHandler):
             def handle(self):
                 head = b""
-                while b"\\r\\n\\r\\n" not in head:
+                while b"\r\n\r\n" not in head:
                     chunk = self.request.recv(4096)
                     if not chunk:
                         return
                     head += chunk
-                headers, _, body = head.partition(b"\\r\\n\\r\\n")
+                headers, _, body = head.partition(b"\r\n\r\n")
                 import re
-                length = re.search(br"(?im)^Content-Length: (\\d+)$", headers)
+                length = re.search(br"(?im)^Content-Length: (\d+)$", headers)
                 size = int(length.group(1)) if length else 0
                 while len(body) < size:
                     body += self.request.recv(4096)
@@ -126,8 +126,8 @@ class GatewayPolicyTests(unittest.TestCase):
                 else:
                     status, content = 200, b'{"mode":"chat"}'
                 response = (
-                    "HTTP/1.1 " + str(status) + " OK\\r\\nContent-Type: application/json\\r\\n"
-                    + "Content-Length: " + str(len(content)) + "\\r\\nConnection: close\\r\\n\\r\\n"
+                    "HTTP/1.1 " + str(status) + " OK\r\nContent-Type: application/json\r\n"
+                    + "Content-Length: " + str(len(content)) + "\r\nConnection: close\r\n\r\n"
                 )
                 self.request.sendall(response.encode() + content)
 
