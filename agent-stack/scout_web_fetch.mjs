@@ -31,7 +31,7 @@ function resolveResultLink(link,base){
     return safeWebUrl(new URL(raw,u).href).href;
   }catch{return null;}
 }
-export function parsePage(html,base){
+export function parsePage(html,base,maxLinks=65){
   const title=decodeEntities(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||"").slice(0,250);
   const description=decodeEntities(html.match(
     /<meta\s+[^>]*(?:name=["']description["']|property=["']og:description["'])[^>]*content=["']([^"']{1,700})/i
@@ -39,7 +39,7 @@ export function parsePage(html,base){
   const seen=new Set(),links=[];
   const href=/\b(?:href|data-url)\s*=\s*(?:"([^"]{1,1800})"|'([^']{1,1800})')/gi;
   let hit;
-  while((hit=href.exec(html))&&links.length<40){
+  while((hit=href.exec(html))&&links.length<maxLinks){
     const link=resolveResultLink(hit[1]||hit[2],base);
     if(link&&!seen.has(link)){seen.add(link);links.push(link);}
   }
@@ -104,7 +104,7 @@ function httpsGet(url,address){
   });
 }
 
-export async function publicOpen(value,network={resolve:resolvePublic,get:httpsGet}){
+export async function publicOpen(value,network={resolve:resolvePublic,get:httpsGet},maxLinks=65){
   let url=safeWebUrl(value);
   const seen=new Set();
   for(let i=0;i<=MAX_REDIRECTS;i++){
@@ -121,7 +121,7 @@ export async function publicOpen(value,network={resolve:resolvePublic,get:httpsG
     if(!result.html||typeof result.html!=="string")
       throw Error("REMOTE_CONTENT_INVALID");
     return {sourceUrl:url.href,checkedAt:new Date().toISOString(),status:result.status,
-      ...parsePage(result.html,url.href)};
+      ...parsePage(result.html,url.href,maxLinks)};
   }
   throw Error("REDIRECT_LIMIT");
 }
@@ -136,7 +136,7 @@ export async function publicSearch(query,network){
   const errors=[];
   for(const address of providers){
     try{
-      const result=await publicOpen(address,network);
+      const result=await publicOpen(address,network,220);
       const results=result.links.filter(url=>{
         try{
           const host=new URL(url).hostname;
@@ -145,7 +145,11 @@ export async function publicSearch(query,network){
       }).slice(0,20);
       if(results.length)return {query:text,provider:new URL(address).hostname,
         results,checkedAt:result.checkedAt,excerpt:result.text.slice(0,2000)};
-      errors.push("NO_RESULTS");
+      const lower=result.text.toLowerCase();
+      errors.push(
+        /unfortunately, bots use duckduckgo too|confirm this search was made by a human|unusual traffic|captcha|please verify you are human|try using google search/.test(lower)
+          ? "SEARCH_ENGINE_CHALLENGE" : "NO_RESULTS"
+      );
     }catch(e){errors.push(/^([A-Z_]+|REMOTE_HTTP_\d{3})$/.test(e.message)?e.message:"SEARCH_UNAVAILABLE");}
   }
   return {query:text,results:[],code:"SEARCH_RESULTS_UNAVAILABLE",
