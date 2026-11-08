@@ -89,6 +89,31 @@ class ScopedMcpTests(unittest.TestCase):
                               "url": "https://bank.example/", "body": "SECRET"}
             })
 
+    def test_fixed_scout_collect_sources_are_signed_and_cannot_send_or_upload(self):
+        with patch.object(mcp, "scout_collect", return_value={
+            "status": "accepted", "mode": "play", "sourceId": "play"
+        }) as backend:
+            value = mcp.dispatch("tools/call", {
+                "name": "scout_collect",
+                "arguments": {"capability": "signed-synthetic", "source": "play"}
+            })
+        self.assertFalse(value["isError"])
+        backend.assert_called_once_with(capability="signed-synthetic", source="play")
+        for source in ("apify:facebook", "email_send", "production_change"):
+            with patch.object(mcp, "scout_collect", return_value={
+                "error": "Unknown public Scout source", "code": "INVALID_SOURCE"
+            }):
+                result = mcp.dispatch("tools/call", {
+                    "name": "scout_collect",
+                    "arguments": {"capability": "signed-synthetic", "source": source}
+                })
+            self.assertTrue(result["isError"])
+        with self.assertRaises(ValueError):
+            mcp.dispatch("tools/call", {
+                "name": "scout_collect",
+                "arguments": {"capability": "signed-synthetic", "source": "play", "allowPaid": True}
+            })
+
     def test_native_begin_and_human_only_approval_never_send(self):
         with patch.object(mcp, "begin_task", return_value={
             "status": "in_progress", "checkoutConfirmed": True
