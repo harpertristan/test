@@ -14,6 +14,7 @@ on:
       - "agent-stack/ops/install_scout_start.sh"
       - "agent-stack/ops/enable_hermes_three_service_reads.sh"
       - "agent-stack/ops/diagnose_hermes_run.sh"
+      - "agent-stack/ops/hermes_unified_repair.sh"
       - "agent-stack/scout_start_policy.mjs"
       - "agent-stack/scout_start_gateway.mjs"
       - "agent-stack/task_control_mcp.py"
@@ -50,6 +51,10 @@ jobs:
           bash -n agent-stack/ops/install_scout_start.sh
           bash -n agent-stack/ops/enable_hermes_three_service_reads.sh
           bash -n agent-stack/ops/diagnose_hermes_run.sh
+          bash -n agent-stack/ops/hermes_unified_repair.sh
+          node --check agent-stack/task_control.mjs
+          node --check agent-stack/three_tool_read_sidecar.mjs
+          node --check agent-stack/three_tool_read_scope.mjs
       - name: Validate embedded Python and simulated permission update
         run: |
           python3 - <<'PY'
@@ -84,6 +89,42 @@ jobs:
               assert p.returncode!=0
               assert scope.read_bytes()==before
           print("PASS: embedded Python syntax, scope grant, no send rights, wrong-task denial")
+          PY
+      - name: Validate unified repair embedded Python with synthetic authorized agent
+        run: |
+          python3 - <<'PY'
+          import ast, pathlib, subprocess, tempfile, json
+          script=pathlib.Path("agent-stack/ops/hermes_unified_repair.sh").read_text()
+          blocks=script.split("<<'PY'\n")
+          assert len(blocks)==3, f"Expected 2 embedded Python blocks, got {len(blocks)-1}"
+          prepare=blocks[1].split("\nPY\n",1)[0]
+          verify=blocks[2].split("\nPY\n",1)[0]
+          ast.parse(prepare)
+          ast.parse(verify)
+          with tempfile.TemporaryDirectory() as tmp:
+            base=pathlib.Path(tmp)
+            scope=base/"scope.json"
+            identity=base/"identity.json"
+            next_scope=base/"next.json"
+            mcp=base/"mcp.json"
+            issue="2d95562b-a3f8-465e-bfa9-842dbd950acb"
+            original={"version":1,"grants":{issue:{
+              "issueIdentifier":"WOR-7",
+              "operations":["scout_start","scout_findings","mail_message"],
+              "workspaceWide":True,"mailConsent":True
+            }}}
+            scope.write_text(json.dumps(original))
+            identity.write_text(json.dumps({"agentId":"synthetic-hermes","companyId":"synthetic-company"}))
+            subprocess.run(["python3","-c",prepare,str(scope),str(identity),str(next_scope)],check=True)
+            updated=json.loads(next_scope.read_text())
+            assert updated["grants"]==original["grants"],"Must not mutate existing issue grants"
+            ops=set(updated["agentGrants"]["synthetic-hermes"]["operations"])
+            assert "mail_message" in ops and "mail_send" not in ops and "assistant_profile" not in ops
+            mcp.write_text(json.dumps({"result":{"tools":[{"name":n} for n in (
+              "current_task","submit_result","scout_start","scout_read","assistant_read","mail_crm_read"
+            )]}}))
+            subprocess.run(["python3","-c",verify,str(mcp),str(next_scope),str(identity)],check=True)
+          print("PASS: unified installer embedded Python execution and identity-bound grants")
           PY
       - name: Compile all Python entrypoints
         run: |
