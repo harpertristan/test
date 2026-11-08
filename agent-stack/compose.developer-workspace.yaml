@@ -1,0 +1,35 @@
+# Isolated code workspace for one signed Hermes agent; no production write mounts.
+services:
+  developer-workspace:
+    image: workspace-paperclip:7e3caa7
+    user: '10000:10000'
+    network_mode: none
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [node, /opt/workspace-agent/developer_workspace_gateway.mjs]
+    environment: {NODE_ENV: production}
+    volumes:
+      - .:/opt/workspace-agent:ro
+      - /srv/hermes-stack/task-control:/run/task-control:ro
+      - /srv/hermes-stack/private/three-tool-scope.json:/run/secrets/three-tool-scope.json:ro
+      - /srv/hermes-stack/state/developer-workspace:/workspace
+      - /srv/hermes-stack/developer-tools:/run/dev-tools
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=64m"]
+    mem_limit: 256m
+    cpus: 1
+    pids_limit: 64
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, node, -e, "require('http').get({socketPath:'/run/dev-tools/workspace.sock',path:'/health'},r=>{r.resume();if(r.statusCode!==200)process.exit(1)}).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+  hermes-runtime:
+    volumes:
+      - /srv/hermes-stack/developer-tools:/run/dev-tools:ro
+    depends_on:
+      developer-workspace:
+        condition: service_healthy
