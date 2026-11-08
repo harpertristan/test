@@ -1,0 +1,30 @@
+name: Hermes Scout task contract
+on:
+  push:
+    branches: [test-hermes-scout-flow-20261108]
+  pull_request:
+    paths:
+      - "agent-stack/task_capability.py"
+      - "agent-stack/task_control_policy.mjs"
+      - "agent-stack/three_tool_read_policy.mjs"
+      - "agent-stack/three_tool_read_scope.mjs"
+      - "agent-stack/tests/hermes_scout_contract.test.mjs"
+      - ".github/workflows/hermes-scout-contract.yml"
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Cross-language task authorization and read scope
+        working-directory: agent-stack
+        run: |
+          node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/hermes_scout_contract.test.mjs
