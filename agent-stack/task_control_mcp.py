@@ -4,6 +4,7 @@ import http.client
 import json
 import socket
 import sys
+from skills_memory import SkillsError, mcp as skills_memory_access
 
 
 class Connection(http.client.HTTPConnection):
@@ -223,6 +224,35 @@ for _name, _prefix in (("scout_read", "scout_"), ("assistant_read", "assistant_"
     })
 
 
+TOOLS.append({
+    "name": "skills_memory",
+    "description": "Воспоминание утверждённых решений (recall) или предложение нового проверенного навыка (propose). Запись требует человеческой проверки.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "capability": {"type": "string"},
+            "action": {"type": "string", "enum": ["recall", "propose"]},
+            "lesson": {"type": "string"},
+            "evidence": {"type": "string"}
+        },
+        "required": ["capability", "action"], "additionalProperties": False
+    },
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
+
+def memory_tool(capability: str, action: str, lesson: str = None,
+                evidence: str = None) -> dict:
+    # The model cannot bypass the current task ownership controller.
+    verified = current_task(capability)
+    if "error" in verified:
+        return {"error": "Current task is not authorized", "code": verified.get("code", "TASK_NOT_AUTHORIZED")}
+    try:
+        return skills_memory_access(action, lesson, evidence)
+    except SkillsError:
+        return {"error": "Skill proposal rejected by local policy", "code": "SKILL_PROPOSAL_REJECTED"}
+
+
 def dispatch(method, params):
     if method == "initialize":
         supported = {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
@@ -240,7 +270,7 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
-        if name not in {"current_task", "begin_task", "request_approval", "web_research",
+        if name not in {"current_task", "begin_task", "request_approval", "web_research", "skills_memory",
                      "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
@@ -249,6 +279,8 @@ def dispatch(method, params):
             else {"capability", "action", "destination", "subject", "details"} if name == "request_approval"
             else ({"capability", "action", "query"} if arguments.get("action") == "search"
                   else {"capability", "action", "url"}) if name == "web_research"
+            else ({"capability", "action"} if arguments.get("action") == "recall"
+                  else {"capability", "action", "lesson", "evidence"}) if name == "skills_memory"
             else {"capability", "operation", "params"}
         )
         if set(arguments) != expected:
@@ -260,6 +292,8 @@ def dispatch(method, params):
             summary = arguments.get("summary")
             if not isinstance(summary, str) or not summary.strip() or len(summary) > 8000:
                 raise ValueError("Invalid summary")
+        if name == "skills_memory" and arguments.get("action") not in ("recall", "propose"):
+            raise ValueError("Invalid skill action")
         if name == "web_research" and arguments.get("action") not in ("search", "open"):
             raise ValueError("Invalid web action")
         if name in ("scout_read", "assistant_read", "mail_crm_read"):
@@ -279,6 +313,8 @@ def dispatch(method, params):
             result = request_approval(**arguments)
         elif name == "web_research":
             result = web_research(**arguments)
+        elif name == "skills_memory":
+            result = memory_tool(**arguments)
         elif name == "scout_start":
             result = scout_start(**arguments)
         else:
