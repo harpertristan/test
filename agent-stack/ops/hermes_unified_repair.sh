@@ -45,7 +45,7 @@ if docker image inspect workspace-paperclip:7e3caa7 >/dev/null 2>&1;then
  docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
  -v "$WORK/agent-stack:/work:ro" -w /work --entrypoint node workspace-paperclip:7e3caa7 \
  --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs \
- tests/three_tool_read_sidecar.integration.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs
+ tests/three_tool_read_sidecar.integration.test.mjs tests/scout_gateway.integration.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs
 else
  (cd "$WORK/agent-stack" && node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/three_tool_read_sidecar.integration.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs)
 fi
