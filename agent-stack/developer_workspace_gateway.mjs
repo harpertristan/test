@@ -15,8 +15,8 @@ const CTRL=TEST?process.env.HERMES_TEST_CONTROL:"/run/task-control/control.sock"
 const SCOPE=TEST?process.env.HERMES_TEST_SCOPE:"/run/secrets/three-tool-scope.json";
 const SOURCE=TEST?process.env.HERMES_TEST_SOURCE:"/source";
 const ROOT=TEST?process.env.HERMES_TEST_WORKSPACE:"/workspace";
-const EXT=new Set([".mjs",".py",".yaml",".yml",".json",".sh",".md"]);
-const MAX_SOURCE=400_000;
+const EXT=new Set([".mjs",".js",".jsx",".ts",".tsx",".css",".html",".py",".yaml",".yml",".toml",".json",".sh",".md",".sql"]);
+const MAX_SOURCE=800_000;
 const MAX_OUTPUT=13_000;
 const SAFE_REL=/^(?!\/)(?!.*(?:^|\/)\.)(?!.*(?:^|\/)\.\.\/)[A-Za-z0-9_.\/-]{1,180}$/;
 const REDACT=[/sk-(?:proj-)?[A-Za-z0-9_-]{10,}/g,
@@ -61,8 +61,8 @@ function verifyNodeTree(root){
 }
 function walk(src,dst,count={files:0,bytes:0}){
  for(const d of fs.readdirSync(src,{withFileTypes:true})){
-  if(d.name.startsWith(".")||["node_modules","__pycache__","private",
-     "state","venv","secrets","backups"].includes(d.name))continue;
+  if(d.name.startsWith(".")||["node_modules","__pycache__","private","state","venv",
+     "secrets","backups","dist","build",".next","target"].includes(d.name))continue;
   const original=path.join(src,d.name),target=path.join(dst,d.name);
   const st=fs.lstatSync(original);
   if(st.isSymbolicLink())continue;
@@ -72,7 +72,7 @@ function walk(src,dst,count={files:0,bytes:0}){
   }
   if(!st.isFile()||!EXT.has(path.extname(d.name))||st.size>MAX_SOURCE)continue;
   count.files++;count.bytes+=st.size;
-  if(count.files>900||count.bytes>12_000_000)throw Error("WORKSPACE_COPY_LIMIT");
+  if(count.files>4000||count.bytes>60_000_000)throw Error("WORKSPACE_COPY_LIMIT");
   fs.copyFileSync(original,target);
   fs.chmodSync(target,0o600);
  }
@@ -119,8 +119,8 @@ function patchFile(folder,rel,oldText,newText){
 function checkSyntax(folder,rel){
  const file=inside(folder,rel);
  const ext=path.extname(file);
- if(![".mjs",".py",".sh"].includes(ext))throw Error("WORKSPACE_TEST_UNSUPPORTED");
- const [command,args]=ext===".mjs"?["node",["--check",file]]:
+ if(![".mjs",".js",".jsx",".ts",".tsx",".py",".sh"].includes(ext))throw Error("WORKSPACE_TEST_UNSUPPORTED");
+ const [command,args]=[".mjs",".js"].includes(ext)?["node",["--check",file]]:
    ext===".py"?["python3",["-m","py_compile",file]]:["bash",["-n",file]];
  return new Promise(resolve=>{
   const proc=spawn(command,args,{cwd:folder,env:{
@@ -146,7 +146,7 @@ function collectSyntaxFiles(folder){
    if(e.name.startsWith(".")||e.name==="node_modules")continue;
    const rel=prefix+e.name;
    if(e.isDirectory())visit(path.join(dir,e.name),rel+"/");
-   else if(e.isFile()&&[".mjs",".py",".sh"].includes(path.extname(rel)))
+   else if(e.isFile()&&[".mjs",".js",".py",".sh"].includes(path.extname(rel)))
      files.push(rel);
   }
  };
