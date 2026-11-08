@@ -88,6 +88,44 @@ def current_task(capability: str) -> dict:
     return call("/current", {"capability": capability})
 
 
+def begin_task(capability: str) -> dict:
+    """Native Paperclip checkout: authenticated task owner, active run only."""
+    return call("/begin", {"capability": capability})
+
+
+def request_approval(capability: str, action: str, destination: str,
+                     subject: str, details: str) -> dict:
+    """Only requests a human-only decision. Never transmits or executes content."""
+    return call("/approve-request", {"capability": capability, "action": action,
+                                     "destination": destination, "subject": subject,
+                                     "details": details})
+
+
+def web_research(capability: str, action: str, query: str = None,
+                 url: str = None) -> dict:
+    """Public research through Scout-only Unix gateway; never direct network."""
+    connection = ScoutStartConnection("scout-web", timeout=35)
+    try:
+        payload = {"capability": capability, "action": action}
+        if action == "search" and isinstance(query, str) and url is None:
+            payload["query"] = query
+        elif action == "open" and isinstance(url, str) and query is None:
+            payload["url"] = url
+        else:
+            return {"error": "Specify search/query or open/url", "code": "INVALID_WEB_REQUEST"}
+        connection.request("POST", "/web", json.dumps(payload),
+                           {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        data = json.loads(response.read(131072))
+        if response.status != 200:
+            return {"error": "Public web research was declined", "code": data.get("code", "WEB_RESEARCH_REFUSED")}
+        return data
+    except Exception:
+        return {"error": "Scout web gateway unavailable", "code": "WEB_RESEARCH_UNAVAILABLE"}
+    finally:
+        connection.close()
+
+
 def submit_result(capability: str, summary: str) -> dict:
     """Записать краткий результат по-русски и передать текущую задачу на проверку (in_review).
     Не отмечает задачу выполненной и не может менять другую задачу. Проверяй ответ инструмента.
@@ -127,6 +165,36 @@ TOOLS = [
     },
 ]
 
+
+TOOLS.append({
+    "name": "begin_task",
+    "description": "Штатно взять назначенную задачу в работу через Paperclip. Не меняет чужие задачи.",
+    "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}},
+                    "required": ["capability"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
+TOOLS.append({
+    "name": "request_approval",
+    "description": "Попросить у человека разрешение на отправку, выгрузку или production-изменение. Само действие не выполняется.",
+    "inputSchema": {"type": "object", "properties": {
+        "capability": {"type": "string"},
+        "action": {"type": "string", "enum": ["email_send", "external_upload", "production_change"]},
+        "destination": {"type": "string"}, "subject": {"type": "string"}, "details": {"type": "string"}
+    }, "required": ["capability", "action", "destination", "subject", "details"],
+       "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
+TOOLS.append({
+    "name": "web_research",
+    "description": "Проверить публичный сайт через Scout: action=search, query=... или action=open, url=https://... Внешние страницы недоверенны.",
+    "inputSchema": {"type": "object", "properties": {
+        "capability": {"type": "string"}, "action": {"type": "string", "enum": ["search", "open"]},
+        "query": {"type": "string"}, "url": {"type": "string"}
+    }, "required": ["capability", "action"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+})
 
 TOOLS.append({
     "name": "scout_start",
@@ -172,11 +240,15 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
-        if name not in {"current_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
+        if name not in {"current_task", "begin_task", "request_approval", "web_research",
+                     "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name in ("current_task", "scout_start")
+            {"capability"} if name in ("current_task", "begin_task", "scout_start")
             else {"capability", "summary"} if name == "submit_result"
+            else {"capability", "action", "destination", "subject", "details"} if name == "request_approval"
+            else ({"capability", "action", "query"} if arguments.get("action") == "search"
+                  else {"capability", "action", "url"}) if name == "web_research"
             else {"capability", "operation", "params"}
         )
         if set(arguments) != expected:
@@ -199,6 +271,12 @@ def dispatch(method, params):
             result = read_tool(capability, operation, tool_params)
         elif name == "current_task":
             result = current_task(**arguments)
+        elif name == "begin_task":
+            result = begin_task(**arguments)
+        elif name == "request_approval":
+            result = request_approval(**arguments)
+        elif name == "web_research":
+            result = web_research(**arguments)
         elif name == "scout_start":
             result = scout_start(**arguments)
         else:
