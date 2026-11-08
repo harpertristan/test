@@ -24,7 +24,7 @@ STAGE=$(mktemp -d /tmp/hermes-review.XXXXXXXX)
 chmod 0755 "$STAGE"
 BACKUP=
 APPLIED=0
-cleanup(){rm -rf "$STAGE";}
+cleanup(){ rm -rf "$STAGE"; }
 rollback(){
  if [ "$APPLIED" = 1 ];then
   echo "ROLLBACK TO $BACKUP" >&2
