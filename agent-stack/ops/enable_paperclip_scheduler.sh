@@ -28,7 +28,9 @@ rollback(){
  if [ "$MODIFIED" = 1 ];then
   echo "ROLLBACK $BACKUP" >&2
   cp -p "$BACKUP/compose.paperclip.yaml" "$CONFIG" || true
-  compose up -d --no-deps --pull never --force-recreate paperclip task-control hermes-paperclip-bridge >/dev/null 2>&1 || true
+  compose stop task-control hermes-paperclip-bridge >/dev/null 2>&1 || true
+  compose up -d --no-deps --pull never --force-recreate paperclip >/dev/null 2>&1 || true
+  compose up -d --no-deps --pull never --force-recreate task-control hermes-paperclip-bridge >/dev/null 2>&1 || true
  fi
 }
 fail(){ ec=$?;trap - ERR;rollback;echo "FAILED ($ec) BACKUP: $BACKUP" >&2;exit "$ec"; }
@@ -70,6 +72,7 @@ echo "=== APPLY: NATIVE PAPERCLIP ONLY ==="
 MODIFIED=1
 cp -p "$STAGE/compose.paperclip.yaml" "$CONFIG"
 compose config -q
+compose stop task-control hermes-paperclip-bridge
 compose up -d --no-deps --pull never --force-recreate paperclip
 compose up -d --no-deps --pull never --force-recreate task-control hermes-paperclip-bridge
 echo "=== HEALTH AND CONFIGURATION ==="
