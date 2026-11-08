@@ -83,7 +83,7 @@ ids=json.loads(pathlib.Path(sys.argv[1]).read_text())
 scope=json.loads(pathlib.Path(sys.argv[2]).read_text())
 config=pathlib.Path(sys.argv[3]).read_text()
 root=pathlib.Path(sys.argv[4]);issue_id=sys.argv[5];issue_key=sys.argv[6]
-safe=[s for s in ids if re.fullmatch(r"[a-z0-9:_./-]{1,120}",s)]
+safe=[s for s in ids if re.fullmatch(r"web:[a-z0-9:_./-]{1,115}",s)]
 if len(safe)<1:raise SystemExit("No safe web source IDs. No changes.")
 selected=sorted(set(safe))[:2]
 if scope.get("version")!=1 or not isinstance(scope.get("grants"),dict):raise SystemExit("Bad scope policy")
