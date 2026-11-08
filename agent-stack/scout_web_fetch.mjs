@@ -26,7 +26,7 @@ function resolveResultLink(link,base){
     if((u.hostname==="www.google.com"||u.hostname==="google.com")&&u.pathname==="/url"){
       raw=u.searchParams.get("q")||u.searchParams.get("url")||"";
     }
-    return safeWebUrl(raw).href;
+    return safeWebUrl(new URL(raw,u).href).href;
   }catch{return null;}
 }
 export function parsePage(html,base){
