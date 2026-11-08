@@ -83,6 +83,13 @@ jobs:
             subprocess.run(["python3","-c",blocks[1],str(mcp)],check=True)
           print("PASS: installer syntax, embedded scripts, grant preservation and 11-tool manifest")
           PY
+      - name: Validate 15-tool combined Docker Compose configuration
+        working-directory: agent-stack
+        run: |
+          docker compose -f compose.yaml -f compose.paperclip.yaml \
+            -f compose.hermes-gateway.yaml -f compose.task-control.yaml \
+            -f compose.three-tools.yaml -f compose.scout-start.yaml \
+            -f compose.developer-workspace.yaml config -q
       - name: Test all-service installer scoped grants and no outgoing actions
         run: |
           python3 - <<'PY'
@@ -120,6 +127,14 @@ jobs:
            assert "operator_capabilities" in (stage/"config.next").read_text()
            assert "developer_workspace" in (stage/"config.next").read_text()
            assert "send_mail" not in (stage/"config.next").read_text()
+           installed=["current_task","begin_task","submit_result","request_approval",
+            "web_research","skills_memory","developer_status","scout_start",
+            "scout_collect","scout_crm_manage","operator_capabilities",
+            "developer_workspace","scout_read","assistant_read","mail_crm_read"]
+           report=stage/"mcp.json"
+           report.write_text(json.dumps({"result":{"tools":[{"name":name} for name in installed]}}))
+           subprocess.run(["python3","-c",py[2],str(report),str(stage/"catalog.json")],check=True)
+
            print("PASS: 15 tools, full bounded read catalogue, internal CRM and no outbound send")
           PY
       - name: Native task binding and web safety policies
