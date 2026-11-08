@@ -3,7 +3,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { bindTask, verifyCapability, validateRequest } from './task_control_policy.mjs';
+import { bindTask, bindConversation, isConversation, verifyCapability, validateRequest } from './task_control_policy.mjs';
 
 async function main() {
 const require = createRequire('/app/server/package.json');
@@ -213,7 +213,7 @@ const server = http.createServer(async (req, res) => {
   let acquired = false;
   let stage = "request";
   try {
-    if (req.method !== 'POST' || !['/current','/begin','/submit','/approve-request'].includes(req.url)) return reply(403,{error:'Operation disabled'});
+    if (req.method !== 'POST' || !['/current','/context','/begin','/submit','/approve-request'].includes(req.url)) return reply(403,{error:'Operation disabled'});
     let raw = '';
     for await (const b of req) { raw += b; if (raw.length > 65536) throw Error('Request too large'); }
     const body = JSON.parse(raw);
@@ -232,12 +232,31 @@ const server = http.createServer(async (req, res) => {
     if (typeof issueId !== 'string') { const error = Error('No task binding'); error.safeCode = 'TASK_BINDING_MISSING'; throw error; }
     const [issue] = await db.select().from(issues).where(eq(issues.id,issueId)).limit(1);
     stage = 'binding';
+    if (isConversation(issue)) {
+      bindConversation(run,issue,identity);
+      if (req.url === '/begin' || req.url === '/submit')
+        return reply(403,{code:'CHAT_NOT_WORK_TASK',
+          error:'Agent Chat is not a work issue and cannot be checked out or sent for task review.'});
+      if (req.url === '/context') return reply(200,{mode:'chat'});
+      if (req.url === '/current') return reply(200,{
+        id:issue.id,identifier:issue.identifier,title:issue.title,status:issue.status,
+        mode:'chat',conversationState:issue.conversationState,
+        agentId:identity.agentId,companyId:identity.companyId});
+      if (req.url === '/approve-request') {
+        stage='approval_request';
+        return reply(200,await createOutboundApproval(issue.id,runId,body));
+      }
+      return reply(403,{code:'CHAT_OPERATION_DENIED'});
+    }
     bindTask(run, issue, identity, {
       requireLock:req.url==='/submit',
-      allowTodo:req.url==='/current'||req.url==='/begin',
+      allowTodo:req.url==='/current'||req.url==='/context'||req.url==='/begin',
       allowNativeCheckout:req.url==='/begin'
     });
-    if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status, agentId:identity.agentId, companyId:identity.companyId});
+    if (req.url === '/context') return reply(200,{mode:'task'});
+    if (req.url === '/current') return reply(200,{
+      id:issue.id,identifier:issue.identifier,title:issue.title,status:issue.status,mode:'task',
+      agentId:identity.agentId,companyId:identity.companyId});
     if(req.url==='/begin'){
       stage='native_checkout';
       await nativeCheckout(issue.id,runId);
