@@ -114,6 +114,38 @@ class ScopedMcpTests(unittest.TestCase):
                 "arguments": {"capability": "signed-synthetic", "source": "play", "allowPaid": True}
             })
 
+    def test_scout_crm_triage_uses_current_grant_and_exact_known_action(self):
+        with patch.object(mcp, "scout_crm_manage", return_value={
+            "verified": True, "id": "app:com.example.bank", "status": "confirmed"
+        }) as backend:
+            result = mcp.dispatch("tools/call", {"name": "scout_crm_manage",
+                "arguments": {"capability": "synthetic-token", "reviewId": "app:com.example.bank",
+                    "decision": "suitable", "sourceUrl": "https://bank.example/business",
+                    "evidence": "Public financial institution website confirms UK business current accounts."}})
+        self.assertFalse(result["isError"])
+        backend.assert_called_once()
+        with self.assertRaises(ValueError):
+            mcp.dispatch("tools/call", {"name": "scout_crm_manage",
+                "arguments": {"capability": "synthetic-token", "reviewId": "a",
+                    "decision": "suitable", "sourceUrl": "https://bank.example",
+                    "evidence": "a" * 100, "shell": "ls"}})
+
+    def test_capabilities_manifest_is_bound_to_signed_current_chat(self):
+        with patch.object(mcp, "current_task", return_value={"mode": "chat"}):
+            value = mcp.dispatch("tools/call", {"name": "operator_capabilities",
+                "arguments": {"capability": "synthetic-token"}})
+        self.assertFalse(value["isError"])
+        manifest = json.loads(value["content"][0]["text"])
+        self.assertEqual(manifest["mode"], "chat")
+        self.assertIn("scout_crm_manage", manifest["services"]["play_scout"]["internal_crm"])
+        self.assertIn("mail_messages", manifest["services"]["mail_crm"]["read"])
+        with patch.object(mcp, "current_task", return_value={
+            "error": "Not signed", "code": "TASK_NOT_AUTHORIZED"
+        }):
+            denied = mcp.dispatch("tools/call", {"name": "operator_capabilities",
+                "arguments": {"capability": "wrong-token"}})
+        self.assertTrue(denied["isError"])
+
     def test_native_begin_and_human_only_approval_never_send(self):
         with patch.object(mcp, "begin_task", return_value={
             "status": "in_progress", "checkoutConfirmed": True
