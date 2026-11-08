@@ -42,3 +42,4 @@ services:
     volumes:
       - /srv/hermes-stack/state/task-bridge:/state
       - /srv/hermes-stack/private/task-capability.key:/run/secrets/task-capability.key:ro
+      - /srv/hermes-stack/task-control:/run/task-control:ro
