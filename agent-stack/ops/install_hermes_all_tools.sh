@@ -183,7 +183,7 @@ assert (allowed-{"scout_collect","scout_crm_manage","operator_capabilities","dev
 new=matches[0].group(1)+"["+", ".join(sorted(allowed))+"]"
 text=text[:matches[0].start()]+new+text[matches[0].end():]
 (root/"config.next").write_text(text)
-print("SCOPE_PASS: 1 trusted agent, 14 MCP tools, %d scoped read operations"%len(ops))
+print("SCOPE_PASS: 1 trusted agent, 15 MCP tools, %d scoped read operations"%len(ops))
 print("Explicit assistant viewer and mail read consent; no external send/delete.")
 PY
 
@@ -299,7 +299,8 @@ listed=json.load(open(sys.argv[1]))["result"]["tools"]
 got={x["name"] for x in listed}
 expected={"current_task","begin_task","submit_result","request_approval",
  "web_research","skills_memory","developer_status","scout_start",
- "scout_collect","scout_read","assistant_read","mail_crm_read"}
+ "scout_collect","scout_crm_manage","operator_capabilities","developer_workspace",
+ "scout_read","assistant_read","mail_crm_read"}
 assert got==expected,(got,expected)
 assert not got & {"send_mail","exec","shell","delete"}
 print("LIVE_MCP_PASS: 15 tools, %d read operations"%len(json.load(open(sys.argv[2]))))
