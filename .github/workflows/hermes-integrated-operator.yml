@@ -76,6 +76,26 @@ jobs:
         run: |
           set -Eeuo pipefail
           node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/scout_web_fetch.test.mjs
+      - name: Live HTTPS through production Scout DNS pin
+        working-directory: agent-stack
+        run: |
+          node --input-type=module <<'JS'
+          import {publicOpen} from "./scout_web_fetch.mjs";
+          const sites=["https://example.com/","https://www.google.com/","https://github.com/"];
+          let ok=false;
+          for(const url of sites){
+            try {
+              const page=await publicOpen(url);
+              if(page.status===200&&page.text.length>10){
+                console.log("PASS: live public HTTPS via pinned DNS",new URL(page.sourceUrl).hostname);
+                ok=true;break;
+              }
+            }catch(error){
+              console.log("HTTPS probe:",new URL(url).hostname,error.message);
+            }
+          }
+          if(!ok)process.exit(1);
+          JS
       - name: Unix gateway integration tests (synthetic local services)
         working-directory: agent-stack
         run: |
