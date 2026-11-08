@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { verifyCapability, bindTask, validateRequest } from '../task_control_policy.mjs';
+import { verifyCapability, bindTask, bindConversation, isConversation, validateRequest } from '../task_control_policy.mjs';
 const runId = '11111111-1111-4111-8111-111111111111';
 const issueId = '22222222-2222-4222-8222-222222222222';
 const key = Buffer.from('synthetic-test-key');
@@ -89,4 +89,32 @@ test('Only native checkout may reclaim an inactive stale run lock; normal reads 
  const backlog={...issue,status:'backlog',checkoutRunId:null,executionRunId:null};
  assert.equal(bindTask(run,backlog,identity,{requireLock:false,allowTodo:true,allowNativeCheckout:true}),issueId);
  assert.throws(()=>bindTask(run,backlog,identity,{requireLock:false}));
+});
+
+test('Native Paperclip standing chat is not an ordinary work issue and uses verified conversation identity',()=>{
+  const chat={...issue,conversationAgentId:identity.agentId,conversationUserId:'user-1',
+    conversationState:'active',conversationSessionGeneration:2,
+    status:'in_review',executionRunId:null,checkoutRunId:null};
+  const chatRun={...run,contextSnapshot:{conversationSessionGeneration:2}};
+  assert.equal(isConversation(chat),true);
+  assert.equal(bindConversation(chatRun,chat,identity),issueId);
+  assert.equal(isConversation(issue),false);
+  assert.throws(()=>bindTask(chatRun,chat,identity,{requireLock:true}));
+  for(const changed of [
+    {...chat,conversationState:'waiting'},
+    {...chat,conversationAgentId:'another-agent'},
+    {...chat,conversationUserId:null},
+    {...chat,companyId:'other-company'},
+    {...chat,executionRunId:'33333333-3333-4333-8333-333333333333'},
+    {...chat,status:'done'},
+    {...chat,status:'blocked'},
+    {...chat,conversationSessionGeneration:3}
+  ]) assert.throws(()=>bindConversation(chatRun,changed,identity));
+  assert.throws(()=>bindConversation({...chatRun,status:'succeeded'},chat,identity));
+  assert.throws(()=>bindConversation({...chatRun,agentId:'other-agent'},chat,identity));
+});
+test('Execution context request accepts exact signed capability only',()=>{
+  validateRequest('/context',{capability});
+  assert.throws(()=>validateRequest('/context',{capability,mode:'chat'}));
+  assert.throws(()=>validateRequest('/context',{capability,taskId:issueId}));
 });
