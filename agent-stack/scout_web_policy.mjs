@@ -1,5 +1,6 @@
 // Public research only. No authenticated sessions, uploads, arbitrary ports or intranet URLs.
 import net from "node:net";
+import {activeReadContext} from "./active_run_scope.mjs";
 
 const PRIVATE_HOST=/(^localhost$|\.localhost$|\.local$|\.internal$|\.test$|\.invalid$|\.lan$|\.home$|\.docker$|\.svc$)/i;
 const OPAQUE=/(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|bearer\s+[A-Za-z0-9._=-]{12,}|(?:[A-Za-z0-9_-]{80,}))/i;
@@ -70,8 +71,7 @@ export function validateWebAction(body){
 export function webReadScope(scope,task){
   if(!scope||scope.version!==1||!scope.grants||typeof scope.grants!=="object")
     throw Error("SCOPE_DENIED");
-  if(!task||task.status!=="in_progress"||typeof task.id!=="string"||
-     typeof task.identifier!=="string")throw Error("TASK_NOT_ACTIVE");
+  if(!activeReadContext(task))throw Error("TASK_NOT_ACTIVE");
   const specific=scope.grants[task.id];
   if(specific&&specific.issueIdentifier!==task.identifier)throw Error("SCOPE_DENIED");
   const fallback=scope.agentGrants?.[task.agentId];
