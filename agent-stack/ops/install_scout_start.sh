@@ -75,7 +75,7 @@ python3 -m py_compile "$TMP/agent-stack/"{task_control_mcp.py,task_runtime_conte
 echo "=== DISCOVER ALLOWLIST (NO SCOUT MUTATION) ==="
 docker exec play-scout-app-1 node --input-type=module -e '
 import {SEARCH_CHANNELS} from "/app/lib/source-workspace-catalog.js";
-const ids=SEARCH_CHANNELS.filter(x=>x.kind==="web" && typeof x.id==="string").map(x=>x.id);
+const ids=SEARCH_CHANNELS.filter(x=>typeof x.id==="string" && ["web","watch","social"].includes(x.kind)).map(x=>({id:x.id,kind:x.kind}));
 console.log(JSON.stringify(ids));
 ' > "$TMP/web-sources.json"
 python3 - "$TMP/web-sources.json" "$SCOPE" "$CONF" "$TMP" "$ISSUE_ID" "$ISSUE_KEY" <<'PY'
@@ -84,9 +84,19 @@ ids=json.loads(pathlib.Path(sys.argv[1]).read_text())
 scope=json.loads(pathlib.Path(sys.argv[2]).read_text())
 config=pathlib.Path(sys.argv[3]).read_text()
 root=pathlib.Path(sys.argv[4]);issue_id=sys.argv[5];issue_key=sys.argv[6]
-safe=[s for s in ids if re.fullmatch(r"web:[a-z0-9:_./-]{1,115}",s)]
-if len(safe)<1:raise SystemExit("No safe web source IDs. No changes.")
-selected=sorted(set(safe))[:2]
+valid=[s for s in ids if isinstance(s,dict) and isinstance(s.get("id"),str)
+ and s.get("kind") in {"web","watch","social"}
+ and re.fullmatch(r"(web|watch|social):[a-z0-9:_./-]{1,115}",s["id"])
+ and s["id"].startswith(s["kind"]+":")]
+web=sorted({s["id"] for s in valid if s["kind"]=="web"})
+finance=sorted({s["id"] for s in valid if s["kind"]=="watch"
+ and any(term in s["id"] for term in ("bank","finance","fintech","payment","emi","fca","ecb","e-money"))})
+ecb=sorted({s["id"] for s in valid if s["id"]=="social:ecb"})
+selected=(web or finance or ecb)[:2]
+if not selected:
+ raise SystemExit("No relevant nonpaid bank/EMI source in Scout catalogue. No changes.")
+if not web:
+ print("WARNING: no web channel; using financial watch/ECB channel, not broad discovery.")
 if scope.get("version")!=1 or not isinstance(scope.get("grants"),dict):raise SystemExit("Bad scope policy")
 grant=scope["grants"].get(issue_id)
 if not isinstance(grant,dict) or grant.get("issueIdentifier")!=issue_key or grant.get("workspaceWide") is not True:
