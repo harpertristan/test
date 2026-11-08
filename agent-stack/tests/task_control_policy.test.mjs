@@ -80,3 +80,13 @@ test('Native checkout and human approval requests accept exact shapes only',()=>
   ['/submit',{capability,summary:'x',url:'https://bad.example'}],
  ])assert.throws(()=>validateRequest(values[0],values[1]));
 });
+
+test('Only native checkout may reclaim an inactive stale run lock; normal reads stay denied',()=>{
+ const stale={...issue,status:'in_progress',checkoutRunId:issueId,executionRunId:null};
+ assert.throws(()=>bindTask(run,stale,identity,{requireLock:false}));
+ assert.equal(bindTask(run,stale,identity,{requireLock:false,allowNativeCheckout:true}),issueId);
+ assert.throws(()=>bindTask(run,stale,identity,{requireLock:true}));
+ const backlog={...issue,status:'backlog',checkoutRunId:null,executionRunId:null};
+ assert.equal(bindTask(run,backlog,identity,{requireLock:false,allowTodo:true,allowNativeCheckout:true}),issueId);
+ assert.throws(()=>bindTask(run,backlog,identity,{requireLock:false}));
+});
