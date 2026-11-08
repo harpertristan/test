@@ -64,9 +64,9 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
   }
   assert.equal(ready,true,"Sidecar failed to start");
   const get=(operation,params={})=>send(socket,"/read",{capability:"synthetic-grant",operation,params});
-  const scout=await get("scout_findings");
-  assert.equal(scout.status,200);
-  assert.equal(scout.body.operation,"scout_findings");
+  const scoutRead=await get("scout_findings");
+  assert.equal(scoutRead.status,200);
+  assert.equal(scoutRead.body.operation,"scout_findings");
   const mail=await get("mail_messages");
   assert.equal(mail.status,200);
   assert.equal(mail.body.data.items[0].body,"synthetic private mail text");
