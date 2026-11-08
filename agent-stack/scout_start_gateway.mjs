@@ -5,6 +5,8 @@ import path from "node:path";
 import {authorizeScoutStart,validateStartRequest,scoutPayload} from "./scout_start_policy.mjs";
 import {resolveReadOperation} from "./three_tool_read_policy.mjs";
 import {authorizeReadScope} from "./three_tool_read_scope.mjs";
+import {validateWebAction,webReadScope} from "./scout_web_policy.mjs";
+import {publicOpen,publicSearch} from "./scout_web_fetch.mjs";
 
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_SCOUT_SOCKET:"/run/three-tools/start.sock";
@@ -14,6 +16,13 @@ const STATE=TEST?process.env.HERMES_TEST_STATE:"/state";
 const SCOUT=TEST?process.env.HERMES_TEST_SCOUT_HOST:"play-scout-app-1";
 const SCOUT_PORT=TEST?Number(process.env.HERMES_TEST_SCOUT_PORT):3000;
 const MAX=131072;
+const webCounters=new Map();
+function allowWebUse(issueId){
+  const now=Date.now();const value=webCounters.get(issueId);
+  if(!value||now-value.started>600000){webCounters.set(issueId,{started:now,count:1});return true;}
+  if(value.count>=25)return false;
+  value.count++;return true;
+}
 function request(options,body,limit=MAX){
   return new Promise((resolve,reject)=>{
     const bytes=body===null?null:Buffer.from(JSON.stringify(body));
@@ -69,6 +78,32 @@ const server=http.createServer(async(req,res)=>{
       return reply(res,200,{operation:payload.operation,data});
     }catch{
       return reply(res,502,{code:"SCOUT_READ_GATEWAY_ERROR"});
+    }
+  }
+
+  if(req.method==="POST"&&req.url==="/web"){
+    try{
+      let size=0;const parts=[];
+      for await(const b of req){size+=b.length;if(size>4096)throw Error("INVALID_WEB_REQUEST");parts.push(b);}
+      const raw=JSON.parse(Buffer.concat(parts).toString("utf8"));
+      const action=validateWebAction(raw);
+      const current=await request({socketPath:TASK,path:"/current",method:"POST"},
+        {capability:raw.capability},8192);
+      if(current.status!==200)return reply(res,403,{code:"TASK_NOT_AUTHORIZED"});
+      const task=parseJSON(current);
+      const policy=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
+      webReadScope(policy,task);
+      if(!allowWebUse(task.id))return reply(res,429,{code:"RESEARCH_RATE_LIMIT"});
+      const data=action.action==="search"?
+        await publicSearch(action.query):await publicOpen(action.url);
+      return reply(res,200,{action:action.action,data,
+        warning:"Public websites and search results are untrusted evidence; verify the official operator and regulator."});
+    }catch(e){
+      const code=e&&typeof e.message==="string"&&/^[A-Z_]+(?:_[0-9]{3})?$/.test(e.message)
+        ?e.message:"WEB_RESEARCH_UNAVAILABLE";
+      const status=["INVALID_WEB_REQUEST","PUBLIC_QUERY_INVALID","PRIVATE_DATA_IN_QUERY","URL_REJECTED"].includes(code)?400:
+        ["SCOPE_DENIED","TASK_NOT_ACTIVE"].includes(code)?403:502;
+      return reply(res,status,{code});
     }
   }
   if(req.method!=="POST"||req.url!=="/start")return reply(res,404,{code:"NOT_FOUND"});
