@@ -6,7 +6,6 @@
 import fs from "node:fs";
 import http from "node:http";
 import {createRequire} from "node:module";
-import {pathToFileURL} from "node:url";
 
 export const SOURCE_ID="2d95562b-a3f8-465e-bfa9-842dbd950acb";
 export const RECOVERY_TITLE="Продолжение исследования UK банков и EMI — WOR-7";
@@ -156,14 +155,32 @@ async function main(){
  if(!["queued","accepted","coalesced","running","completed"].includes(status)){
   console.log("CHILD_WAKE_PENDING: wake response not proof of execution.");
  }
- console.log("=== LIVE CHILD RUNS (METADATA ONLY) ===");
- const runs=await db.select().from(heartbeatRuns)
-  .where(eq(heartbeatRuns.agentId,identity.agentId))
-  .orderBy(desc(heartbeatRuns.createdAt)).limit(10);
- for(const run of runs){
-  const bound=run.issueId??run.contextSnapshot?.issueId??run.contextSnapshot?.taskId;
-  if(bound===child.id)console.log(JSON.stringify({issue:child.identifier,
-    runStatus:run.status,started:!!run.startedAt,finished:!!run.finishedAt}));
+ console.log("=== WAIT FOR A GENUINE CHILD-BOUND PAPERCLIP RUN ===");
+ const baseline=Date.now()-120000;
+ let observed=false;
+ for(let attempt=1;attempt<=7;attempt++){
+  const runs=await db.select().from(heartbeatRuns)
+   .where(eq(heartbeatRuns.agentId,identity.agentId))
+   .orderBy(desc(heartbeatRuns.createdAt)).limit(25);
+  const freshRuns=runs.filter(run=>{
+   const bound=run.issueId??run.contextSnapshot?.issueId??run.contextSnapshot?.taskId;
+   const created=run.createdAt?new Date(run.createdAt).getTime():0;
+   return bound===child.id&&created>=baseline;
+  });
+  if(freshRuns.length){
+   for(const run of freshRuns.slice(0,3))
+    console.log(JSON.stringify({issue:child.identifier,runStatus:run.status,
+      started:!!run.startedAt,finished:!!run.finishedAt}));
+   observed=true;
+   break;
+  }
+  if(attempt<7)await new Promise(resolve=>setTimeout(resolve,3000));
+ }
+ if(!observed){
+  console.log("CHILD_RUN_NOT_OBSERVED: wake accepted but task execution not yet proven.");
+  process.exitCode=7;
+ }else{
+  console.log("CHILD_RUN_OBSERVED: real Paperclip run now references the new issue.");
  }
  console.log("Continuation link: child "+child.identifier+" of original WOR-7.");
  console.log("No mail sent and no original task/recovery row was changed.");
