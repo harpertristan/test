@@ -98,6 +98,20 @@ jobs:
           }
           if(!ok)process.exit(1);
           JS
+      - name: Real public banking search smoke
+        working-directory: agent-stack
+        run: |
+          node --input-type=module <<'JS'
+          import {publicSearch} from "./scout_web_fetch.mjs";
+          const result=await publicSearch("UK business account EMI company FCA");
+          console.log(JSON.stringify({
+            status:result.code??"ok",
+            provider:result.provider??null,
+            candidateLinks:result.results.length,
+            providerErrors:result.providerErrors??[]
+          }));
+          if(result.results.length===0)process.exit(1);
+          JS
       - name: Unix gateway integration tests (synthetic local services)
         working-directory: agent-stack
         run: |
