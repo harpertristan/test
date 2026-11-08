@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {classifyReason,projectWake,projectAgent,projectIssue}
+import {classifyReason,projectWake,projectAgent,projectIssue,projectRecovery}
  from "../ops/diagnose_paperclip_skip.mjs";
 test("Paperclip wake policy and execution recovery are not misdiagnosed as Scout permissions",()=>{
  const cases=[
@@ -48,4 +48,17 @@ test("Agent on-demand policy and issue recovery details are projected as safe me
  assert.equal(issue.blockerCause,"EXECUTION_RECOVERY_HOLD");
  assert.equal(issue.recoveryActionPresent,true);
  assert.ok(!JSON.stringify(issue).includes("sensitive"));
+});
+
+test("Resolved no-replay recovery holds remain visible without exposing raw evidence",()=>{
+ const action={kind:"active_run_watchdog",status:"resolved",outcome:"blocked",
+   evidence:{automaticRecovery:{replay:"blocked",policy:"preserve_without_replay_v1"},
+   privateNotes:"CONFIDENTIAL"},
+   sourceIssueId:"private-id"};
+ const value=projectRecovery(action);
+ assert.equal(value.replayBlock,true);
+ assert.equal(value.status,"resolved");
+ assert.equal(value.replayPolicy,"preserve_without_replay_v1");
+ assert.ok(!JSON.stringify(value).includes("CONFIDENTIAL"));
+ assert.ok(!JSON.stringify(value).includes("private-id"));
 });
