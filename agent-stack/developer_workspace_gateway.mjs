@@ -113,40 +113,58 @@ function patchFile(folder,rel,oldText,newText){
  return {status:"staged",file:rel,bytes:Buffer.byteLength(newSource),
   notice:"Only isolated workspace changed. Production unchanged."};
 }
-function runTest(folder,suite,rel){
- if(!["syntax","scout","policy","all"].includes(suite))throw Error("WORKSPACE_SUITE_DENIED");
- let command,argv;
- if(suite==="syntax"){
-  if(typeof rel!=="string")throw Error("WORKSPACE_FILE_REQUIRED");
-  const file=inside(folder,rel);
-  if(path.extname(file)===".mjs"){command="node";argv=["--check",file];}
-  else if(path.extname(file)===".py"){command="python3";argv=["-m","py_compile",file];}
-  else throw Error("WORKSPACE_TEST_UNSUPPORTED");
- }else{
-  command="node";
-  let names;
-  if(suite==="scout")names=["tests/scout_crm_manage_policy.test.mjs",
-   "tests/scout_review_projection.test.mjs","tests/scout_gateway.integration.test.mjs"];
-  else if(suite==="policy")names=["tests/task_control_policy.test.mjs",
-   "tests/three_tool_read_scope.test.mjs","tests/active_run_scope.test.mjs"];
-  else names=fs.readdirSync(path.join(folder,"tests")).filter(n=>n.endsWith(".test.mjs"))
-    .map(n=>"tests/"+n);
-  argv=["--test",...names.filter(n=>fs.existsSync(path.join(folder,n)))];
-  if(argv.length===1)throw Error("WORKSPACE_NO_TESTS");
- }
+// Compile-only testing. Untrusted agent-written files are NEVER executed inside
+// this gateway because its private control socket would be visible to the child.
+function checkSyntax(folder,rel){
+ const file=inside(folder,rel);
+ const ext=path.extname(file);
+ if(![".mjs",".py",".sh"].includes(ext))throw Error("WORKSPACE_TEST_UNSUPPORTED");
+ const [command,args]=ext===".mjs"?["node",["--check",file]]:
+   ext===".py"?["python3",["-m","py_compile",file]]:["bash",["-n",file]];
  return new Promise(resolve=>{
+  const proc=spawn(command,args,{cwd:folder,env:{
+    PATH:process.env.PATH||"/usr/local/bin:/usr/bin:/bin",
+    HOME:folder,PYTHONPYCACHEPREFIX:path.join(folder,".pycache"),
+    TMPDIR:"/tmp"},shell:false,stdio:["ignore","pipe","pipe"]});
   let out="",done=false;
-  const proc=spawn(command,argv,{cwd:folder,env:{
-     PATH:process.env.PATH||"/usr/local/bin:/usr/bin:/bin",HOME:folder,
-     NODE_ENV:"test",TMPDIR:"/tmp"},shell:false,stdio:["ignore","pipe","pipe"]});
-  const handle=c=>{out+=c.toString("utf8");if(out.length>MAX_OUTPUT)out=out.slice(0,MAX_OUTPUT);};
-  proc.stdout.on("data",handle);proc.stderr.on("data",handle);
-  const timer=setTimeout(()=>proc.kill("SIGKILL"),60000);
-  proc.on("error",err=>{if(!done){done=true;clearTimeout(timer);resolve({
-    status:"error",code:"WORKSPACE_TEST_RUNNER_MISSING",output:String(err.code||"error")});}});
+  const append=b=>{out+=b.toString("utf8");if(out.length>MAX_OUTPUT)out=out.slice(-MAX_OUTPUT)};
+  proc.stdout.on("data",append);proc.stderr.on("data",append);
+  const timer=setTimeout(()=>proc.kill("SIGKILL"),20000);
+  proc.on("error",e=>{if(!done){done=true;clearTimeout(timer);resolve({
+    status:"error",code:"COMPILER_UNAVAILABLE",detail:String(e.code||"error")})}});
   proc.on("close",code=>{if(!done){done=true;clearTimeout(timer);resolve({
-    status:code===0?"passed":"failed",exitCode:code,output:clean(out).slice(-MAX_OUTPUT)})}});
+    status:code===0?"passed":"failed",exitCode:code,
+    output:clean(out).slice(-MAX_OUTPUT),kind:"syntax_only"})}});
  });
+}
+function collectSyntaxFiles(folder){
+ const files=[];
+ const visit=(dir,prefix="")=>{
+  for(const e of fs.readdirSync(dir,{withFileTypes:true})){
+   if(files.length>=120)return;
+   if(e.name.startsWith(".")||e.name==="node_modules")continue;
+   const rel=prefix+e.name;
+   if(e.isDirectory())visit(path.join(dir,e.name),rel+"/");
+   else if(e.isFile()&&[".mjs",".py",".sh"].includes(path.extname(rel)))
+     files.push(rel);
+  }
+ };
+ visit(folder);return files;
+}
+async function runTest(folder,suite,rel){
+ if(!["syntax","all_syntax"].includes(suite))throw Error("WORKSPACE_SUITE_DENIED");
+ const names=suite==="syntax"?[safePath(rel)]:collectSyntaxFiles(folder);
+ const results=[];
+ for(const name of names){
+  const outcome=await checkSyntax(folder,name);
+  results.push({file:name,status:outcome.status,
+    ...(outcome.output?{detail:outcome.output.slice(-700)}:{})});
+  if(outcome.status!=="passed")break;
+ }
+ return {status:results.length>0&&results.every(x=>x.status==="passed")?
+    "passed":"failed",kind:"syntax_only",checked:results.length,
+   results:results.slice(-25),
+   notice:"No untrusted code executed. Full behavior tests require separate isolated CI."};
 }
 function isValid(body){
  if(!body||typeof body!=="object"||Array.isArray(body)||typeof body.capability!=="string"||
