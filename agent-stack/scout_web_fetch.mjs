@@ -162,8 +162,11 @@ export function rankResearchResults(links, query) {
       entries.push({url:u.href,score});
     }catch{}
   }
-  entries.sort((a,b)=>b.score-a.score);
-  return entries.slice(0,20).map(x=>x.url);
+  // Reject zero-evidence destinations. Otherwise an unrelated forum/link farm
+  // can become the first result merely because the search engine linked it.
+  const relevant=entries.filter(x=>x.score>=4);
+  relevant.sort((a,b)=>b.score-a.score);
+  return relevant.slice(0,20).map(x=>x.url);
 }
 
 export async function publicSearch(query,network){
@@ -175,6 +178,8 @@ export async function publicSearch(query,network){
     "https://html.duckduckgo.com/html/?q="+encodeURIComponent(text)
   ];
   const errors=[];
+  // Search engines can return unrelated navigation URLs. Try every provider
+  // until at least one positively matching candidate is found.
   for(const address of providers){
     try{
       const result=await publicOpen(address,network,220);
