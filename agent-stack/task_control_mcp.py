@@ -260,6 +260,8 @@ def dispatch(method, params):
             summary = arguments.get("summary")
             if not isinstance(summary, str) or not summary.strip() or len(summary) > 8000:
                 raise ValueError("Invalid summary")
+        if name == "web_research" and arguments.get("action") not in ("search", "open"):
+            raise ValueError("Invalid web action")
         if name in ("scout_read", "assistant_read", "mail_crm_read"):
             operation = arguments.get("operation")
             prefix = {"scout_read": "scout_", "assistant_read": "assistant_", "mail_crm_read": "mail_"}[name]
