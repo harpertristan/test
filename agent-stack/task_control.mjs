@@ -130,7 +130,7 @@ function apiPatch(issueId, runId, summary) {
 function nativeCheckout(issueId, runId) {
   return new Promise((resolve,reject)=>{
     const data=JSON.stringify({agentId:identity.agentId,
-      expectedStatuses:['todo','in_progress']});
+      expectedStatuses:['todo','backlog','in_progress']});
     const req=http.request({hostname:'127.0.0.1',port:3100,
       path:'/api/issues/'+issueId+'/checkout',method:'POST',
       headers:{'content-type':'application/json','content-length':Buffer.byteLength(data),
@@ -234,7 +234,8 @@ const server = http.createServer(async (req, res) => {
     stage = 'binding';
     bindTask(run, issue, identity, {
       requireLock:req.url==='/submit',
-      allowTodo:req.url==='/current'||req.url==='/begin'
+      allowTodo:req.url==='/current'||req.url==='/begin',
+      allowNativeCheckout:req.url==='/begin'
     });
     if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status, agentId:identity.agentId, companyId:identity.companyId});
     if(req.url==='/begin'){
