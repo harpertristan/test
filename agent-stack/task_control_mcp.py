@@ -1,4 +1,4 @@
-"""Only two local tools. No filesystem, terminal, URL or external send capability."""
+"""Task-bound local tools. No filesystem, terminal, arbitrary URL or email send capability."""
 
 import http.client
 import json
@@ -48,9 +48,9 @@ def read_tool(capability: str, operation: str, params: dict) -> dict:
         payload = json.dumps({"capability": capability, "operation": operation, "params": params})
         connection.request("POST", "/read", payload, {"Content-Type": "application/json"})
         response = connection.getresponse()
-        data = json.loads(response.read(65536))
+        data = json.loads(response.read(262144))
         if response.status != 200:
-            return {"error": "Чтение не разрешено или сервис недоступен.", "code": data.get("code", "READ_REFUSED")}
+            return {"error": "Чтение отклонено или источник недоступен.", "code": data.get("code", "READ_REFUSED")}
         return data
     except Exception:
         return {"error": "Сервис чтения недоступен. Не выдумывай данные.", "code": "READ_UNAVAILABLE"}
