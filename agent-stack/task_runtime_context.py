@@ -41,6 +41,24 @@ def _verified_read_result(raw, operation):
     except (TypeError, ValueError, RecursionError):
         return False
 
+
+def _verified_web_result(raw, action):
+    if not isinstance(raw, str):
+        return False
+    try:
+        value = json.loads(raw)
+        if isinstance(value, dict) and value.get("action") == action:
+            return "data" in value and "error" not in value
+        if not isinstance(value, dict) or value.get("isError") is not False:
+            return False
+        return any(
+            isinstance(part, dict) and part.get("type") == "text"
+            and _verified_web_result(part.get("text"), action)
+            for part in value.get("content", [])
+        )
+    except (ValueError, TypeError, RecursionError):
+        return False
+
 class TaskBindings:
     def __init__(self):
         self._active = {}
@@ -65,7 +83,14 @@ class TaskBindings:
 
     def wrap(self, original, method):
         def handler(arguments, **context):
-            expected = (set() if method in {"current_task", "scout_start"} else {"summary"} if method == "submit_result" else {"operation", "params"})
+            expected = (
+                set() if method in {"current_task", "begin_task", "scout_start"}
+                else {"summary"} if method == "submit_result"
+                else {"action", "destination", "subject", "details"} if method == "request_approval"
+                else ({"action", "query"} if arguments.get("action") == "search"
+                      else {"action", "url"}) if method == "web_research"
+                else {"operation", "params"}
+            )
             if not isinstance(arguments, dict) or set(arguments) != expected:
                 return json.dumps(
                     {
@@ -95,6 +120,12 @@ class TaskBindings:
                         "code": "READ_EVIDENCE_MISSING",
                     }, ensure_ascii=False)
             result = original({**arguments, "capability": capability}, **context)
+            if method == "web_research" and _verified_web_result(
+                result, arguments["action"]
+            ):
+                with self._lock:
+                    if self._active.get(context.get("session_id")) == capability:
+                        self._successful_reads[context["session_id"]].add("public_web")
             if method in {"scout_read", "assistant_read", "mail_crm_read"} and _verified_read_result(
                 result, arguments["operation"]
             ):
@@ -114,7 +145,8 @@ class TaskBindings:
 
 
 def install_task_handlers(registry, bindings, name_for):
-    for method in ("current_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"):
+    for method in ("current_task", "begin_task", "submit_result", "request_approval",
+                   "web_research", "scout_start", "scout_read", "assistant_read", "mail_crm_read"):
         name = name_for("paperclip_task", method)
         entry = registry.get_entry(name)
         if entry is not None and getattr(entry.handler, "_workspace_task_bound", False):
@@ -131,7 +163,12 @@ def install_task_handlers(registry, bindings, name_for):
         schema["description"] = (
             "Проверить привязку текущей задачи. Без аргументов."
             if method == "current_task"
-            else "Записать краткий результат по-русски и передать текущую задачу на проверку (in_review). Успех подтверждается ответом инструмента." if method == "submit_result" else "Запустить один разрешённый поиск Scout для активной задачи, без параметров." if method == "scout_start" else "Читать только явно разрешённые данные конкретной задачи через защищённый посредник."
+            else "Взять назначенную задачу в работу штатным checkout; без аргументов." if method == "begin_task"
+            else "Записать фактический результат и передать на проверку человеку." if method == "submit_result"
+            else "Создать запрос на одобрение исходящего действия. Не отправляет данные и ничего не исполняет." if method == "request_approval"
+            else "Исследовать публичный веб через Scout: search/query или open/url. Не отправляй приватные данные в поиск." if method == "web_research"
+            else "Запустить один ранее одобренный Scout источник." if method == "scout_start"
+            else "Читать разрешённые данные через защищённый посредник."
         )
         registry.register(
             name=name,
