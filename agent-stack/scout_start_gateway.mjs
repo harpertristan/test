@@ -7,6 +7,7 @@ import {resolveReadOperation} from "./three_tool_read_policy.mjs";
 import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 import {validateWebAction,webReadScope} from "./scout_web_policy.mjs";
 import {publicOpen,publicSearch} from "./scout_web_fetch.mjs";
+import {reviewQueue,reviewItem} from "./scout_review_projection.mjs";
 
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_SCOUT_SOCKET:"/run/three-tools/start.sock";
@@ -44,12 +45,12 @@ function allowWebUse(issueId){
   if(value.count>=25)return false;
   value.count++;return true;
 }
-function request(options,body,limit=MAX){
+function request(options,body,limit=MAX,timeoutMs=9000){
   return new Promise((resolve,reject)=>{
     const bytes=body===null?null:Buffer.from(JSON.stringify(body));
     const req=http.request({...options,headers:{
       ...(bytes?{"content-type":"application/json","content-length":bytes.length}:{accept:"application/json"})
-    },timeout:9000},res=>{
+    },timeout:timeoutMs},res=>{
       let size=0,parts=[];
       res.on("data",chunk=>{size+=chunk.length;if(size>limit){res.destroy(Error("UPSTREAM_LIMIT"));return;}parts.push(chunk)});
       res.on("error",reject);
@@ -93,9 +94,13 @@ const server=http.createServer(async(req,res)=>{
       const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
       try{authorizeReadScope(scope,task,payload.operation,payload.params);}
       catch{return reply(res,403,{code:"OPERATION_NOT_GRANTED"});}
-      const result=await request({hostname:SCOUT,port:SCOUT_PORT,path:op.path,method:"GET"},null);
+      const review=payload.operation==="scout_review_queue"||payload.operation==="scout_review_item";
+      const result=await request({hostname:SCOUT,port:SCOUT_PORT,path:op.path,method:"GET"},
+        null,review?24*1024*1024:MAX,review?25000:9000);
       if(result.status!==200)return reply(res,502,{code:"SCOUT_READ_UNAVAILABLE"});
-      const data=parseJSON(result);
+      let data=parseJSON(result);
+      if(payload.operation==="scout_review_queue")data=reviewQueue(data,30);
+      if(payload.operation==="scout_review_item")data=reviewItem(data,{detail:true});
       return reply(res,200,{operation:payload.operation,data});
     }catch{
       return reply(res,502,{code:"SCOUT_READ_GATEWAY_ERROR"});
