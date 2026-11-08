@@ -37,6 +37,7 @@ jobs:
           set -Eeuo pipefail
           bash -n agent-stack/ops/install_integrated_hermes.sh
           bash -n agent-stack/ops/install_public_search_fix.sh
+          bash -n agent-stack/ops/install_scout_review_reader.sh
           python3 - <<'PY'
           import ast,json,pathlib,re,subprocess,tempfile
           script=pathlib.Path("agent-stack/ops/install_integrated_hermes.sh").read_text()
