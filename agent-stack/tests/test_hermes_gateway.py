@@ -115,9 +115,11 @@ class GatewayPolicyTests(unittest.TestCase):
                         return
                     head += chunk
                 headers, _, body = head.partition(b"\r\n\r\n")
-                import re
-                length = re.search(br"(?im)^Content-Length: (\d+)$", headers)
-                size = int(length.group(1)) if length else 0
+                size = next((
+                    int(line.split(b":", 1)[1].strip())
+                    for line in headers.split(b"\r\n")
+                    if line.lower().startswith(b"content-length:")
+                ), 0)
                 while len(body) < size:
                     body += self.request.recv(4096)
                 value = json.loads(body[:size])
