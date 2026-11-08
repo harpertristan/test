@@ -150,7 +150,7 @@ const server = http.createServer(async (req, res) => {
     if (typeof issueId !== 'string') { const error = Error('No task binding'); error.safeCode = 'TASK_BINDING_MISSING'; throw error; }
     const [issue] = await db.select().from(issues).where(eq(issues.id,issueId)).limit(1);
     stage = 'binding';
-    bindTask(run, issue, identity);
+    bindTask(run, issue, identity, {requireLock: req.url === '/submit'});
     if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status});
     stage = 'review_create';
     await createReviewPath(issue.id, runId, body.summary);
