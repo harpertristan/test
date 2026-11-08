@@ -99,8 +99,14 @@ const server=http.createServer(async(req,res)=>{
         null,review?24*1024*1024:MAX,review?25000:9000);
       if(result.status!==200)return reply(res,502,{code:"SCOUT_READ_UNAVAILABLE"});
       let data=parseJSON(result);
-      if(payload.operation==="scout_review_queue")data=reviewQueue(data,30);
-      if(payload.operation==="scout_review_item")data=reviewItem(data,{detail:true});
+      if(payload.operation==="scout_review_queue"){
+        data=reviewQueue(data,30);
+        rememberLinks(task.id,data.items.map(x=>x.website).filter(Boolean));
+      }
+      if(payload.operation==="scout_review_item"){
+        data=reviewItem(data,{detail:true});
+        rememberLinks(task.id,[data.website,...data.evidence.map(x=>x.source)].filter(Boolean));
+      }
       return reply(res,200,{operation:payload.operation,data});
     }catch{
       return reply(res,502,{code:"SCOUT_READ_GATEWAY_ERROR"});
