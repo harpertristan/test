@@ -51,6 +51,17 @@ class DeveloperEngineTests(unittest.TestCase):
             self.assertFalse(report["mailSent"])
             self.assertTrue((out / "report.json").exists())
 
+    def test_healthy_incident_does_not_call_cloud_model(self):
+        with TemporaryDirectory() as temp:
+            root=Path(temp)
+            repo=root/"repo";repo.mkdir()
+            with patch.object(dev,"request_proposal",side_effect=AssertionError("No paid call expected")):
+                result=dev.run(repo,root/"out",propose=True,
+                    allow_external_model=True,only_new_incident=True,
+                    fixture_telemetry={"errors":{},"services":{
+                        "runtime":{"state":"running","health":"healthy"}}})
+            self.assertEqual(result["proposalStatus"],"healthy_no_proposal")
+
     def test_sandbox_runner_has_no_network_root_or_mutable_source(self):
         with TemporaryDirectory() as temp:
             args=dev._sandbox_cmd("workspace-paperclip:7e3caa7","node",
