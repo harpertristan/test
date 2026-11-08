@@ -163,13 +163,53 @@ def operator_capabilities(capability: str) -> dict:
                          "mail_companies", "mail_company_detail",
                          "mail_accounts", "mail_notifications", "mail_workspace"],
             },
-            "development": ["developer_status", "skills_memory"],
+            "development": ["developer_status", "skills_memory", "developer_workspace"],
             "workflow": ["current_task", "begin_task", "submit_result", "request_approval"],
         },
         "limits": ["No autonomous email send", "No secret upload",
                    "No host-root shell", "External/production actions require human approval"],
         "note": "Report successful access only after the actual tool call succeeds"
     }
+
+
+class DeveloperWorkspaceConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect("/run/dev-tools/workspace.sock")
+
+
+def developer_workspace(capability: str, action: str,
+                        path: str = None, old: str = None, new: str = None,
+                        suite: str = None) -> dict:
+    """Offline code inspection and staged editing only. No execution, deploy or shell."""
+    request = {"capability": capability, "action": action}
+    if action == "read" and isinstance(path, str):
+        request["path"] = path
+    elif action == "patch" and all(isinstance(v, str) for v in (path, old, new)):
+        request.update({"path": path, "old": old, "new": new})
+    elif action == "test" and suite in ("syntax", "all_syntax"):
+        request["suite"] = suite
+        if suite == "syntax" and isinstance(path, str):
+            request["path"] = path
+    elif action not in ("list", "reset"):
+        return {"error": "Invalid workspace operation", "code": "WORKSPACE_INVALID_REQUEST"}
+    connection = DeveloperWorkspaceConnection("dev-workspace", timeout=95)
+    try:
+        data = json.dumps(request)
+        connection.request("POST", "/work", data,
+                           {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        value = json.loads(response.read(65536))
+        if response.status != 200:
+            return {"error": "Workspace action not permitted or unavailable",
+                    "code": value.get("code", "WORKSPACE_FAILED")}
+        return value
+    except Exception:
+        return {"error": "Developer workspace unavailable",
+                "code": "WORKSPACE_UNAVAILABLE"}
+    finally:
+        connection.close()
 
 
 def current_task(capability: str) -> dict:
@@ -284,6 +324,23 @@ TOOLS.append({
     }, "required": ["capability", "action"], "additionalProperties": False},
     "annotations": {"readOnlyHint": True, "openWorldHint": True},
 })
+
+TOOLS.append({
+    "name": "developer_workspace",
+    "description": "Изолированная рабочая копия исходного кода Hermes: list, read, patch, test(syntax или all_syntax), reset. Не применяет изменения к production, не имеет сети, shell и секретов. После проверки запроси approval для публикации.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "capability": {"type": "string"},
+            "action": {"type": "string", "enum": ["list", "read", "patch", "test", "reset"]},
+            "path": {"type": "string"}, "old": {"type": "string"},
+            "new": {"type": "string"},
+            "suite": {"type": "string", "enum": ["syntax", "all_syntax"]}
+        },
+        "required": ["capability", "action"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
 
 TOOLS.append({
     "name": "operator_capabilities",
@@ -422,12 +479,17 @@ def dispatch(method, params):
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
         if name not in {"current_task", "begin_task", "request_approval", "web_research", "skills_memory", "developer_status",
-                     "submit_result", "scout_start", "scout_collect", "scout_crm_manage", "operator_capabilities", "scout_read", "assistant_read", "mail_crm_read"}:
+                     "submit_result", "scout_start", "scout_collect", "scout_crm_manage", "operator_capabilities", "developer_workspace", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
             {"capability"} if name in ("current_task", "begin_task", "scout_start", "developer_status", "operator_capabilities")
             else {"capability", "source"} if name == "scout_collect"
             else {"capability", "reviewId", "decision", "sourceUrl", "evidence"} if name == "scout_crm_manage"
+            else ({"capability", "action"} if arguments.get("action") in ("list", "reset")
+                  else {"capability", "action", "path"} if arguments.get("action") == "read"
+                  else {"capability", "action", "path", "old", "new"} if arguments.get("action") == "patch"
+                  else {"capability", "action", "suite"} if arguments.get("suite") == "all_syntax"
+                  else {"capability", "action", "suite", "path"}) if name == "developer_workspace"
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "action", "destination", "subject", "details"} if name == "request_approval"
             else ({"capability", "action", "query"} if arguments.get("action") == "search"
@@ -478,6 +540,8 @@ def dispatch(method, params):
             result = scout_crm_manage(**arguments)
         elif name == "operator_capabilities":
             result = operator_capabilities(**arguments)
+        elif name == "developer_workspace":
+            result = developer_workspace(**arguments)
         else:
             result = submit_result(**arguments)
         return {
