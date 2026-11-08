@@ -171,6 +171,7 @@ def install_task_handlers(registry, bindings, name_for):
             else "Создать запрос на одобрение исходящего действия. Не отправляет данные и ничего не исполняет." if method == "request_approval"
             else "Исследовать публичный веб через Scout: search/query или open/url. Не отправляй приватные данные в поиск." if method == "web_research"
             else "Вспомни проверенные навыки (recall) или предложи новый (propose) с доказательством. Утверждает только оператор." if method == "skills_memory"
+            else "Запустить один выбранный источник Play Scout по каталогу (play, web, watch, ecb, finextra, linkedin, facebook, sifted). Не отправляет почту." if method == "scout_collect"
             else "Запустить один ранее одобренный Scout источник." if method == "scout_start"
             else "Читать разрешённые данные через защищённый посредник."
         )
