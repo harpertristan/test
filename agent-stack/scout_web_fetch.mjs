@@ -39,11 +39,11 @@ export function parsePage(html,base,maxLinks=65){
   const seen=new Set(),links=[];
   // Search provider RSS feeds expose direct destination URLs in <item><link>.
   // Treat them as unverified candidates, never as regulator-confirmed findings.
-  const feedItems=/<item\\b[^>]*>([\\s\\S]*?)<\\/item>/gi;
+  const feedItems=/<item\b[^>]*>([\s\S]*?)<\/item>/gi;
   let feed;
   while((feed=feedItems.exec(html))&&links.length<maxLinks){
     const body=feed[1];
-    const link=body.match(/<link\\b[^>]*>([\\s\\S]*?)<\\/link>/i)?.[1];
+    const link=body.match(/<link\b[^>]*>([\s\S]*?)<\/link>/i)?.[1];
     if(link){
       const direct=resolveResultLink(link.trim(),base);
       if(direct&&!seen.has(direct)){seen.add(direct);links.push(direct);}
