@@ -57,3 +57,26 @@ test('accepts native checkout lock and rejects conflicting execution ownership',
   assert.throws(() => bindTask(run,{...issue,executionRunId:null,checkoutRunId:null},identity));
   assert.throws(() => bindTask(run,{...issue,executionRunId:runId,checkoutRunId:issueId},identity));
 });
+
+test('Native workflow: signed running agent can inspect todo, but cannot read data or submit before checkout',()=>{
+ const todo={...issue,status:"todo",checkoutRunId:null,executionRunId:null};
+ assert.equal(bindTask(run,todo,identity,{requireLock:false,allowTodo:true}),issueId);
+ assert.throws(()=>bindTask(run,todo,identity,{requireLock:false}));
+ assert.throws(()=>bindTask(run,todo,identity,{requireLock:true}));
+ const claimed={...todo,status:"in_progress",checkoutRunId:runId};
+ assert.equal(bindTask(run,claimed,identity),issueId);
+ assert.throws(()=>bindTask(run,{...claimed,checkoutRunId:issueId},identity));
+});
+test('Native checkout and human approval requests accept exact shapes only',()=>{
+ validateRequest('/current',{capability});
+ validateRequest('/begin',{capability});
+ validateRequest('/approve-request',{capability,action:'email_send',
+  destination:'compliance@example.com',subject:'Bank question',details:'Please verify the UK LTD requirements.'});
+ for(const values of [
+  ['/begin',{capability,extra:'arbitrary'}],
+  ['/approve-request',{capability,action:'email_send',destination:'a',subject:'b',details:'c',autoSend:true}],
+  ['/approve-request',{capability,action:'wire_transfer',destination:'a',subject:'b',details:'c'}],
+  ['/approve-request',{capability,action:'email_send',destination:'a',subject:'b',details:''}],
+  ['/submit',{capability,summary:'x',url:'https://bad.example'}],
+ ])assert.throws(()=>validateRequest(values[0],values[1]));
+});
