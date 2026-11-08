@@ -31,6 +31,7 @@ jobs:
           node --check agent-stack/scout_web_fetch.mjs
           node --check agent-stack/scout_review_projection.mjs
           node --check agent-stack/scout_collect_policy.mjs
+          node --check agent-stack/scout_crm_manage_policy.mjs
           node --check agent-stack/ops/diagnose_paperclip_skip.mjs
           node --check agent-stack/ops/continue_wor7_safe.mjs
           python3 -m py_compile agent-stack/task_control_mcp.py agent-stack/task_runtime_context.py agent-stack/serve_hermes.py agent-stack/hermes_gateway_bridge.py agent-stack/developer_engine.py agent-stack/skills_memory.py
@@ -110,18 +111,20 @@ jobs:
            result=json.loads((stage/"scope.next").read_text())
            agent=result["agentGrants"]["hermes-agent"]
            assert agent["assistantConsent"] and agent["assistantAllCompanies"] and agent["mailConsent"]
-           assert {"assistant_documents","scout_ai_inbox","mail_accounts","scout_collect","scout_web"}<=set(agent["operations"])
+           assert {"assistant_documents","scout_ai_inbox","mail_accounts","scout_collect","scout_web","scout_crm_manage"}<=set(agent["operations"])
            assert not {"mail_send","mail_delete","external_upload","shell"}&set(agent["operations"])
            assert result["grants"]["old"]["scoutSourceIds"]==["social:ecb"]
            assert "scout_collect" in (stage/"config.next").read_text()
+           assert "scout_crm_manage" in (stage/"config.next").read_text()
+           assert "operator_capabilities" in (stage/"config.next").read_text()
            assert "send_mail" not in (stage/"config.next").read_text()
-           print("PASS: 12 tools, full bounded read catalogue, preserved source ids and no send")
+           print("PASS: 14 tools, full bounded read catalogue, internal CRM and no outbound send")
           PY
       - name: Native task binding and web safety policies
         working-directory: agent-stack
         run: |
           set -Eeuo pipefail
-          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/active_run_scope.test.mjs tests/scout_web_fetch.test.mjs tests/scout_review_projection.test.mjs tests/scout_collect_policy.test.mjs tests/three_tool_read_policy.test.mjs tests/paperclip_wakeup_diagnostic.test.mjs tests/continue_wor7_safe.test.mjs
+          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/active_run_scope.test.mjs tests/scout_web_fetch.test.mjs tests/scout_review_projection.test.mjs tests/scout_collect_policy.test.mjs tests/scout_crm_manage_policy.test.mjs tests/three_tool_read_policy.test.mjs tests/paperclip_wakeup_diagnostic.test.mjs tests/continue_wor7_safe.test.mjs
       - name: Live HTTPS through production Scout DNS pin
         working-directory: agent-stack
         run: |
