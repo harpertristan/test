@@ -7,7 +7,7 @@ SCOPE=/srv/hermes-stack/private/three-tool-scope.json
 ISSUE_ID=2d95562b-a3f8-465e-bfa9-842dbd950acb
 ISSUE_KEY=WOR-7
 [[ "$EUID" -eq 0 && -f "$SCOPE" ]] || { echo "Run with sudo on play-scout VM" >&2; exit 2; }
-for cmd in python3 docker cp; do command -v "$cmd" >/dev/null || exit 2; done
+for cmd in python3 docker install; do command -v "$cmd" >/dev/null || exit 2; done
 BACKUP="/srv/hermes-stack/backups/scope-WOR-7-$(date -u +%Y%m%d-%H%M%S)-$$.json"
 mkdir -p "$(dirname "$BACKUP")"
 install -m 0600 "$SCOPE" "$BACKUP"
@@ -41,7 +41,8 @@ with open(scope_path,"w") as f:
  f.flush()
  os.fsync(f.fileno())
 print("WOR-7 read permissions:",", ".join(sorted(approved)))
-print("Mail messages and message bodies: READ-ONLY.")\nprint("Registration company-specific details: DENIED pending company scope.")
+print("Mail messages and message bodies: READ-ONLY.")
+print("Registration company-specific details: DENIED pending company scope.")
 print("No network, shell, URL, secret, SMTP send, or write permission granted.")
 PY
 chown 10000:10000 "$SCOPE"
