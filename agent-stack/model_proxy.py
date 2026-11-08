@@ -294,11 +294,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.reply(503, {"error": "Model gateway queue full"})
         acquired = False
         started = False
+        deadline = time.monotonic() + 75
         try:
-            acquired = self.server.active.acquire(timeout=85)
+            acquired = self.server.active.acquire(timeout=max(0, deadline - time.monotonic()))
             if not acquired:
                 return self.reply(503, {"error": "Model gateway busy"})
-            if not self.server.wait_for_rate_slot(timeout=85):
+            if not self.server.wait_for_rate_slot(timeout=max(0, deadline - time.monotonic())):
                 return self.reply(503, {"error": "Model gateway request window busy"})
             if not self.server.allowed(size):
                 return self.reply(429, {"error": "Model gateway daily quota exhausted"})
