@@ -88,6 +88,11 @@ def current_task(capability: str) -> dict:
     return call("/current", {"capability": capability})
 
 
+def begin_task(capability: str) -> dict:
+    """Safely check out the assigned task through native Paperclip ownership rules."""
+    return call("/begin", {"capability": capability})
+
+
 def submit_result(capability: str, summary: str) -> dict:
     """Записать краткий результат по-русски и передать текущую задачу на проверку (in_review).
     Не отмечает задачу выполненной и не может менять другую задачу. Проверяй ответ инструмента.
@@ -106,6 +111,17 @@ TOOLS = [
             "additionalProperties": False,
         },
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    },
+    {
+        "name": "begin_task",
+        "description": "Получить назначенную задачу в работу через штатный checkout Paperclip. Только активный подписанный запуск.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"capability": {"type": "string"}},
+            "required": ["capability"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
     },
     {
         "name": "submit_result",
@@ -172,10 +188,10 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
-        if name not in {"current_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
+        if name not in {"current_task", "begin_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name in ("current_task", "scout_start")
+            {"capability"} if name in ("current_task", "begin_task", "scout_start")
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "operation", "params"}
         )
@@ -199,6 +215,8 @@ def dispatch(method, params):
             result = read_tool(capability, operation, tool_params)
         elif name == "current_task":
             result = current_task(**arguments)
+        elif name == "begin_task":
+            result = begin_task(**arguments)
         elif name == "scout_start":
             result = scout_start(**arguments)
         else:
