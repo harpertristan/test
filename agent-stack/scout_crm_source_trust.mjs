@@ -15,7 +15,7 @@ export function crmContainsPublicSite(rows, requested) {
   for(const row of rows) {
     if(!row || typeof row!=="object" || Array.isArray(row)) continue;
     const candidates=[
-      row.developerWebsite, row.url,
+      row.developerWebsite, row.url, row.website,
       row.webPresence?.officialWebsite, row.webPresence?.website
     ];
     for(const value of candidates) {
