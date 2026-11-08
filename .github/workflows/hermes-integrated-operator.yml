@@ -1,0 +1,48 @@
+name: Hermes integrated operator verified build
+on:
+  push:
+    branches: [hermes-integrated-operator-20261108]
+  pull_request:
+    paths:
+      - "agent-stack/**"
+      - ".github/workflows/hermes-integrated-operator.yml"
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax verification for production entrypoints
+        run: |
+          set -Eeuo pipefail
+          node --check agent-stack/task_control_policy.mjs
+          node --check agent-stack/task_control.mjs
+          node --check agent-stack/scout_start_gateway.mjs
+          node --check agent-stack/scout_web_policy.mjs
+          node --check agent-stack/scout_web_fetch.mjs
+          python3 -m py_compile agent-stack/task_control_mcp.py agent-stack/task_runtime_context.py agent-stack/serve_hermes.py agent-stack/hermes_gateway_bridge.py agent-stack/developer_engine.py
+      - name: Native task binding and web safety policies
+        working-directory: agent-stack
+        run: |
+          set -Eeuo pipefail
+          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/scout_web_fetch.test.mjs
+      - name: Unix gateway integration tests (synthetic local services)
+        working-directory: agent-stack
+        run: |
+          set -Eeuo pipefail
+          node --test tests/three_tool_read_sidecar.integration.test.mjs tests/scout_gateway.integration.test.mjs
+      - name: MCP, session evidence and Developer Engine
+        working-directory: agent-stack
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tests -p "test_*mcp_contract.py" -v
+          python3 -m unittest discover -s tests -p "test_task_read_gate.py" -v
+          python3 -m unittest discover -s tests -p "test_developer_engine.py" -v
