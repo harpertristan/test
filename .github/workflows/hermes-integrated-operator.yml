@@ -24,6 +24,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           node --check agent-stack/task_control_policy.mjs
+          node --check agent-stack/active_run_scope.mjs
           node --check agent-stack/task_control.mjs
           node --check agent-stack/scout_start_gateway.mjs
           node --check agent-stack/scout_web_policy.mjs
@@ -119,7 +120,7 @@ jobs:
         working-directory: agent-stack
         run: |
           set -Eeuo pipefail
-          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/scout_web_fetch.test.mjs tests/scout_review_projection.test.mjs tests/scout_collect_policy.test.mjs tests/three_tool_read_policy.test.mjs tests/paperclip_wakeup_diagnostic.test.mjs tests/continue_wor7_safe.test.mjs
+          node --test tests/task_control_policy.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/scout_web_policy.test.mjs tests/active_run_scope.test.mjs tests/scout_web_fetch.test.mjs tests/scout_review_projection.test.mjs tests/scout_collect_policy.test.mjs tests/three_tool_read_policy.test.mjs tests/paperclip_wakeup_diagnostic.test.mjs tests/continue_wor7_safe.test.mjs
       - name: Live HTTPS through production Scout DNS pin
         working-directory: agent-stack
         run: |
@@ -196,4 +197,5 @@ jobs:
           python3 -m unittest discover -s tests -p "test_*mcp_contract.py" -v
           python3 -m unittest discover -s tests -p "test_task_read_gate.py" -v
           python3 -m unittest discover -s tests -p "test_developer_engine.py" -v
+          python3 -m unittest discover -s tests -p "test_hermes_gateway.py" -v
           python3 -m unittest discover -s tests -p "test_skills_memory.py" -v
