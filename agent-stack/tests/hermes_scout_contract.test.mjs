@@ -64,6 +64,14 @@ test('no access before checkout, after review, after run completion or with anot
   assert.throws(() => bindTask({ ...run, id: issueId }, issue, identity));
 });
 
+test('read-only Scout access supports active conversation runs without a checkout lock', () => {
+  const chatIssue={...issue,executionRunId:null,checkoutRunId:null};
+  const capability=pythonCapability();
+  assert.equal(verifyCapability(key,capability,now),runId);
+  assert.equal(bindTask(run,chatIssue,identity,{requireLock:false}),issueId);
+  assert.equal(authorizeReadScope(policy,chatIssue,'scout_findings',{}),true);
+  assert.throws(()=>bindTask(run,chatIssue,identity,{requireLock:true}));
+});
 test('task scope blocks unexpected operations, wrong task and mail without consent', () => {
   assert.throws(() => authorizeReadScope(policy, issue, 'scout_candidates', {}));
   assert.throws(() => authorizeReadScope(policy, { ...issue, identifier: 'WOR-OTHER' }, 'scout_findings', {}));
