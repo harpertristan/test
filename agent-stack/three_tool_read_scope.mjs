@@ -26,11 +26,16 @@ export function authorizeReadScope(policy,issue,operation,params={}){
   if(!entry||!Array.isArray(grant.operations)||!grant.operations.includes(operation))throw Error("Operation not granted");
   if(typeof params!=="object"||!params||Array.isArray(params))throw Error("Invalid params");
   if(entry.template.includes(":companyId")){
-    if(typeof params.companyId!=="string"||!ID.test(params.companyId)||!Array.isArray(grant.companyIds)||!grant.companyIds.includes(params.companyId))
-      throw Error("Company scope denied");
+    if(typeof params.companyId!=="string"||!ID.test(params.companyId))
+      throw Error("Company identifier invalid");
+    const explicitlyAllowed=Array.isArray(grant.companyIds)&&grant.companyIds.includes(params.companyId);
+    const wholeAssistant=entry.service==="assistant"&&grant.workspaceWide===true&&
+      grant.assistantConsent===true&&grant.assistantAllCompanies===true;
+    if(!explicitlyAllowed&&!wholeAssistant)throw Error("Company scope denied");
   }else if(grant.workspaceWide!==true){
     throw Error("Workspace-wide consent required");
   }
   if(entry.service==="mail"&&grant.mailConsent!==true)throw Error("Mail consent required");
+  if(entry.service==="assistant"&&grant.assistantConsent!==true)throw Error("Assistant consent required");
   return true;
 }
