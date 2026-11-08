@@ -17,3 +17,8 @@ test("No evidence means no authorization",()=>{
  assert.equal(crmContainsPublicSite([],"https://free2move.com/"),false);
  assert.equal(crmContainsPublicSite([{url:"http://free2move.com/"}],"https://free2move.com/"),false);
 });
+
+test("CRM website field authorizes its matching public HTTPS host",()=>{
+ assert.equal(crmContainsPublicSite([{id:"company:free2move.com",
+  website:"https://free2move.com/"}],"https://www.free2move.com/terms"),true);
+});
