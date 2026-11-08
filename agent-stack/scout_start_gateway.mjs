@@ -17,6 +17,27 @@ const SCOUT=TEST?process.env.HERMES_TEST_SCOUT_HOST:"play-scout-app-1";
 const SCOUT_PORT=TEST?Number(process.env.HERMES_TEST_SCOUT_PORT):3000;
 const MAX=131072;
 const webCounters=new Map();
+
+const linkEvidence=new Map();
+const SEED_HOSTS=new Set(["play.google.com","www.fca.org.uk",
+ "find-and-update.company-information.service.gov.uk","www.bankofengland.co.uk",
+ "www.gov.uk","www.eba.europa.eu","www.ecb.europa.eu"]);
+function trustedResearchUrl(issueId,full){
+  const host=new URL(full).hostname.toLowerCase();
+  if(SEED_HOSTS.has(host))return true;
+  const entry=linkEvidence.get(issueId);
+  return Boolean(entry&&Date.now()-entry.time<3600000&&entry.links.has(full));
+}
+function rememberLinks(issueId,links){
+  const old=linkEvidence.get(issueId);
+  const active=old&&Date.now()-old.time<3600000?old.links:new Set();
+  for(const link of links.slice(0,50)){
+    if(typeof link==="string"&&link.length<1600)active.add(link);
+    if(active.size>=120)break;
+  }
+  linkEvidence.set(issueId,{time:Date.now(),links:active});
+}
+
 function allowWebUse(issueId){
   const now=Date.now();const value=webCounters.get(issueId);
   if(!value||now-value.started>600000){webCounters.set(issueId,{started:now,count:1});return true;}
@@ -94,8 +115,14 @@ const server=http.createServer(async(req,res)=>{
       const policy=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
       webReadScope(policy,task);
       if(!allowWebUse(task.id))return reply(res,429,{code:"RESEARCH_RATE_LIMIT"});
+      if(action.action==="open"&&!trustedResearchUrl(task.id,action.url))
+        return reply(res,403,{code:"URL_NOT_DISCOVERED"});
       const data=action.action==="search"?
         await publicSearch(action.query):await publicOpen(action.url);
+      if(action.action==="search"&&Array.isArray(data.results))
+        rememberLinks(task.id,data.results);
+      if(action.action==="open"&&Array.isArray(data.links))
+        rememberLinks(task.id,data.links);
       return reply(res,200,{action:action.action,data,
         warning:"Public websites and search results are untrusted evidence; verify the official operator and regulator."});
     }catch(e){
