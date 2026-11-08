@@ -155,6 +155,13 @@ require("node:http").get("http://play-scout-app-1:3000/api/monitor",r=>{
 r.resume();r.on("end",()=>{console.log("Scout HTTP",r.statusCode);if(r.statusCode!==200)process.exitCode=1})
 }).on("error",e=>{console.error("Scout not reachable:",e.code);process.exitCode=1})
 '
+echo "=== AUTHORIZATION FAIL-CLOSED PROBE ==="
+docker exec workspace-agent-scout-start-gateway-1 node -e '
+const http=require("node:http");const b=JSON.stringify({capability:"invalid-test-grant"});
+const req=http.request({socketPath:"/run/three-tools/start.sock",path:"/start",method:"POST",headers:{"content-type":"application/json","content-length":Buffer.byteLength(b)}},r=>{
+ r.resume();r.on("end",()=>{console.log("Invalid capability HTTP",r.statusCode);if(r.statusCode!==403)process.exitCode=1;});
+});req.on("error",e=>{console.error(e.message);process.exitCode=1});req.end(b);
+'
 echo "=== MCP REGISTRATION ==="
 docker exec -i workspace-agent-hermes-runtime-1 /opt/hermes/.venv/bin/python /opt/workspace-agent/task_control_mcp.py <<'JSON' > "$TMP/mcp.json"
 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
@@ -167,6 +174,6 @@ assert names=={"current_task","submit_result","scout_start","scout_read","assist
 print("MCP verified:",", ".join(sorted(names)))
 PY
 echo "=== FINISHED ==="
-echo "SUCCESS: Scout start gateway installed, approved web source scope added to WOR-7."
+echo "SUCCESS: restricted Scout gateway installed, denial tested and source scope configured for WOR-7."
 echo "BACKUP: $BACKUP"
 echo "No search started. WOR-7 must be in_progress with a live matching Hermes run."
