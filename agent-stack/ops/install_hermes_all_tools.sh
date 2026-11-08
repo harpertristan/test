@@ -14,13 +14,15 @@ GATE=multi-mail-crm-tool-gateway-1
 SCOUT=workspace-agent-scout-start-gateway-1
 READ=workspace-agent-three-tool-read-1
 RUN=workspace-agent-hermes-runtime-1
+DEV=workspace-agent-developer-workspace-1
 BRIDGE=workspace-agent-hermes-paperclip-bridge-1
 IMAGE=workspace-paperclip:7e3caa7
-FILES="three_tool_read_policy.mjs three_tool_read_scope.mjs three_tool_read_sidecar.mjs scout_start_gateway.mjs scout_collect_policy.mjs scout_crm_manage_policy.mjs scout_review_projection.mjs task_control_mcp.py task_runtime_context.py serve_hermes.py hermes_gateway_bridge.py compose.three-tools.yaml"
+FILES="three_tool_read_policy.mjs three_tool_read_scope.mjs three_tool_read_sidecar.mjs scout_start_gateway.mjs scout_collect_policy.mjs scout_crm_manage_policy.mjs scout_review_projection.mjs developer_workspace_gateway.mjs task_control_mcp.py task_runtime_context.py serve_hermes.py hermes_gateway_bridge.py compose.three-tools.yaml compose.developer-workspace.yaml"
 compose(){
  docker compose -f "$BASE/compose.yaml" -f "$BASE/compose.paperclip.yaml" \
  -f "$BASE/compose.hermes-gateway.yaml" -f "$BASE/compose.task-control.yaml" \
- -f "$BASE/compose.three-tools.yaml" -f "$BASE/compose.scout-start.yaml" "$@"
+ -f "$BASE/compose.three-tools.yaml" -f "$BASE/compose.scout-start.yaml" \
+ -f "$BASE/compose.developer-workspace.yaml" "$@"
 }
 [[ $EUID -eq 0 ]] || { echo "sudo required";exit 2; }
 for exe in docker git python3 tar install mktemp;do command -v "$exe" >/dev/null;done
@@ -49,8 +51,12 @@ rollback(){
  if [[ -f "$BACKUP/key.old" ]];then
   install -m 0400 -o 10000 -g 10000 "$BACKUP/key.old" "$KEY" || true
  else rm -f "$KEY" || true;fi
- compose up -d --no-deps --pull never --force-recreate three-tool-read >/dev/null 2>&1 || true
- docker restart "$SCOUT" "$RUN" "$BRIDGE" >/dev/null 2>&1 || true
+ docker compose -f "$BASE/compose.yaml" -f "$BASE/compose.paperclip.yaml" \
+ -f "$BASE/compose.hermes-gateway.yaml" -f "$BASE/compose.task-control.yaml" \
+ -f "$BASE/compose.three-tools.yaml" -f "$BASE/compose.scout-start.yaml" \
+ up -d --no-deps --pull never --force-recreate three-tool-read hermes-runtime >/dev/null 2>&1 || true
+ docker restart "$SCOUT" "$BRIDGE" >/dev/null 2>&1 || true
+ docker stop "$DEV" >/dev/null 2>&1 || true
 }
 failed(){ ret=$?;trap - ERR;rollback;echo "FAILED=$ret BACKUP=$BACKUP" >&2;exit "$ret"; }
 trap failed ERR
@@ -70,7 +76,7 @@ docker run --rm --network none --read-only --cap-drop ALL \
  -v "$STAGE/agent-stack:/work:ro" -w /work --entrypoint node "$IMAGE" \
  --test tests/three_tool_read_policy.test.mjs tests/three_tool_read_scope.test.mjs \
  tests/three_tool_read_sidecar.integration.test.mjs tests/scout_gateway.integration.test.mjs \
- tests/scout_review_projection.test.mjs tests/scout_collect_policy.test.mjs tests/scout_crm_manage_policy.test.mjs
+ tests/scout_review_projection.test.mjs tests/scout_collect_policy.test.mjs tests/scout_crm_manage_policy.test.mjs tests/developer_workspace_gateway.test.mjs
 python3 -m py_compile "$STAGE/agent-stack/"{task_control_mcp.py,task_runtime_context.py,serve_hermes.py,hermes_gateway_bridge.py}
 (cd "$STAGE/agent-stack" && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_scoped_mcp_contract.py -v)
 
@@ -126,7 +132,7 @@ const http=require("node:http");
 })().catch(()=>process.exitCode=1);
 '
 
-echo "=== PREPARE EXACT AGENT GRANTS AND 14-TOOL CONFIG ==="
+echo "=== PREPARE EXACT AGENT GRANTS AND 15-TOOL CONFIG ==="
 docker run --rm --network none --read-only --cap-drop ALL \
  --security-opt no-new-privileges --user 10000:10000 \
  -v "$STAGE/agent-stack:/work:ro" -w /work --entrypoint node "$IMAGE" \
@@ -152,14 +158,14 @@ assert isinstance(g.get("operations"),list)
 ops=json.loads((root/"catalog.json").read_text())
 assert len(ops)>=35 and len(set(ops))==len(ops)
 assert all(isinstance(x,str) and x.startswith(("scout_","assistant_","mail_")) for x in ops)
-for op in ops+["scout_collect","scout_web","scout_crm_manage"]:
+for op in ops+["scout_collect","scout_web","scout_crm_manage","developer_workspace"]:
  if op not in g["operations"]:g["operations"].append(op)
 g["assistantConsent"]=True
 g["assistantAllCompanies"]=True
 for value in p["grants"].values():
  if isinstance(value,dict) and value.get("issueIdentifier")=="WOR-7" and value.get("workspaceWide") is True:
   assert isinstance(value.get("operations"),list)
-  for op in ops+["scout_collect","scout_crm_manage"]:
+  for op in ops+["scout_collect","scout_crm_manage","developer_workspace"]:
    if op not in value["operations"]:value["operations"].append(op)
   value["assistantConsent"]=True
   value["assistantAllCompanies"]=True
@@ -172,8 +178,8 @@ assert len(matches)==1
 old={x.strip() for x in matches[0].group(2).split(",") if x.strip()}
 allowed={"current_task","begin_task","submit_result","request_approval",
  "web_research","skills_memory","developer_status","scout_start",
- "scout_collect","scout_crm_manage","operator_capabilities","scout_read","assistant_read","mail_crm_read"}
-assert (allowed-{"scout_collect","scout_crm_manage","operator_capabilities"})<=old and old<=allowed
+ "scout_collect","scout_crm_manage","operator_capabilities","developer_workspace","scout_read","assistant_read","mail_crm_read"}
+assert (allowed-{"scout_collect","scout_crm_manage","operator_capabilities","developer_workspace"})<=old and old<=allowed
 new=matches[0].group(1)+"["+", ".join(sorted(allowed))+"]"
 text=text[:matches[0].start()]+new+text[matches[0].end():]
 (root/"config.next").write_text(text)
@@ -201,15 +207,25 @@ cat "$STAGE/config.next" > "$CONFIG"
 chown 10000:10000 "$SCOPE"
 chmod 0400 "$SCOPE"
 chmod 0444 "$CONFIG"
+install -d -o 10000 -g 10000 -m 0700 "$ROOT/state/developer-workspace"
+install -d -o 10000 -g 10000 -m 0770 "$ROOT/developer-tools"
 compose config -q
-compose up -d --no-deps --pull never --force-recreate three-tool-read
-docker restart "$SCOUT" "$RUN" "$BRIDGE" >/dev/null
+compose up -d --no-deps --pull never --force-recreate developer-workspace
+devready=0
+for attempt in $(seq 1 30);do
+ state=$(docker inspect -f '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$DEV")
+ if [[ $state = running:healthy ]];then devready=1;break;fi
+ sleep 2
+done
+[[ $devready = 1 ]]
+compose up -d --no-deps --pull never --force-recreate three-tool-read hermes-runtime
+docker restart "$SCOUT" "$BRIDGE" >/dev/null
 
 echo "=== CHECK RUNNING CONTAINERS ==="
 ready=0
 for attempt in $(seq 1 40);do
  good=1
- for c in "$SCOUT" "$READ" "$RUN";do
+ for c in "$SCOUT" "$READ" "$RUN" "$DEV";do
   s=$(docker inspect -f '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$c")
   [[ $s = running:healthy ]] || good=0
  done
@@ -262,7 +278,18 @@ const http=require("node:http");
 })().catch(()=>process.exitCode=1);
 '
 
-echo "=== CONFIRM LIVE 14-TOOL MCP MANIFEST ==="
+echo "=== VERIFY OFFLINE DEVELOPER WORKSPACE AND SIGNED AUTH ==="
+[[ "$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$DEV")" = none ]]
+docker exec "$DEV" node -e '
+const http=require("node:http");
+const raw=JSON.stringify({capability:"invalid-test-token",action:"list"});
+const req=http.request({socketPath:"/run/dev-tools/workspace.sock",path:"/work",
+ method:"POST",headers:{"content-type":"application/json","content-length":Buffer.byteLength(raw)}},r=>{
+ r.resume();r.on("end",()=>{console.log("INVALID_DEVELOPER_CAPABILITY_HTTP="+r.statusCode);
+  if(r.statusCode!==403)process.exitCode=1;});
+});req.on("error",()=>process.exitCode=1);req.end(raw);
+'
+echo "=== CONFIRM LIVE 15-TOOL MCP MANIFEST ==="
 docker exec -i "$RUN" /opt/hermes/.venv/bin/python /opt/workspace-agent/task_control_mcp.py <<'JSON' > "$STAGE/mcp.json"
 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
 JSON
@@ -275,7 +302,7 @@ expected={"current_task","begin_task","submit_result","request_approval",
  "scout_collect","scout_read","assistant_read","mail_crm_read"}
 assert got==expected,(got,expected)
 assert not got & {"send_mail","exec","shell","delete"}
-print("LIVE_MCP_PASS: 14 tools, %d read operations"%len(json.load(open(sys.argv[2]))))
+print("LIVE_MCP_PASS: 15 tools, %d read operations"%len(json.load(open(sys.argv[2]))))
 PY
 APPLIED=0
 echo "=== SUCCESS: HERMES CONNECTED TO THREE SERVICES WITH ACTIVE TASK AUTH ==="
