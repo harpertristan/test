@@ -14,6 +14,7 @@ services:
       - /srv/hermes-stack/task-control:/run/task-control:ro
       - /srv/hermes-stack/three-tools:/run/three-tools
       - /srv/hermes-stack/private/three-tool-scope.json:/run/secrets/three-tool-scope.json:ro
+      - /srv/hermes-stack/private/assistant-workspace.key:/run/secrets/assistant-workspace.key:ro
     networks: [three-tool-network]
     tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=32m"]
     mem_limit: 128m
