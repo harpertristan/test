@@ -29,6 +29,48 @@ jobs:
           node --check agent-stack/scout_web_policy.mjs
           node --check agent-stack/scout_web_fetch.mjs
           python3 -m py_compile agent-stack/task_control_mcp.py agent-stack/task_runtime_context.py agent-stack/serve_hermes.py agent-stack/hermes_gateway_bridge.py agent-stack/developer_engine.py agent-stack/skills_memory.py
+      - name: Validate one-command installer with real synthetic scope and config
+        run: |
+          set -Eeuo pipefail
+          bash -n agent-stack/ops/install_integrated_hermes.sh
+          python3 - <<'PY'
+          import ast,json,pathlib,re,subprocess,tempfile
+          script=pathlib.Path("agent-stack/ops/install_integrated_hermes.sh").read_text()
+          blocks=re.findall(r"<<'PY'\n(.*?)\nPY",script,re.S)
+          assert len(blocks)==2,len(blocks)
+          for code in blocks:ast.parse(code)
+          with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp)
+            sid="2d95562b-a3f8-465e-bfa9-842dbd950acb"
+            scope=root/"scope.json"
+            identity=root/"identity.json"
+            config=root/"hermes.yaml"
+            scope.write_text(json.dumps({"version":1,"grants":{sid:{
+              "issueIdentifier":"WOR-7","workspaceWide":True,
+              "operations":["scout_start","scout_findings"],"scoutSourceIds":["social:ecb"]}},
+              "agentGrants":{"hermes-test":{"agentId":"hermes-test","companyId":"company-test",
+                "workspaceWide":True,"mailConsent":True,"companyIds":[],
+                "operations":["mail_messages","mail_message","scout_findings"]}}}))
+            identity.write_text(json.dumps({"agentId":"hermes-test","companyId":"company-test"}))
+            config.write_text("mcp_servers:\n  paperclip_task:\n    tools:\n      include: [current_task, submit_result, scout_start, scout_read, assistant_read, mail_crm_read]\n")
+            subprocess.run(["python3","-c",blocks[0],str(scope),str(identity),str(config),str(root),sid],check=True)
+            result=json.loads((root/"scope.next").read_text())
+            assert result["grants"][sid]["scoutSourceIds"]==["social:ecb"]
+            assert "scout_start" in result["grants"][sid]["operations"]
+            assert "scout_web" in result["grants"][sid]["operations"]
+            assert "scout_web" in result["agentGrants"]["hermes-test"]["operations"]
+            assert "mail_send" not in result["agentGrants"]["hermes-test"]["operations"]
+            config_text=(root/"config.next").read_text()
+            assert "developer_status" in config_text and "skills_memory" in config_text
+            assert "request_approval" in config_text and "web_research" in config_text
+            assert "mail_send" not in config_text
+            tools=["current_task","begin_task","submit_result","request_approval","web_research",
+             "skills_memory","developer_status","scout_start","scout_read","assistant_read","mail_crm_read"]
+            mcp=root/"mcp.json"
+            mcp.write_text(json.dumps({"result":{"tools":[{"name":x} for x in tools]}}))
+            subprocess.run(["python3","-c",blocks[1],str(mcp)],check=True)
+          print("PASS: installer syntax, embedded scripts, grant preservation and 11-tool manifest")
+          PY
       - name: Native task binding and web safety policies
         working-directory: agent-stack
         run: |
