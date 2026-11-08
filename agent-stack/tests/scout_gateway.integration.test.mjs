@@ -28,7 +28,7 @@ test("Scout gateway reads only signed scoped Scout source and rejects non-Scout 
  const issue="22222222-2222-4222-8222-222222222222",agent="synthetic-hermes";
  fs.writeFileSync(scopeFile,JSON.stringify({version:1,grants:{},
   agentGrants:{[agent]:{agentId:agent,companyId:"company-test",workspaceWide:true,
-   mailConsent:false,companyIds:[],operations:["scout_findings","scout_review_queue","scout_review_item"]}}}));
+   mailConsent:false,companyIds:[],operations:["scout_findings","scout_review_queue","scout_review_item","scout_collect"]}}}));
  const control=http.createServer((req,res)=>{
   let b="";req.on("data",part=>b+=part);
   req.on("end",()=>{
@@ -39,6 +39,15 @@ test("Scout gateway reads only signed scoped Scout source and rejects non-Scout 
   });
  });
  const scout=http.createServer((req,res)=>{
+  if(req.url==="/api/sources/start-many"&&req.method==="POST"){
+    let raw="";req.on("data",part=>raw+=part);req.on("end",()=>{
+      const payload=JSON.parse(raw);
+      assert.deepEqual(payload.ids,["play"]);
+      assert.equal(payload.allowPaid,false);
+      res.writeHead(202,{"content-type":"application/json"});
+      res.end(JSON.stringify({jobIds:["synthetic-play"]}));
+    });return;
+  }
   res.writeHead(200,{"content-type":"application/json"});
   const row={id:"app:com.example.bank",title:"Synthetic UK EMI",status:"review",
      url:"https://bank.example/business",appId:"com.example.bank",
@@ -94,6 +103,21 @@ test("Scout gateway reads only signed scoped Scout source and rejects non-Scout 
   const illegalStart=await call(gatewaySocket,"/start",{capability:"invalid"});
   assert.equal(illegalStart.status,403);
   assert.deepEqual(fs.readdirSync(state),[],"Denied start must not create a job marker");
+  const collect=await call(gatewaySocket,"/collect",
+    {capability:"synthetic-valid",source:"play"});
+  assert.equal(collect.status,200);
+  assert.equal(collect.body.mode,"play");
+  assert.equal(collect.body.status,"accepted");
+  const duplicate=await call(gatewaySocket,"/collect",
+    {capability:"synthetic-valid",source:"play"});
+  assert.equal(duplicate.status,409);
+  const invalidCollect=await call(gatewaySocket,"/collect",
+    {capability:"invalid",source:"web"});
+  assert.equal(invalidCollect.status,403);
+  const injection=await call(gatewaySocket,"/collect",
+    {capability:"synthetic-valid",source:"apify:facebook"});
+  assert.equal(injection.status,400);
+
  }finally{
   child?.kill("SIGTERM");
   await close(control).catch(()=>{});
