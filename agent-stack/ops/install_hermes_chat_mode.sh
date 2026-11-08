@@ -135,7 +135,7 @@ try:
 finally:conn.close()
 '
 echo "=== VERIFY INSTALLED BRIDGE SELECTS CHAT MODE AND KEEP 12 MCP TOOLS ==="
-docker exec "$BRIDGE" /opt/hermes/.venv/bin/python -c '
+docker exec --workdir /opt/workspace-agent "$BRIDGE" /opt/hermes/.venv/bin/python -c '
 from hermes_gateway_bridge import CHAT_INSTRUCTIONS,build_chat_instructions
 text=build_chat_instructions("","synthetic-test")
 assert "не вызывай begin_task или submit_result" in text
