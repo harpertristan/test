@@ -63,7 +63,7 @@ test("Provider search failures are explicit, never invented findings",async()=>{
  const result=await publicSearch("UK EMI banks",network);
  assert.deepEqual(result.results,[]);
  assert.equal(result.code,"SEARCH_RESULTS_UNAVAILABLE");
- assert.equal(result.providerErrors.length,3);
+ assert.equal(result.providerErrors.length,4);
 });
 
 test("DNS pin returns the Node 22 all:true lookup record list, never an invalid undefined IP",()=>{
@@ -101,4 +101,13 @@ test("Actual Node HTTPS socket uses DNS pin without ERR_INVALID_IP_ADDRESS",asyn
  }finally{
   await new Promise(resolve=>server.close(resolve));
  }
+});
+
+test("RSS search feed yields actual publisher links, not navigation links",()=>{
+ const feed='<?xml version="1.0"?><rss><channel>'+
+ '<item><title>Bank Alpha</title><link>https://bankalpha.example/business/</link></item>'+
+ '<item><title>Bank Beta</title><link>https://bankbeta.example/uk/</link></item>'+
+ '</channel></rss>';
+ const parsed=parsePage(feed,"https://www.bing.com/search?format=rss",180);
+ assert.deepEqual(parsed.links,["https://bankalpha.example/business/","https://bankbeta.example/uk/"]);
 });
