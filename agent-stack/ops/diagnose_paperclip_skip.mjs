@@ -38,6 +38,18 @@ export function projectWake(w,issueId) {
     requestedAt:w?.requestedAt??null
   };
 }
+export function projectRecovery(action){
+  const evidence=action?.evidence && typeof action.evidence==="object"?action.evidence:{};
+  return {
+    status:typeof action?.status==="string"?action.status:null,
+    kind:typeof action?.kind==="string"?action.kind:
+         typeof action?.type==="string"?action.type:null,
+    replayBlock: evidence?.automaticRecovery?.replay==="blocked",
+    replayPolicy:typeof evidence?.automaticRecovery?.policy==="string"?
+      evidence.automaticRecovery.policy:null,
+    outcome:typeof action?.outcome==="string"?action.outcome:null
+  };
+}
 export function projectAgent(agent) {
  const heartbeat=agent?.runtimeConfig?.heartbeat||{};
  return {
@@ -107,6 +119,15 @@ async function main(){
    }
   }catch{console.log("WAKEUP_DB_DIAGNOSTIC_UNAVAILABLE");}
  }else{console.log("WAKEUP_DB_TABLE_UNAVAILABLE");}
+ if(mod.issueRecoveryActions){
+  try{
+    const actions=await db.select().from(mod.issueRecoveryActions)
+      .where(eq(mod.issueRecoveryActions.sourceIssueId,ISSUE_ID))
+      .orderBy(desc(mod.issueRecoveryActions.createdAt)).limit(20);
+    console.log("=== RECOVERY ACTIONS IN DB (INCLUDING RESOLVED HOLDS) ===");
+    for(const action of actions)console.log(JSON.stringify(projectRecovery(action)));
+  }catch{console.log("RECOVERY_DB_DIAGNOSTIC_UNAVAILABLE");}
+ }
  for(const [label,route] of [
   ["ISSUE_API","/api/issues/"+ISSUE_ID],
   ["WAKE_DIAGNOSTIC","/api/issues/"+ISSUE_ID+"/diagnostics/wakes"],
