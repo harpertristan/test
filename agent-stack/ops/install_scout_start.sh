@@ -27,6 +27,8 @@ TMP="$(mktemp -d /tmp/hermes-scout-install.XXXXXXXX)"
 BACKUP=""
 APPLIED=0
 NEW_SERVICE=0
+PREEXISTING_GATEWAY=0
+if docker inspect workspace-agent-scout-start-gateway-1 >/dev/null 2>&1;then PREEXISTING_GATEWAY=1;fi
 cleanup(){ rm -rf "$TMP"; }
 rollback(){
  if [[ "$APPLIED" != 1 ]];then return;fi
@@ -41,9 +43,8 @@ rollback(){
  chown 10000:10000 "$SCOPE" || true
  chmod 0400 "$SCOPE"
  chmod 0444 "$CONF"
- if [[ "$NEW_SERVICE" == 1 ]];then
-  "${COMPOSE[@]}" stop scout-start-gateway >/dev/null 2>&1 || true
-  "${COMPOSE[@]}" rm -sf scout-start-gateway >/dev/null 2>&1 || true
+ if [[ "$PREEXISTING_GATEWAY" == 0 ]];then
+  docker rm -f workspace-agent-scout-start-gateway-1 >/dev/null 2>&1 || true
  fi
  "${COMPOSE[@]:0:12}" up -d --no-deps --force-recreate hermes-runtime hermes-paperclip-bridge >/dev/null 2>&1 || true
 }
