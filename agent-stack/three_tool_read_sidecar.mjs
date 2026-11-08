@@ -12,10 +12,10 @@ const GATEWAY=TEST?process.env.HERMES_TEST_GATEWAY:"multi-mail-crm-tool-gateway-
 const GATEWAY_PORT=TEST?Number(process.env.HERMES_TEST_PORT):3200;
 const LIMIT=131072;
 const PATH_PREFIX=Object.freeze({scout:"",assistant:"/assistant",mail:"/mail-crm"});
-function postUnix(socketPath,path,body) {
+function postUnix(socketPath,path,body,timeoutMs=6000) {
   return new Promise((resolve,reject)=>{
     const data=Buffer.from(JSON.stringify(body));
-    const req=http.request({socketPath,path,method:"POST",headers:{"content-type":"application/json","content-length":data.length},timeout:6000},r=>{
+    const req=http.request({socketPath,path,method:"POST",headers:{"content-type":"application/json","content-length":data.length},timeout:timeoutMs},r=>{
       let bytes=0;const parts=[];
       r.on("data",b=>{bytes+=b.length;if(bytes>LIMIT){r.destroy(new Error("Response too large"));return;}parts.push(b);});
       r.on("end",()=>resolve({status:r.statusCode,body:Buffer.concat(parts).toString("utf8")}));
@@ -68,7 +68,8 @@ const server=http.createServer(async(req,res)=>{
     if(op.service==="scout"){
       // Scout lives on a different Docker network. Use a separate Unix route
       // with a second validation of the signed task; no direct egress for Hermes.
-      const scout=await postUnix(SCOUT_SOCKET,"/read",payload);
+      const scout=await postUnix(SCOUT_SOCKET,"/read",payload,
+        payload.operation==="scout_review_queue"||payload.operation==="scout_review_item"?30000:6000);
       if(scout.status!==200){
         let code="SCOUT_READ_UNAVAILABLE";
         try{const value=JSON.parse(scout.body);if(typeof value.code==="string"&&
