@@ -108,6 +108,70 @@ def scout_collect(capability: str, source: str) -> dict:
         connection.close()
 
 
+def scout_crm_manage(capability: str, reviewId: str, decision: str,
+                     sourceUrl: str, evidence: str) -> dict:
+    """Change Play Scout internal CRM classification after verified public evidence."""
+    if decision not in ("suitable", "not_suitable", "watch"):
+        return {"error": "Unsupported classification", "code": "INVALID_CRM_DECISION"}
+    connection = ScoutStartConnection("scout-crm", timeout=45)
+    try:
+        payload = json.dumps({"capability": capability, "reviewId": reviewId,
+            "decision": decision, "sourceUrl": sourceUrl, "evidence": evidence})
+        connection.request("POST", "/crm-decide", payload,
+                           {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        value = json.loads(response.read(8192))
+        if response.status != 200:
+            return {"error": "CRM change refused or not confirmed",
+                    "code": value.get("code", "CRM_CHANGE_UNCONFIRMED")}
+        return value
+    except Exception:
+        return {"error": "CRM classification not confirmed", "code": "CRM_ACTION_UNAVAILABLE"}
+    finally:
+        connection.close()
+
+
+def operator_capabilities(capability: str) -> dict:
+    """Describe concrete installed tools and service operations; no guessed access."""
+    trusted = current_task(capability)
+    if "error" in trusted:
+        return {"error": "No signed task or chat run",
+                "code": trusted.get("code", "TASK_NOT_AUTHORIZED")}
+    return {
+        "mode": trusted.get("mode", "task"),
+        "permissions": "signed-current-run",
+        "services": {
+            "play_scout": {
+                "read": ["scout_candidates", "scout_findings", "scout_monitor",
+                         "scout_review_queue", "scout_review_item",
+                         "scout_web_candidates", "scout_web_findings",
+                         "scout_social_candidates", "scout_social_findings",
+                         "scout_watch_candidates", "scout_watch_findings",
+                         "scout_ai_inbox", "scout_ai_results", "scout_licences"],
+                "research": ["web_research", "scout_collect"],
+                "internal_crm": "scout_crm_manage (suitable / not_suitable / watch)"
+            },
+            "registration_assistant": {
+                "read": ["assistant_companies", "assistant_profile",
+                         "assistant_facts", "assistant_review",
+                         "assistant_extracted", "assistant_documents",
+                         "assistant_diagnostics", "assistant_corrections",
+                         "assistant_ai_plan"],
+            },
+            "mail_crm": {
+                "read": ["mail_messages", "mail_message", "mail_tasks",
+                         "mail_companies", "mail_company_detail",
+                         "mail_accounts", "mail_notifications", "mail_workspace"],
+            },
+            "development": ["developer_status", "skills_memory"],
+            "workflow": ["current_task", "begin_task", "submit_result", "request_approval"],
+        },
+        "limits": ["No autonomous email send", "No secret upload",
+                   "No host-root shell", "External/production actions require human approval"],
+        "note": "Report successful access only after the actual tool call succeeds"
+    }
+
+
 def current_task(capability: str) -> dict:
     """Проверить привязку текущего запуска. capability берётся только из runtime instructions."""
     return call("/current", {"capability": capability})
@@ -220,6 +284,28 @@ TOOLS.append({
     }, "required": ["capability", "action"], "additionalProperties": False},
     "annotations": {"readOnlyHint": True, "openWorldHint": True},
 })
+
+TOOLS.append({
+    "name": "operator_capabilities",
+    "description": "Перечислить фактические инструменты Hermes для Play Scout, Помощника регистраций, Mail CRM, разработки и задач. Использовать при вопросе о доступе.",
+    "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}},
+                    "required": ["capability"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": False},
+})
+TOOLS.append({
+    "name": "scout_crm_manage",
+    "description": "ВНУТРЕННЕЕ действие Play Scout: после исследования переместить кандидата в Подходит (suitable), Отсеяно (not_suitable), или Наблюдение (watch). Требуются подтверждённый источник HTTPS и подробное основание.",
+    "inputSchema": {"type": "object", "properties": {
+        "capability": {"type": "string"},
+        "reviewId": {"type": "string"},
+        "decision": {"type": "string", "enum": ["suitable", "not_suitable", "watch"]},
+        "sourceUrl": {"type": "string"},
+        "evidence": {"type": "string"}},
+        "required": ["capability", "reviewId", "decision", "sourceUrl", "evidence"],
+        "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
 
 TOOLS.append({
     "name": "scout_collect",
@@ -336,11 +422,12 @@ def dispatch(method, params):
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
         if name not in {"current_task", "begin_task", "request_approval", "web_research", "skills_memory", "developer_status",
-                     "submit_result", "scout_start", "scout_collect", "scout_read", "assistant_read", "mail_crm_read"}:
+                     "submit_result", "scout_start", "scout_collect", "scout_crm_manage", "operator_capabilities", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name in ("current_task", "begin_task", "scout_start", "developer_status")
+            {"capability"} if name in ("current_task", "begin_task", "scout_start", "developer_status", "operator_capabilities")
             else {"capability", "source"} if name == "scout_collect"
+            else {"capability", "reviewId", "decision", "sourceUrl", "evidence"} if name == "scout_crm_manage"
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "action", "destination", "subject", "details"} if name == "request_approval"
             else ({"capability", "action", "query"} if arguments.get("action") == "search"
@@ -387,6 +474,10 @@ def dispatch(method, params):
             result = scout_start(**arguments)
         elif name == "scout_collect":
             result = scout_collect(**arguments)
+        elif name == "scout_crm_manage":
+            result = scout_crm_manage(**arguments)
+        elif name == "operator_capabilities":
+            result = operator_capabilities(**arguments)
         else:
             result = submit_result(**arguments)
         return {
