@@ -3,13 +3,15 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import {authorizeScoutStart,validateStartRequest,scoutPayload} from "./scout_start_policy.mjs";
+import {resolveReadOperation} from "./three_tool_read_policy.mjs";
+import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 
 const SOCKET="/run/three-tools/start.sock";
 const TASK="/run/task-control/control.sock";
 const SCOPE="/run/secrets/three-tool-scope.json";
 const STATE="/state";
 const SCOUT="play-scout-app-1";
-const MAX=8192;
+const MAX=131072;
 function request(options,body,limit=MAX){
   return new Promise((resolve,reject)=>{
     const bytes=body===null?null:Buffer.from(JSON.stringify(body));
@@ -39,6 +41,34 @@ fs.mkdirSync("/run/three-tools",{recursive:true});
 try{fs.unlinkSync(SOCKET)}catch(e){if(e.code!=="ENOENT")throw e}
 const server=http.createServer(async(req,res)=>{
   if(req.method==="GET" && req.url==="/health")return reply(res,200,{ok:true});
+  if(req.method==="POST" && req.url==="/read"){
+    try{
+      let size=0,parts=[];
+      for await(const b of req){size+=b.length;if(size>4096)throw Error("INVALID_READ_REQUEST");parts.push(b);}
+      const payload=JSON.parse(Buffer.concat(parts).toString("utf8"));
+      if(!payload||typeof payload!=="object"||Array.isArray(payload)||
+         Object.keys(payload).sort().join(",")!=="capability,operation,params"||
+         typeof payload.capability!=="string"||payload.capability.length<1||
+         payload.capability.length>160)return reply(res,400,{code:"INVALID_READ_REQUEST"});
+      let op;
+      try{op=resolveReadOperation(payload.operation,payload.params);}
+      catch{return reply(res,400,{code:"INVALID_READ_OPERATION"});}
+      if(op.service!=="scout")return reply(res,403,{code:"SCOUT_ONLY"});
+      const current=await request({socketPath:TASK,path:"/current",method:"POST"},
+        {capability:payload.capability},8192);
+      if(current.status!==200)return reply(res,403,{code:"TASK_NOT_AUTHORIZED"});
+      const task=parseJSON(current);
+      const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
+      try{authorizeReadScope(scope,task,payload.operation,payload.params);}
+      catch{return reply(res,403,{code:"OPERATION_NOT_GRANTED"});}
+      const result=await request({hostname:SCOUT,port:3000,path:op.path,method:"GET"},null);
+      if(result.status!==200)return reply(res,502,{code:"SCOUT_READ_UNAVAILABLE"});
+      const data=parseJSON(result);
+      return reply(res,200,{operation:payload.operation,data});
+    }catch{
+      return reply(res,502,{code:"SCOUT_READ_GATEWAY_ERROR"});
+    }
+  }
   if(req.method!=="POST"||req.url!=="/start")return reply(res,404,{code:"NOT_FOUND"});
   let file=null;
   try{
