@@ -58,6 +58,31 @@ def read_tool(capability: str, operation: str, params: dict) -> dict:
         connection.close()
 
 
+class ScoutStartConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect("/run/three-tools/start.sock")
+
+
+def scout_start(capability: str) -> dict:
+    connection = ScoutStartConnection("scout-start", timeout=15)
+    try:
+        connection.request("POST", "/start", json.dumps({"capability": capability}),
+                           {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        data = json.loads(response.read(8192))
+        if response.status != 200:
+            return {"error": "Запуск Scout не подтвержден. Не утверждай, что исследование началось.",
+                    "code": data.get("code", "SCOUT_START_REFUSED")}
+        return data
+    except Exception:
+        return {"error": "Шлюз запуска Scout недоступен. Запуск не подтвержден.",
+                "code": "SCOUT_START_UNAVAILABLE"}
+    finally:
+        connection.close()
+
+
 def current_task(capability: str) -> dict:
     """Проверить привязку текущего запуска. capability берётся только из runtime instructions."""
     return call("/current", {"capability": capability})
@@ -103,6 +128,15 @@ TOOLS = [
 ]
 
 
+TOOLS.append({
+    "name": "scout_start",
+    "description": "Один разрешённый запуск выбранных веб-источников Scout для активной задачи. Не повторяй запуск при ошибке подтверждения.",
+    "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}},
+                    "required": ["capability"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
+
+
 for _name, _prefix in (("scout_read", "scout_"), ("assistant_read", "assistant_"), ("mail_crm_read", "mail_")):
     TOOLS.append({
         "name": _name,
@@ -138,10 +172,10 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
-        if name not in {"current_task", "submit_result", "scout_read", "assistant_read", "mail_crm_read"}:
+        if name not in {"current_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name == "current_task"
+            {"capability"} if name in ("current_task", "scout_start")
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "operation", "params"}
         )
@@ -165,6 +199,8 @@ def dispatch(method, params):
             result = read_tool(capability, operation, tool_params)
         elif name == "current_task":
             result = current_task(**arguments)
+        elif name == "scout_start":
+            result = scout_start(**arguments)
         else:
             result = submit_result(**arguments)
         return {
