@@ -55,11 +55,23 @@ async function resolvePublic(hostname){
   return records[0].address;
 }
 
+// Node 20+ passes {all:true} to custom lookups when autoSelectFamily is enabled.
+// In that mode it requires an array of address/family records; a single string
+// produces ERR_INVALID_IP_ADDRESS ("Invalid IP address: undefined") before TCP.
+export function pinnedLookup(address){
+  return (_hostname, options, callback)=>{
+    if(typeof options==="function"){callback=options;options={};}
+    if(options?.all===true)return callback(null,[{address,family:4}]);
+    return callback(null,address,4);
+  };
+}
+
 function httpsGet(url,address){
   return new Promise((resolve,reject)=>{
+    if(!publicIPv4(address))return reject(Error("NON_PUBLIC_ADDRESS"));
     const req=https.get(url,{
       timeout:10_000,
-      lookup:(hostname,options,callback)=>callback(null,address,4),
+      lookup:pinnedLookup(address),
       headers:{'User-Agent':'Hermes-Scout-PublicResearch/1.0',
         accept:'text/html,text/plain,application/xhtml+xml',
         'accept-encoding':'identity'},
