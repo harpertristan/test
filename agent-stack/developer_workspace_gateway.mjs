@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {spawn} from "node:child_process";
+import {fileURLToPath} from "node:url";
 import {activeReadContext} from "./active_run_scope.mjs";
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_DEV_SOCKET:"/run/dev-tools/workspace.sock";
@@ -182,6 +183,7 @@ function reply(res,status,body){
  res.writeHead(status,{"content-type":"application/json","cache-control":"no-store"});
  res.end(JSON.stringify(body));
 }
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
 fs.mkdirSync(path.dirname(SOCKET),{recursive:true});
 try{fs.unlinkSync(SOCKET)}catch(e){if(e.code!=="ENOENT")throw e;}
 const server=http.createServer(async(req,res)=>{
@@ -229,3 +231,5 @@ const server=http.createServer(async(req,res)=>{
  }
 });
 server.listen(SOCKET,()=>fs.chmodSync(SOCKET,0o660));
+ 
+}
