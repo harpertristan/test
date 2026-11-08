@@ -13,7 +13,7 @@ export function authorizeScoutStart(scope,task) {
   const ids=grant.scoutSourceIds;
   if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3 ||
       new Set(ids).size !== ids.length ||
-      !ids.every(x=>typeof x==="string" && /^[a-z0-9:_./-]{1,120}$/.test(x)))
+      !ids.every(x=>typeof x==="string" && /^web:[a-z0-9:_./-]{1,115}$/.test(x)))
     throw Error("SCOUT_SOURCE_SCOPE_INVALID");
   return Object.freeze({issueId:task.id, sourceIds:[...ids], requestId:task.id});
 }
