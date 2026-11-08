@@ -25,6 +25,8 @@ function resolveResultLink(link,base){
     const u=new URL(raw,base);
     if((u.hostname==="www.google.com"||u.hostname==="google.com")&&u.pathname==="/url"){
       raw=u.searchParams.get("q")||u.searchParams.get("url")||"";
+    } else if(u.hostname.endsWith(".duckduckgo.com")&&u.pathname.startsWith("/l/")){
+      raw=u.searchParams.get("uddg")||"";
     }
     return safeWebUrl(new URL(raw,u).href).href;
   }catch{return null;}
@@ -116,7 +118,8 @@ export async function publicSearch(query,network){
   const text=safePublicText(query,180);
   const providers=[
     "https://www.google.com/search?q="+encodeURIComponent(text)+"&num=10",
-    "https://www.bing.com/search?q="+encodeURIComponent(text)+"&count=10"
+    "https://www.bing.com/search?q="+encodeURIComponent(text)+"&count=10",
+    "https://html.duckduckgo.com/html/?q="+encodeURIComponent(text)
   ];
   const errors=[];
   for(const address of providers){
@@ -125,7 +128,7 @@ export async function publicSearch(query,network){
       const results=result.links.filter(url=>{
         try{
           const host=new URL(url).hostname;
-          return !/(^|\.)google\.com$|(^|\.)bing\.com$|(^|\.)microsoft\.com$/.test(host);
+          return !/(^|\.)google\.com$|(^|\.)bing\.com$|(^|\.)microsoft\.com$|(^|\.)duckduckgo\.com$/.test(host);
         }catch{return false;}
       }).slice(0,20);
       if(results.length)return {query:text,provider:new URL(address).hostname,
