@@ -12,6 +12,7 @@ on:
       - "agent-stack/ops/hermes_safe_deploy.sh"
       - "agent-stack/ops/scout_start_preflight.sh"
       - "agent-stack/ops/install_scout_start.sh"
+      - "agent-stack/ops/enable_hermes_three_service_reads.sh"
       - "agent-stack/scout_start_policy.mjs"
       - "agent-stack/scout_start_gateway.mjs"
       - "agent-stack/task_control_mcp.py"
@@ -42,6 +43,7 @@ jobs:
           bash -n agent-stack/ops/hermes_safe_deploy.sh
           bash -n agent-stack/ops/scout_start_preflight.sh
           bash -n agent-stack/ops/install_scout_start.sh
+          bash -n agent-stack/ops/enable_hermes_three_service_reads.sh
       - name: Compile all Python entrypoints
         run: |
           python3 -m py_compile agent-stack/hermes_gateway_bridge.py agent-stack/task_runtime_context.py agent-stack/task_control_mcp.py agent-stack/serve_hermes.py
