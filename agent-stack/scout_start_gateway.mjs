@@ -7,6 +7,7 @@ import {resolveReadOperation} from "./three_tool_read_policy.mjs";
 import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 import {validateWebAction,webReadScope} from "./scout_web_policy.mjs";
 import {publicOpen,publicSearch} from "./scout_web_fetch.mjs";
+import {crmContainsPublicSite} from "./scout_crm_source_trust.mjs";
 import {reviewQueue,reviewItem} from "./scout_review_projection.mjs";
 import {createHash} from "node:crypto";
 import {validateCollection,authorizeCollection,collectionPayload} from "./scout_collect_policy.mjs";
@@ -151,8 +152,20 @@ const server=http.createServer(async(req,res)=>{
       const policy=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
       webReadScope(policy,task);
       if(!allowWebUse(task.id))return reply(res,429,{code:"RESEARCH_RATE_LIMIT"});
-      if(action.action==="open"&&!trustedResearchUrl(task.id,action.url))
-        return reply(res,403,{code:"URL_NOT_DISCOVERED"});
+      if(action.action==="open"&&!trustedResearchUrl(task.id,action.url)){
+        // A known Scout CRM public website may be opened even when no previous
+        // search was done in this chat. Do not grant unknown hostnames.
+        const snapshot=await request({hostname:SCOUT,port:SCOUT_PORT,
+          path:"/api/crm",method:"GET"},null,24*1024*1024,25000);
+        if(snapshot.status!==200)return reply(res,502,{
+          code:"SCOUT_CRM_PROVENANCE_UNAVAILABLE",upstreamStatus:snapshot.status
+        });
+        let parsed;
+        try{parsed=parseJSON(snapshot);}
+        catch{return reply(res,502,{code:"SCOUT_CRM_PROVENANCE_INVALID"});}
+        if(!crmContainsPublicSite(parsed?.rows,action.url))
+          return reply(res,403,{code:"URL_NOT_DISCOVERED"});
+      }
       const data=action.action==="search"?
         await publicSearch(action.query):await publicOpen(action.url);
       if(action.action==="search"&&Array.isArray(data.results))
