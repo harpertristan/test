@@ -85,6 +85,7 @@ class TaskBindings:
         def handler(arguments, **context):
             expected = (
                 set() if method in {"current_task", "begin_task", "scout_start", "developer_status"}
+                else {"source"} if method == "scout_collect"
                 else {"summary"} if method == "submit_result"
                 else {"action", "destination", "subject", "details"} if method == "request_approval"
                 else ({"action"} if arguments.get("action") == "recall" else {"action", "lesson", "evidence"}) if method == "skills_memory"
@@ -147,7 +148,7 @@ class TaskBindings:
 
 def install_task_handlers(registry, bindings, name_for):
     for method in ("current_task", "begin_task", "developer_status", "submit_result", "request_approval",
-                   "web_research", "skills_memory", "scout_start", "scout_read", "assistant_read", "mail_crm_read"):
+                   "web_research", "skills_memory", "scout_start", "scout_collect", "scout_read", "assistant_read", "mail_crm_read"):
         name = name_for("paperclip_task", method)
         entry = registry.get_entry(name)
         if entry is not None and getattr(entry.handler, "_workspace_task_bound", False):
