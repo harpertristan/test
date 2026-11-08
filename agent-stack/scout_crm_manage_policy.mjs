@@ -1,3 +1,4 @@
+import net from "node:net";
 import {activeReadContext} from "./active_run_scope.mjs";
 import {needsReview} from "./scout_review_projection.mjs";
 
@@ -18,7 +19,7 @@ export function validateScoutDecision(value){
  try{url=new URL(sourceUrl);}
  catch{throw Error("INVALID_EVIDENCE_URL");}
  if(url.protocol!=="https:"||url.username||url.password||url.port||
-    url.hostname==="localhost"||!url.hostname.includes(".")||
+    url.hostname==="localhost"||net.isIP(url.hostname)!==0||!url.hostname.includes(".")||
     /(^|\.)((?:internal)|(?:local)|(?:localhost))$/i.test(url.hostname)||
     /\s/.test(sourceUrl))
     throw Error("INVALID_EVIDENCE_URL");
