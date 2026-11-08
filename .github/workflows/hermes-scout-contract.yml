@@ -11,6 +11,13 @@ on:
       - "agent-stack/tests/test_scoped_mcp_contract.py"
       - "agent-stack/ops/hermes_safe_deploy.sh"
       - "agent-stack/ops/scout_start_preflight.sh"
+      - "agent-stack/ops/install_scout_start.sh"
+      - "agent-stack/scout_start_policy.mjs"
+      - "agent-stack/scout_start_gateway.mjs"
+      - "agent-stack/task_control_mcp.py"
+      - "agent-stack/serve_hermes.py"
+      - "agent-stack/compose.scout-start.yaml"
+      - "agent-stack/tests/scout_start_policy.test.mjs"
       - "agent-stack/task_control_policy.mjs"
       - "agent-stack/three_tool_read_policy.mjs"
       - "agent-stack/three_tool_read_scope.mjs"
@@ -34,9 +41,10 @@ jobs:
         run: |
           bash -n agent-stack/ops/hermes_safe_deploy.sh
           bash -n agent-stack/ops/scout_start_preflight.sh
+          bash -n agent-stack/ops/install_scout_start.sh
       - name: Cross-language task authorization and read scope
         working-directory: agent-stack
         run: |
-          node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/hermes_scout_contract.test.mjs
+          node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/hermes_scout_contract.test.mjs tests/scout_start_policy.test.mjs
           python3 -m unittest discover -s tests -p 'test_*mcp_contract.py' -v
           python3 -m unittest discover -s tests -p test_task_read_gate.py -v
