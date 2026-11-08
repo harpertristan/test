@@ -10,7 +10,7 @@ BRIDGE=workspace-agent-hermes-paperclip-bridge-1
 IMAGE=workspace-paperclip:7e3caa7
 FILES="scout_web_fetch.mjs hermes_gateway_bridge.py"
 test "$EUID" -eq 0 || { echo "ERROR: run with sudo" >&2;exit 2; }
-for binary in docker git node python3 tar mktemp;do command -v "$binary" >/dev/null;done
+for binary in docker git python3 tar mktemp;do command -v "$binary" >/dev/null;done
 test -d "$REPO/.git"
 test "$(docker inspect -f '{{.State.Status}}' "$SCOUT")" = running
 test "$(docker inspect -f '{{.State.Status}}' "$BRIDGE")" = running
@@ -42,7 +42,10 @@ chmod 755 "$TEMP/agent-stack"
 for f in $FILES;do test -s "$BASE/$f" && test -s "$TEMP/agent-stack/$f";done
 
 echo "=== SYNTAX AND REGRESSION TESTS ==="
-node --check "$TEMP/agent-stack/scout_web_fetch.mjs"
+docker run --rm --network none --read-only --cap-drop ALL \
+ --security-opt no-new-privileges --user 10000:10000 \
+ -v "$TEMP/agent-stack:/work:ro" -w /work --entrypoint node "$IMAGE" \
+ --check scout_web_fetch.mjs
 python3 -m py_compile "$TEMP/agent-stack/hermes_gateway_bridge.py"
 docker run --rm --network none --read-only --cap-drop ALL \
  --security-opt no-new-privileges --user 10000:10000 \
