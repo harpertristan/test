@@ -181,7 +181,7 @@ console.log("Scout monitor HTTP",reply);
 if(reply!==200)process.exit(1);
 const {publicOpen}=await import("/opt/workspace-agent/scout_web_fetch.mjs");
 let success=false;
-for(const url of ["https://example.com/","https://www.google.com/"]){
+for(const url of ["https://example.com/","https://www.google.com/","https://github.com/"]){
  try{const page=await publicOpen(url);
   if(page.status===200&&page.text.length>10){console.log("Public HTTPS live: 200",new URL(page.sourceUrl).hostname);success=true;break;}
  }catch(e){console.log("Probe rejected:",String(e?.message||"UNAVAILABLE").slice(0,90))}
