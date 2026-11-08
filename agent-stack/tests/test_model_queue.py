@@ -12,7 +12,7 @@ class ModelQueueTests(unittest.TestCase):
         g.calls=[now-59.97]*20
         with patch("model_proxy.time.sleep") as pause:
             # Move the clock so window ages naturally; don't stall test.
-            clock=[now,now+0.10,now+0.10]
+            clock=[now,now,now+0.10]
             with patch("model_proxy.time.monotonic",side_effect=lambda:clock.pop(0) if clock else now+0.10):
                 self.assertTrue(g.wait_for_rate_slot(timeout=1))
         self.assertGreaterEqual(pause.call_count,1)
