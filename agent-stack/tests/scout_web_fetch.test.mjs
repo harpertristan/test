@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parsePage,publicOpen,publicSearch} from "../scout_web_fetch.mjs";
+import {parsePage,publicOpen,publicSearch,pinnedLookup} from "../scout_web_fetch.mjs";
+import https from "node:https";
+import net from "node:net";
 test("Google Play page exposes official linked website for investigation",()=>{
  const html='<html><head><title>Acme Bank — Apps on Google Play</title>'+
  '<meta name="description" content="Mobile banking app for UK businesses"></head>'+
@@ -62,4 +64,41 @@ test("Provider search failures are explicit, never invented findings",async()=>{
  assert.deepEqual(result.results,[]);
  assert.equal(result.code,"SEARCH_RESULTS_UNAVAILABLE");
  assert.equal(result.providerErrors.length,3);
+});
+
+test("DNS pin returns the Node 22 all:true lookup record list, never an invalid undefined IP",()=>{
+ const lookup=pinnedLookup("93.184.215.14");
+ lookup("example.com",{all:true,family:4},(error,records)=>{
+   assert.equal(error,null);
+   assert.deepEqual(records,[{address:"93.184.215.14",family:4}]);
+ });
+ lookup("example.com",{all:false,family:4},(error,address,family)=>{
+   assert.equal(error,null);
+   assert.equal(address,"93.184.215.14");
+   assert.equal(family,4);
+ });
+});
+test("Actual Node HTTPS socket uses DNS pin without ERR_INVALID_IP_ADDRESS",async()=>{
+ let accepted=0;
+ const server=net.createServer(socket=>{accepted++;socket.destroy();});
+ await new Promise((resolve,reject)=>{
+  server.once("error",reject);server.listen(0,"127.0.0.1",resolve);
+ });
+ try{
+  const outcome=await new Promise((resolve,reject)=>{
+   const req=https.get({hostname:"example.com",port:server.address().port,path:"/",
+     lookup:pinnedLookup("127.0.0.1"),timeout:3000},res=>{
+      res.resume();res.on("end",()=>resolve("response"));
+    });
+   req.on("error",error=>{
+     if(error.code==="ERR_INVALID_IP_ADDRESS")return reject(error);
+     resolve(error.code||"connection-closed");
+   });
+   req.on("timeout",()=>req.destroy(Error("TEST_TIMEOUT")));
+  });
+  assert.equal(accepted,1,"The HTTPS request must reach the pinned TCP socket");
+  assert.notEqual(outcome,"ERR_INVALID_IP_ADDRESS");
+ }finally{
+  await new Promise(resolve=>server.close(resolve));
+ }
 });
