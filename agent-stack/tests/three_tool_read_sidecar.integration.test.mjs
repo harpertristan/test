@@ -30,6 +30,7 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
  }}};
  fs.writeFileSync(scope,JSON.stringify(policy));
  let taskStatus=200,upstreamStatus=200;
+ const upstreamPaths=[];
  const controller=http.createServer((req,res)=>{
   res.writeHead(taskStatus,{"content-type":"application/json"});
   res.end(taskStatus===200?JSON.stringify({id:taskId,identifier:"WOR-TEST",status:"in_progress",
@@ -40,6 +41,7 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
   res.end(JSON.stringify({operation:"scout_findings",data:{items:[{name:"Synthetic Bank"}]}}));
  });
  const upstream=http.createServer((req,res)=>{
+  upstreamPaths.push(req.url);
   const assistant=req.url.startsWith("/assistant/");
   if(assistant&&(req.headers["x-workspace-key"]!=="synthetic-workspace-key-for-read-only-tests-0000"||
      req.headers["x-workspace-role"]!=="viewer")){
@@ -51,7 +53,11 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
     return res.end(JSON.stringify({error:"assistant key leaked to another service"}));
   }
   res.writeHead(upstreamStatus,{"content-type":"application/json"});
-  res.end(JSON.stringify(req.url==="/mail-crm/messages"?
+  if(req.url==="/mail-crm/messages"){
+    res.writeHead(200,{"content-type":"text/html"});
+    return res.end("<html><title>Mail CRM SPA</title></html>");
+  }
+  res.end(JSON.stringify(req.url==="/mail-crm/api/messages"?
     {items:[{id:"m1",body:"synthetic private mail text"}]}:
     req.url==="/assistant/api/companies"?[{id:"company-a",name:"Synthetic Ltd"}]:
     req.url==="/assistant/api/companies/company-a/review"?
@@ -93,6 +99,8 @@ test("Unix sidecar: scoped Scout+mail read, denied task, unknown op and upstream
     const mail=await get("mail_messages");
   assert.equal(mail.status,200);
   assert.equal(mail.body.data.items[0].body,"synthetic private mail text");
+  assert.ok(upstreamPaths.includes("/mail-crm/api/messages"),"Mail must reach /api/messages, not frontend HTML");
+  assert.ok(!upstreamPaths.includes("/mail-crm/messages"),"Do not use the SPA fallback route");
   const unknown=await get("mail_send");
   assert.equal(unknown.status,400);
   assert.equal(unknown.body.code,"UNKNOWN_OR_INVALID_READ_OPERATION");
