@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-command, per-task permissions for Scout, registration assistant, mail CRM metadata.
-# Never grants mail body access, arbitrary internet, writing or secrets.
+# One-command, task-scoped read of Scout, registration assistant, and email content.
+# Does not grant sending, deleting, updating mail, arbitrary internet, or secrets.
 set -Eeuo pipefail
 umask 077
 SCOPE=/srv/hermes-stack/private/three-tool-scope.json
@@ -24,16 +24,15 @@ assert grant.get("workspaceWide") is True,"Existing workspace-wide consent requi
 assert isinstance(grant.get("operations"),list),"Invalid operations list"
 approved={
  "scout_candidates","scout_findings","scout_monitor","scout_active",
- "assistant_companies","mail_tasks","mail_companies"
+ "assistant_companies","mail_tasks","mail_companies","mail_messages","mail_message"
 }
-# Explicitly deny mail body and cross-company details even if accidentally enabled.
+# Keep sensitive registration/company details outside the initial scope.
 denied={
- "mail_messages","mail_message",
  "assistant_profile","assistant_facts","assistant_review","assistant_extracted"
 }
 before=set(grant["operations"])
 grant["operations"]=sorted((before-denied)|approved)
-# Metadata-only mail use requires per-task consent. This is explicit user authorization.
+# User explicitly authorized reading mail bodies to analyze and notify; no send operation.
 grant["mailConsent"]=True
 # Mount is a file bind: update the same inode, not os.replace() (device busy / stale inode).
 serialized=json.dumps(scope,ensure_ascii=False,indent=2)+"\n"
@@ -42,7 +41,7 @@ with open(scope_path,"w") as f:
  f.flush()
  os.fsync(f.fileno())
 print("WOR-7 read permissions:",", ".join(sorted(approved)))
-print("Mail body and all per-company details: DENIED.")
+print("Mail messages and message bodies: READ-ONLY.")\nprint("Registration company-specific details: DENIED pending company scope.")
 print("No network, shell, URL, secret, SMTP send, or write permission granted.")
 PY
 chown 10000:10000 "$SCOPE"
@@ -53,14 +52,14 @@ import json,sys
 s=json.load(open(sys.argv[1]))
 g=s["grants"][sys.argv[2]]
 assert g["mailConsent"] is True
-assert {"mail_tasks","mail_companies","scout_findings","assistant_companies"}.issubset(g["operations"])
-assert not set(g["operations"]) & {"mail_messages","mail_message","assistant_profile","assistant_facts","assistant_review","assistant_extracted"}
+assert {"mail_tasks","mail_companies","mail_messages","mail_message","scout_findings","assistant_companies"}.issubset(g["operations"])
+assert not set(g["operations"]) & {"assistant_profile","assistant_facts","assistant_review","assistant_extracted"}
 print("Permission validation: PASS")
 PY
 echo "=== CONTAINER STATE (READ ONLY) ==="
 for name in workspace-agent-hermes-runtime-1 workspace-agent-three-tool-read-1 workspace-agent-task-control-1 workspace-agent-scout-start-gateway-1; do
  docker inspect --format '{{.Name}}: {{.State.Status}}' "$name" 2>/dev/null || true
 done
-echo "=== SUCCESS: SCOPED THREE-SERVICE METADATA READ ENABLED ==="
+echo "=== SUCCESS: SCOPED THREE-SERVICE READ INCLUDING MAIL CONTENT ENABLED ==="
 echo "Important: no Paperclip status changed, and no new active run created."
 echo "Existing unauthorized task/run requests will still be refused."
