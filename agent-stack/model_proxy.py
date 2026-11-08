@@ -141,6 +141,7 @@ class Gateway(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
             urllib.request.ProxyHandler({}), NoRedirect()
         )
         self.active = threading.BoundedSemaphore(2)
+        self.queue = threading.BoundedSemaphore(32)
         self.lock = threading.Lock()
         self.calls = []
         self.quota_path = quota_path
@@ -152,6 +153,21 @@ class Gateway(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
                     "CREATE TABLE IF NOT EXISTS usage(day TEXT PRIMARY KEY, calls INTEGER NOT NULL, input_bytes INTEGER NOT NULL)"
                 )
         super().__init__(path, Handler)
+
+    def wait_for_rate_slot(self, timeout=85):
+        """Wait for an admission slot without spinning or consuming the daily quota."""
+        deadline = time.monotonic() + timeout
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                self.calls = [stamp for stamp in self.calls if now - stamp < 60]
+                if len(self.calls) < 20:
+                    return True
+                delay = max(0.05, min(3.0, 60 - (now - self.calls[0]) + 0.02))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            time.sleep(min(delay, remaining))
 
     def allowed(self, input_bytes=0):
         with self.lock:
@@ -272,12 +288,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "reason": "Invalid request format",
                 },
             )
-        if not self.server.allowed(size) or not self.server.active.acquire(
-            blocking=False
-        ):
-            return self.reply(429, {"error": "Model gateway rate/concurrency limit"})
+        # Queue limited bursts instead of issuing immediate 429s that cause
+        # Hermes to retry concurrently and amplify an overload.
+        if not self.server.queue.acquire(blocking=False):
+            return self.reply(503, {"error": "Model gateway queue full"})
+        acquired = False
         started = False
         try:
+            acquired = self.server.active.acquire(timeout=85)
+            if not acquired:
+                return self.reply(503, {"error": "Model gateway busy"})
+            if not self.server.wait_for_rate_slot(timeout=85):
+                return self.reply(503, {"error": "Model gateway request window busy"})
+            if not self.server.allowed(size):
+                return self.reply(429, {"error": "Model gateway daily quota exhausted"})
+
             request = urllib.request.Request(
                 UPSTREAM,
                 data=json.dumps(payload).encode(),
@@ -317,7 +342,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not started:
                 self.reply(502, {"error": "OpenAI connection failed"})
         finally:
-            self.server.active.release()
+            if acquired:
+                self.server.active.release()
+            self.server.queue.release()
 
 
 def main():
