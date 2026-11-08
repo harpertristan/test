@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Apply tested Scout CRM item 404 fallback only when server code matches the reviewed baseline.
 set -Eeuo pipefail
+trap 'echo "FAILED at line $LINENO (exit $?)" >&2' ERR
 umask 077
 ROOT=/srv/hermes-stack
 WORK="$ROOT/deployment-source"
 FILE="$WORK/agent-stack/scout_start_gateway.mjs"
 SERVICE=workspace-agent-scout-start-gateway-1
 COMMIT=249fe14e85839e4c5bbd32434cac396c85250805
-EXPECTED=9dd20d33f28b6cffeddee9b581dd38703044767ee9962ffcf83d27cff695eadc
 BACKUP="$ROOT/backups/hermes-scout-item-$(date -u +%Y%m%dT%H%M%SZ)"
 test "$(id -u)" = 0 || { echo "Please run as root"; exit 1; }
 test -f "$FILE" && test ! -L "$FILE" || { echo "Scout source missing"; exit 1; }
@@ -15,10 +15,13 @@ cd "$WORK"
 test "$(git rev-parse --is-inside-work-tree)" = true
 git remote get-url origin | grep -Eq 'harpertristan/test(\\.git)?$'
 git cat-file -e "$COMMIT^{commit}" || { echo "Fetch release branch first"; exit 1; }
-ACTUAL=$(sha256sum "$FILE" | awk '{print $1}')
+# Match the pre-change Git blob exactly; refuse to replace local edits.
+EXPECTED=$(git rev-parse "$COMMIT^:agent-stack/scout_start_gateway.mjs")
+ACTUAL=$(git hash-object "$FILE")
 if [ "$ACTUAL" != "$EXPECTED" ]; then
-  echo "Server Scout code differs from audited source. Nothing modified."
-  echo "Actual SHA256: $ACTUAL"
+  echo "Server Scout code differs from reviewed baseline. No changes applied."
+  echo "Current blob: $ACTUAL"
+  echo "Expected blob: $EXPECTED"
   exit 2
 fi
 mkdir -p "$BACKUP"
