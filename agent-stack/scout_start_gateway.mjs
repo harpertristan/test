@@ -98,9 +98,31 @@ const server=http.createServer(async(req,res)=>{
       try{authorizeReadScope(scope,task,payload.operation,payload.params);}
       catch{return reply(res,403,{code:"OPERATION_NOT_GRANTED"});}
       const review=payload.operation==="scout_review_queue"||payload.operation==="scout_review_item";
-      const result=await request({hostname:SCOUT,port:SCOUT_PORT,path:op.path,method:"GET"},
+      let result=await request({hostname:SCOUT,port:SCOUT_PORT,path:op.path,method:"GET"},
         null,review?24*1024*1024:MAX,review?25000:9000);
-      if(result.status!==200)return reply(res,502,{code:"SCOUT_READ_UNAVAILABLE"});
+      // Some CRM deployments expose the full /api/crm snapshot but not the
+      // optional /api/crm/item endpoint. Fall back on 404 only, never on a
+      // permission denial, transport error, or non-JSON response.
+      if(payload.operation==="scout_review_item"&&result.status===404){
+        const snapshot=await request({hostname:SCOUT,port:SCOUT_PORT,
+          path:"/api/crm",method:"GET"},null,24*1024*1024,25000);
+        if(snapshot.status!==200)return reply(res,502,{code:"SCOUT_SNAPSHOT_UNAVAILABLE",upstreamStatus:snapshot.status});
+        let parsed;
+        try{parsed=parseJSON(snapshot);}catch{return reply(res,502,{code:"SCOUT_SNAPSHOT_INVALID"});}
+        if(!Array.isArray(parsed?.rows))return reply(res,502,{code:"SCOUT_SNAPSHOT_INVALID"});
+        const id=payload.params?.reviewId;
+        const exact=parsed.rows.find(row=>row&&typeof row==="object"&&row.id===id);
+        if(!exact)return reply(res,404,{code:"CRM_ITEM_NOT_FOUND"});
+        let projected;
+        try{projected=reviewItem(exact,{detail:true});}
+        catch{return reply(res,502,{code:"CRM_ITEM_INVALID"});}
+        rememberLinks(task.id,[projected.website,...projected.evidence.map(x=>x.source)].filter(Boolean));
+        return reply(res,200,{operation:payload.operation,data:projected});
+      }
+      if(result.status!==200)
+        return reply(res,result.status===404?404:502,{
+          code:result.status===404?"CRM_ITEM_NOT_FOUND":"SCOUT_UPSTREAM_HTTP_"+String(result.status)
+        });
       let data=parseJSON(result);
       if(payload.operation==="scout_review_queue"){
         data=reviewQueue(data,30);
