@@ -124,6 +124,35 @@ function apiPatch(issueId, runId, summary) {
   });
 }
 
+
+function nativeCheckout(issueId, runId) {
+  return new Promise((resolve,reject)=>{
+    const data=JSON.stringify({agentId:identity.agentId,expectedStatuses:['todo','in_progress']});
+    const req=http.request({hostname:'127.0.0.1',port:3100,
+      path:'/api/issues/'+issueId+'/checkout',method:'POST',
+      headers:{'content-type':'application/json',
+        'content-length':Buffer.byteLength(data),
+        'authorization':'Bearer '+identity.token,
+        'X-Paperclip-Run-Id':runId}
+    },response=>{
+      let result='';
+      response.on('data',chunk=>{result+=chunk;if(result.length>131072)response.destroy();});
+      response.on('end',()=>{
+        if(![200,201].includes(response.statusCode)){
+          const error=Error('Native checkout refused');
+          error.safeCode='NATIVE_CHECKOUT_REFUSED';
+          error.httpStatus=response.statusCode;
+          return reject(error);
+        }
+        resolve();
+      });
+    });
+    req.setTimeout(15000,()=>req.destroy(Error('Native checkout timeout')));
+    req.on('error',reject);
+    req.end(data);
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   const reply = (status, data) => { res.writeHead(status, {'Content-Type':'application/json'}); res.end(JSON.stringify(data)); };
   if (req.method === 'GET' && req.url === '/health') return reply(200,{status:'ok'});
@@ -131,7 +160,7 @@ const server = http.createServer(async (req, res) => {
   let acquired = false;
   let stage = "request";
   try {
-    if (req.method !== 'POST' || !['/current','/submit'].includes(req.url)) return reply(403,{error:'Operation disabled'});
+    if (req.method !== 'POST' || !['/current','/begin','/submit'].includes(req.url)) return reply(403,{error:'Operation disabled'});
     let raw = '';
     for await (const b of req) { raw += b; if (raw.length > 65536) throw Error('Request too large'); }
     const body = JSON.parse(raw);
@@ -150,8 +179,18 @@ const server = http.createServer(async (req, res) => {
     if (typeof issueId !== 'string') { const error = Error('No task binding'); error.safeCode = 'TASK_BINDING_MISSING'; throw error; }
     const [issue] = await db.select().from(issues).where(eq(issues.id,issueId)).limit(1);
     stage = 'binding';
-    bindTask(run, issue, identity);
-    if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status});
+    bindTask(run, issue, identity, {requireLock: req.url === '/submit', allowTodo: req.url !== '/submit'});
+    if (req.url === '/current') return reply(200,{id:issue.id, identifier:issue.identifier, title:issue.title, status:issue.status, agentId:identity.agentId, companyId:identity.companyId});
+    if(req.url==='/begin'){
+      stage='native_checkout';
+      if(issue.status==='todo' || ![issue.executionRunId,issue.checkoutRunId].includes(runId))
+        await nativeCheckout(issue.id,runId);
+      stage='checkout_verify';
+      const [checked]=await db.select().from(issues).where(eq(issues.id,issue.id)).limit(1);
+      bindTask(run,checked,identity,{requireLock:true});
+      return reply(200,{status:'in_progress',identifier:checked.identifier,
+        checkoutConfirmed:true});
+    }
     stage = 'review_create';
     await createReviewPath(issue.id, runId, body.summary);
     stage = 'api';

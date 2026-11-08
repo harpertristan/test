@@ -32,6 +32,16 @@ test('binds to active database run and its assigned current task', () => {
     assert.throws(() => bindTask(changed,issue,identity));
 });
 
+test('verified conversation run can read its assigned task with no lock, never submit or cross issue', () => {
+  const chatIssue = {...issue, executionRunId: null, checkoutRunId: null};
+  assert.equal(bindTask(run,chatIssue,identity,{requireLock:false}),issueId);
+  assert.throws(()=>bindTask(run,chatIssue,identity), /Task policy refused/);
+  assert.throws(()=>bindTask({...run,status:'succeeded'},chatIssue,identity,{requireLock:false}));
+  assert.throws(()=>bindTask({...run,issueId:runId},chatIssue,identity,{requireLock:false}));
+  assert.throws(()=>bindTask({...run,agentId:'other'},chatIssue,identity,{requireLock:false}));
+  assert.throws(()=>bindTask(run,{...chatIssue,status:'blocked'},identity,{requireLock:false}));
+  assert.throws(()=>bindTask(run,{...chatIssue,checkoutRunId:issueId},identity,{requireLock:false}));
+});
 test('no requested status, task id, URL, approval or external action is accepted', () => {
   validateRequest('/submit',{capability,summary:'Результат готов для проверки'});
   for (const body of [{capability,summary:'x',status:'done'},

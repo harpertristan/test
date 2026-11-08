@@ -1,4 +1,4 @@
-"""Only two local tools. No filesystem, terminal, URL or external send capability."""
+"""Task-bound local tools. No filesystem, terminal, arbitrary URL or email send capability."""
 
 import http.client
 import json
@@ -48,9 +48,9 @@ def read_tool(capability: str, operation: str, params: dict) -> dict:
         payload = json.dumps({"capability": capability, "operation": operation, "params": params})
         connection.request("POST", "/read", payload, {"Content-Type": "application/json"})
         response = connection.getresponse()
-        data = json.loads(response.read(65536))
+        data = json.loads(response.read(262144))
         if response.status != 200:
-            return {"error": "Чтение не разрешено или сервис недоступен.", "code": data.get("code", "READ_REFUSED")}
+            return {"error": "Чтение отклонено или источник недоступен.", "code": data.get("code", "READ_REFUSED")}
         return data
     except Exception:
         return {"error": "Сервис чтения недоступен. Не выдумывай данные.", "code": "READ_UNAVAILABLE"}
@@ -58,9 +58,39 @@ def read_tool(capability: str, operation: str, params: dict) -> dict:
         connection.close()
 
 
+class ScoutStartConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect("/run/three-tools/start.sock")
+
+
+def scout_start(capability: str) -> dict:
+    connection = ScoutStartConnection("scout-start", timeout=15)
+    try:
+        connection.request("POST", "/start", json.dumps({"capability": capability}),
+                           {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        data = json.loads(response.read(8192))
+        if response.status != 200:
+            return {"error": "Запуск Scout не подтвержден. Не утверждай, что исследование началось.",
+                    "code": data.get("code", "SCOUT_START_REFUSED")}
+        return data
+    except Exception:
+        return {"error": "Шлюз запуска Scout недоступен. Запуск не подтвержден.",
+                "code": "SCOUT_START_UNAVAILABLE"}
+    finally:
+        connection.close()
+
+
 def current_task(capability: str) -> dict:
     """Проверить привязку текущего запуска. capability берётся только из runtime instructions."""
     return call("/current", {"capability": capability})
+
+
+def begin_task(capability: str) -> dict:
+    """Safely check out the assigned task through native Paperclip ownership rules."""
+    return call("/begin", {"capability": capability})
 
 
 def submit_result(capability: str, summary: str) -> dict:
@@ -83,6 +113,17 @@ TOOLS = [
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
     },
     {
+        "name": "begin_task",
+        "description": "Получить назначенную задачу в работу через штатный checkout Paperclip. Только активный подписанный запуск.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"capability": {"type": "string"}},
+            "required": ["capability"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+    },
+    {
         "name": "submit_result",
         "description": "Записать результат по-русски и передать текущую задачу на проверку (in_review). Проверяй ответ: ошибка означает, что статус не изменён.",
         "inputSchema": {
@@ -101,6 +142,15 @@ TOOLS = [
         },
     },
 ]
+
+
+TOOLS.append({
+    "name": "scout_start",
+    "description": "Один разрешённый запуск выбранных веб-источников Scout для активной задачи. Не повторяй запуск при ошибке подтверждения.",
+    "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}},
+                    "required": ["capability"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
+})
 
 
 for _name, _prefix in (("scout_read", "scout_"), ("assistant_read", "assistant_"), ("mail_crm_read", "mail_")):
@@ -138,10 +188,10 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
-        if name not in {"current_task", "submit_result", "scout_read", "assistant_read", "mail_crm_read"}:
+        if name not in {"current_task", "begin_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name == "current_task"
+            {"capability"} if name in ("current_task", "begin_task", "scout_start")
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "operation", "params"}
         )
@@ -165,6 +215,10 @@ def dispatch(method, params):
             result = read_tool(capability, operation, tool_params)
         elif name == "current_task":
             result = current_task(**arguments)
+        elif name == "begin_task":
+            result = begin_task(**arguments)
+        elif name == "scout_start":
+            result = scout_start(**arguments)
         else:
             result = submit_result(**arguments)
         return {
