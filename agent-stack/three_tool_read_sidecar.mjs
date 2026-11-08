@@ -6,6 +6,7 @@ import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 const TEST=process.env.HERMES_TEST_MODE==="1";
 const SOCKET=TEST?process.env.HERMES_TEST_SOCKET:"/run/three-tools/read.sock";
 const CONTROL=TEST?process.env.HERMES_TEST_CONTROL:"/run/task-control/control.sock";
+const SCOUT_SOCKET=TEST?process.env.HERMES_TEST_SCOUT_SOCKET:"/run/three-tools/start.sock";
 const SCOPE=TEST?process.env.HERMES_TEST_SCOPE:"/run/secrets/three-tool-scope.json";
 const GATEWAY=TEST?process.env.HERMES_TEST_GATEWAY:"multi-mail-crm-tool-gateway-1";
 const GATEWAY_PORT=TEST?Number(process.env.HERMES_TEST_PORT):3200;
@@ -64,6 +65,22 @@ const server=http.createServer(async(req,res)=>{
     const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
     try {authorizeReadScope(scope,current,payload.operation,payload.params);}
     catch{return reply(403,{code:"OPERATION_NOT_GRANTED"});}
+    if(op.service==="scout"){
+      // Scout lives on a different Docker network. Use a separate Unix route
+      // with a second validation of the signed task; no direct egress for Hermes.
+      const scout=await postUnix(SCOUT_SOCKET,"/read",payload);
+      if(scout.status!==200){
+        let code="SCOUT_READ_UNAVAILABLE";
+        try{const value=JSON.parse(scout.body);if(typeof value.code==="string"&&
+          /^[A-Z][A-Z_]+$/.test(value.code))code=value.code;}catch{}
+        return reply(scout.status===403?403:502,{code});
+      }
+      let parsed;
+      try{parsed=JSON.parse(scout.body);}catch{return reply(502,{code:"SCOUT_RESPONSE_INVALID"});}
+      if(parsed?.operation!==payload.operation||!Object.hasOwn(parsed,"data"))
+        return reply(502,{code:"SCOUT_RESPONSE_INVALID"});
+      return reply(200,parsed);
+    }
     const result=await upstream(PATH_PREFIX[op.service]+op.path);
     if(result.status!==200||!result.contentType.toLowerCase().includes("application/json"))
       return reply(502,{code:"UPSTREAM_UNAVAILABLE"});
