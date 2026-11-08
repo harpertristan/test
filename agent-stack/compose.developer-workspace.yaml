@@ -12,6 +12,7 @@ services:
     environment: {NODE_ENV: production}
     volumes:
       - .:/opt/workspace-agent:ro
+      - .:/source:ro
       - /srv/hermes-stack/task-control:/run/task-control:ro
       - /srv/hermes-stack/private/three-tool-scope.json:/run/secrets/three-tool-scope.json:ro
       - /srv/hermes-stack/state/developer-workspace:/workspace
