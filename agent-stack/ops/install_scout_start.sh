@@ -45,7 +45,7 @@ rollback(){
   "${COMPOSE[@]}" stop scout-start-gateway >/dev/null 2>&1 || true
   "${COMPOSE[@]}" rm -sf scout-start-gateway >/dev/null 2>&1 || true
  fi
- "${COMPOSE[@]:0:11}" up -d --no-deps --force-recreate hermes-runtime hermes-paperclip-bridge >/dev/null 2>&1 || true
+ "${COMPOSE[@]:0:12}" up -d --no-deps --force-recreate hermes-runtime hermes-paperclip-bridge >/dev/null 2>&1 || true
 }
 fail(){ local ec="$?";trap - ERR;rollback;echo "FAILED ($ec). Backup: ${BACKUP:-none}. Nothing deleted." >&2;exit "$ec"; }
 trap fail ERR
@@ -60,7 +60,6 @@ echo "=== STATIC CONTRACT TESTS ==="
 export PYTHONDONTWRITEBYTECODE=1
 (cd "$TMP/agent-stack" && python3 -m unittest discover -s tests -p 'test_*mcp_contract.py' -v)
 (cd "$TMP/agent-stack" && python3 -m unittest discover -s tests -p test_task_read_gate.py -v)
-node_runner=( )
 if docker image inspect workspace-paperclip:7e3caa7 >/dev/null 2>&1;then
  docker run --rm --network none --read-only -v "$TMP/agent-stack:/work:ro" -w /work \
   --entrypoint node workspace-paperclip:7e3caa7 --test \
