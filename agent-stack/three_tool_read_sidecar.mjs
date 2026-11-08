@@ -26,9 +26,22 @@ function postUnix(socketPath,path,body,timeoutMs=6000) {
     req.end(data);
   });
 }
-function upstream(path) {
+function upstream(path,service) {
   return new Promise((resolve,reject)=>{
-    const req=http.get({hostname:GATEWAY,port:GATEWAY_PORT,path,timeout:8000,headers:{accept:"application/json"}},r=>{
+    const headers={accept:"application/json"};
+    if(service==="assistant"){
+      let key="";
+      try{
+        key=TEST?process.env.HERMES_TEST_WORKSPACE_KEY||"":
+          fs.readFileSync("/run/secrets/assistant-workspace.key","utf8").trim();
+      }catch{return reject(Object.assign(Error("Assistant workspace credential not mounted"),
+        {code:"ASSISTANT_SCOPE_NOT_CONFIGURED"}));}
+      if(key.length<32)return reject(Object.assign(Error("Assistant workspace credential invalid"),
+        {code:"ASSISTANT_SCOPE_NOT_CONFIGURED"}));
+      headers["x-workspace-key"]=key;
+      headers["x-workspace-role"]="viewer";
+    }
+    const req=http.get({hostname:GATEWAY,port:GATEWAY_PORT,path,timeout:12000,headers},r=>{
       let bytes=0;const parts=[];
       r.on("data",b=>{bytes+=b.length;if(bytes>LIMIT){r.destroy(new Error("Response too large"));return;}parts.push(b);});
       r.on("end",()=>resolve({status:r.statusCode,contentType:r.headers["content-type"]||"",body:Buffer.concat(parts).toString("utf8")}));
@@ -82,7 +95,7 @@ const server=http.createServer(async(req,res)=>{
         return reply(502,{code:"SCOUT_RESPONSE_INVALID"});
       return reply(200,parsed);
     }
-    const result=await upstream(PATH_PREFIX[op.service]+op.path);
+    const result=await upstream(PATH_PREFIX[op.service]+op.path,op.service);
     if(result.status!==200||!result.contentType.toLowerCase().includes("application/json"))
       return reply(502,{code:"UPSTREAM_UNAVAILABLE"});
     let data;
@@ -91,6 +104,7 @@ const server=http.createServer(async(req,res)=>{
   }catch(e){
     // Do not mislabel network failures, overlarge responses or invalid upstream JSON
     // as permission denials. Never log mail bodies or capability values.
+    if(e?.code==="ASSISTANT_SCOPE_NOT_CONFIGURED")return reply(503,{code:"ASSISTANT_SCOPE_NOT_CONFIGURED"});
     const network=["ENOTFOUND","ECONNREFUSED","ETIMEDOUT","EAI_AGAIN"].includes(e?.code);
     if(network)return reply(502,{code:"UPSTREAM_CONNECTION_FAILED"});
     if(e?.message==="Response too large")return reply(502,{code:"UPSTREAM_RESPONSE_TOO_LARGE"});
