@@ -6,7 +6,7 @@ import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 const SOCKET="/run/three-tools/read.sock";
 const CONTROL="/run/task-control/control.sock";
 const GATEWAY="multi-mail-crm-tool-gateway-1";
-const LIMIT=16384;
+const LIMIT=131072;
 const PATH_PREFIX=Object.freeze({scout:"",assistant:"/assistant",mail:"/mail-crm"});
 function postUnix(socketPath,path,body) {
   return new Promise((resolve,reject)=>{
@@ -46,21 +46,36 @@ const server=http.createServer(async(req,res)=>{
        Object.keys(payload).sort().join(",")!=="capability,operation,params"||
        typeof payload.capability!=="string"||payload.capability.length>160||!payload.capability)
        return reply(400,{code:"INVALID_REQUEST"});
-    const op=resolveReadOperation(payload.operation,payload.params);
+    let op;
+    try {op=resolveReadOperation(payload.operation,payload.params);}
+    catch {return reply(400,{code:"UNKNOWN_OR_INVALID_READ_OPERATION"});}
     const task=await postUnix(CONTROL,"/current",{capability:payload.capability});
-    if(task.status!==200)return reply(403,{code:"TASK_NOT_AUTHORIZED"});
+    if(task.status!==200){
+      let code="TASK_NOT_AUTHORIZED";
+      try {const val=JSON.parse(task.body);if(typeof val.code==="string"&&/^TASK_[A-Z_]+$/.test(val.code))code=val.code;}catch{}
+      return reply(403,{code});
+    }
     const current=JSON.parse(task.body);
     if(!current||!["in_progress"].includes(current.status))
       return reply(403,{code:"TASK_NOT_IN_PROGRESS"});
     const scope=JSON.parse(fs.readFileSync("/run/secrets/three-tool-scope.json","utf8"));
-    authorizeReadScope(scope,current,payload.operation,payload.params);
+    try {authorizeReadScope(scope,current,payload.operation,payload.params);}
+    catch{return reply(403,{code:"OPERATION_NOT_GRANTED"});}
     const result=await upstream(PATH_PREFIX[op.service]+op.path);
     if(result.status!==200||!result.contentType.toLowerCase().includes("application/json"))
       return reply(502,{code:"UPSTREAM_UNAVAILABLE"});
     let data;
     try{data=JSON.parse(result.body);}catch{return reply(502,{code:"INVALID_UPSTREAM_RESPONSE"});}
     return reply(200,{operation:payload.operation,data});
-  }catch(e){return reply(403,{code:"READ_REFUSED"});}
+  }catch(e){
+    // Do not mislabel network failures, overlarge responses or invalid upstream JSON
+    // as permission denials. Never log mail bodies or capability values.
+    const network=["ENOTFOUND","ECONNREFUSED","ETIMEDOUT","EAI_AGAIN"].includes(e?.code);
+    if(network)return reply(502,{code:"UPSTREAM_CONNECTION_FAILED"});
+    if(e?.message==="Response too large")return reply(502,{code:"UPSTREAM_RESPONSE_TOO_LARGE"});
+    if(e?.message==="Timeout")return reply(504,{code:"UPSTREAM_TIMEOUT"});
+    return reply(502,{code:"READ_GATEWAY_ERROR"});
+  }
 });
 server.requestTimeout=10000;
 server.headersTimeout=5000;
