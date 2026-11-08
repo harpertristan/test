@@ -87,6 +87,7 @@ class TaskBindings:
                 set() if method in {"current_task", "begin_task", "scout_start"}
                 else {"summary"} if method == "submit_result"
                 else {"action", "destination", "subject", "details"} if method == "request_approval"
+                else ({"action"} if arguments.get("action") == "recall" else {"action", "lesson", "evidence"}) if method == "skills_memory"
                 else ({"action", "query"} if arguments.get("action") == "search"
                       else {"action", "url"}) if method == "web_research"
                 else {"operation", "params"}
@@ -146,7 +147,7 @@ class TaskBindings:
 
 def install_task_handlers(registry, bindings, name_for):
     for method in ("current_task", "begin_task", "submit_result", "request_approval",
-                   "web_research", "scout_start", "scout_read", "assistant_read", "mail_crm_read"):
+                   "web_research", "skills_memory", "scout_start", "scout_read", "assistant_read", "mail_crm_read"):
         name = name_for("paperclip_task", method)
         entry = registry.get_entry(name)
         if entry is not None and getattr(entry.handler, "_workspace_task_bound", False):
@@ -167,6 +168,7 @@ def install_task_handlers(registry, bindings, name_for):
             else "Записать фактический результат и передать на проверку человеку." if method == "submit_result"
             else "Создать запрос на одобрение исходящего действия. Не отправляет данные и ничего не исполняет." if method == "request_approval"
             else "Исследовать публичный веб через Scout: search/query или open/url. Не отправляй приватные данные в поиск." if method == "web_research"
+            else "Вспомни проверенные навыки (recall) или предложи новый (propose) с доказательством. Утверждает только оператор." if method == "skills_memory"
             else "Запустить один ранее одобренный Scout источник." if method == "scout_start"
             else "Читать разрешённые данные через защищённый посредник."
         )
