@@ -28,7 +28,7 @@ export function reviewItem(row,{detail=false}={}) {
     sources:Array.isArray(row.sources)?row.sources.filter(x=>typeof x==="string").slice(0,8):[],
     facts,screeningEligible:row.screening?.eligible===false?false:true,
     manualReview:!!row.needsManualReview,
-    question:plain(row.reviewRouting?.reason||row.autoExclusion||row.notes,250),
+    question:plain(row.reviewRouting?.reason||row.autoExclusion,250),
   };
   if(!detail)return base;
   const docs=Array.isArray(row.documents)?row.documents:[];
