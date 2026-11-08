@@ -41,10 +41,26 @@ class ScopedMcpTests(unittest.TestCase):
                          "TASK_NOT_AUTHORIZED")
 
     def test_no_unapproved_write_or_host_tool(self):
-        for name in ("scout_start", "shell", "exec", "http_get", "filesystem_read"):
+        for name in ("shell", "exec", "http_get", "filesystem_read"):
             with self.subTest(name=name):
                 with self.assertRaises(ValueError):
                     mcp.dispatch("tools/call", {"name": name, "arguments": {}})
+
+    def test_scoped_start_requires_only_trusted_capability(self):
+        with patch.object(mcp, "scout_start", return_value={
+            "status": "accepted", "sourceCount": 2
+        }) as backend:
+            response = mcp.dispatch("tools/call", {
+                "name": "scout_start",
+                "arguments": {"capability": "synthetic-token"}
+            })
+        backend.assert_called_once_with(capability="synthetic-token")
+        self.assertFalse(response["isError"])
+        self.assertEqual(json.loads(response["content"][0]["text"])["status"], "accepted")
+        with self.assertRaises(ValueError):
+            mcp.dispatch("tools/call", {"name": "scout_start", "arguments": {
+                "capability": "synthetic-token", "allowPaid": True
+            }})
 
     def test_rejects_extra_arguments_and_cross_service_operation(self):
         with self.assertRaises(ValueError):
