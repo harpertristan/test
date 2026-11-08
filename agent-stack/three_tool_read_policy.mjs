@@ -9,6 +9,8 @@ const OPERATIONS = Object.freeze({
   scout_findings: {service:"scout", method:"GET", template:"/api/findings"},
   scout_monitor: {service:"scout", method:"GET", template:"/api/monitor"},
   scout_active: {service:"scout", method:"GET", template:"/api/active"},
+  scout_review_queue: {service:"scout", method:"GET", template:"/api/crm"},
+  scout_review_item: {service:"scout", method:"GET", template:"/api/crm/item?id=:reviewId"},
   assistant_companies: {service:"assistant", method:"GET", template:"/api/companies"},
   assistant_profile: {service:"assistant", method:"GET", template:"/api/companies/:companyId/profile"},
   assistant_facts: {service:"assistant", method:"GET", template:"/api/companies/:companyId/facts"},
@@ -34,7 +36,7 @@ export function resolveReadOperation(name, params = {}) {
     throw new Error("Unexpected or missing parameters");
   let path = op.template;
   for (const id of placeholders) {
-    if (typeof params[id] !== "string" || !IDENTIFIER.test(params[id]))
+    if (typeof params[id] !== "string" || !(id === "reviewId" ? /^[A-Za-z0-9:._-]{1,160}$/.test(params[id]) : IDENTIFIER.test(params[id])))
       throw new Error("Invalid identifier");
     path = path.replace(":" + id, encodeURIComponent(params[id]));
   }
