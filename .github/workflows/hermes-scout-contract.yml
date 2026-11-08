@@ -5,6 +5,9 @@ on:
   pull_request:
     paths:
       - "agent-stack/task_capability.py"
+      - "agent-stack/task_runtime_context.py"
+      - "agent-stack/hermes_gateway_bridge.py"
+      - "agent-stack/tests/test_task_read_gate.py"
       - "agent-stack/task_control_policy.mjs"
       - "agent-stack/three_tool_read_policy.mjs"
       - "agent-stack/three_tool_read_scope.mjs"
@@ -28,3 +31,4 @@ jobs:
         working-directory: agent-stack
         run: |
           node --test tests/task_control_policy.test.mjs tests/three_tool_read_scope.test.mjs tests/hermes_scout_contract.test.mjs
+          python3 -m unittest discover -s tests -p test_task_read_gate.py -v
