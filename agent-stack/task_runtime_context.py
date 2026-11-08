@@ -65,7 +65,7 @@ class TaskBindings:
 
     def wrap(self, original, method):
         def handler(arguments, **context):
-            expected = (set() if method == "current_task" else {"summary"} if method == "submit_result" else {"operation", "params"})
+            expected = (set() if method in {"current_task", "scout_start"} else {"summary"} if method == "submit_result" else {"operation", "params"})
             if not isinstance(arguments, dict) or set(arguments) != expected:
                 return json.dumps(
                     {
@@ -114,7 +114,7 @@ class TaskBindings:
 
 
 def install_task_handlers(registry, bindings, name_for):
-    for method in ("current_task", "submit_result", "scout_read", "assistant_read", "mail_crm_read"):
+    for method in ("current_task", "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"):
         name = name_for("paperclip_task", method)
         entry = registry.get_entry(name)
         if entry is not None and getattr(entry.handler, "_workspace_task_bound", False):
@@ -131,7 +131,7 @@ def install_task_handlers(registry, bindings, name_for):
         schema["description"] = (
             "Проверить привязку текущей задачи. Без аргументов."
             if method == "current_task"
-            else "Записать краткий результат по-русски и передать текущую задачу на проверку (in_review). Успех подтверждается ответом инструмента." if method == "submit_result" else "Читать только явно разрешённые данные конкретной задачи через защищённый посредник."
+            else "Записать краткий результат по-русски и передать текущую задачу на проверку (in_review). Успех подтверждается ответом инструмента." if method == "submit_result" else "Запустить один разрешённый поиск Scout для активной задачи, без параметров." if method == "scout_start" else "Читать только явно разрешённые данные конкретной задачи через защищённый посредник."
         )
         registry.register(
             name=name,
