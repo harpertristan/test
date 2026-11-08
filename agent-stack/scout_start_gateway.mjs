@@ -6,11 +6,13 @@ import {authorizeScoutStart,validateStartRequest,scoutPayload} from "./scout_sta
 import {resolveReadOperation} from "./three_tool_read_policy.mjs";
 import {authorizeReadScope} from "./three_tool_read_scope.mjs";
 
-const SOCKET="/run/three-tools/start.sock";
-const TASK="/run/task-control/control.sock";
-const SCOPE="/run/secrets/three-tool-scope.json";
-const STATE="/state";
-const SCOUT="play-scout-app-1";
+const TEST=process.env.HERMES_TEST_MODE==="1";
+const SOCKET=TEST?process.env.HERMES_TEST_SCOUT_SOCKET:"/run/three-tools/start.sock";
+const TASK=TEST?process.env.HERMES_TEST_CONTROL:"/run/task-control/control.sock";
+const SCOPE=TEST?process.env.HERMES_TEST_SCOPE:"/run/secrets/three-tool-scope.json";
+const STATE=TEST?process.env.HERMES_TEST_STATE:"/state";
+const SCOUT=TEST?process.env.HERMES_TEST_SCOUT_HOST:"play-scout-app-1";
+const SCOUT_PORT=TEST?Number(process.env.HERMES_TEST_SCOUT_PORT):3000;
 const MAX=131072;
 function request(options,body,limit=MAX){
   return new Promise((resolve,reject)=>{
@@ -37,7 +39,7 @@ const reply=(res,status,data)=>{
   res.end(JSON.stringify(data));
 };
 fs.mkdirSync(STATE,{recursive:true});
-fs.mkdirSync("/run/three-tools",{recursive:true});
+fs.mkdirSync(path.dirname(SOCKET),{recursive:true});
 try{fs.unlinkSync(SOCKET)}catch(e){if(e.code!=="ENOENT")throw e}
 const server=http.createServer(async(req,res)=>{
   if(req.method==="GET" && req.url==="/health")return reply(res,200,{ok:true});
@@ -61,7 +63,7 @@ const server=http.createServer(async(req,res)=>{
       const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
       try{authorizeReadScope(scope,task,payload.operation,payload.params);}
       catch{return reply(res,403,{code:"OPERATION_NOT_GRANTED"});}
-      const result=await request({hostname:SCOUT,port:3000,path:op.path,method:"GET"},null);
+      const result=await request({hostname:SCOUT,port:SCOUT_PORT,path:op.path,method:"GET"},null);
       if(result.status!==200)return reply(res,502,{code:"SCOUT_READ_UNAVAILABLE"});
       const data=parseJSON(result);
       return reply(res,200,{operation:payload.operation,data});
@@ -80,7 +82,7 @@ const server=http.createServer(async(req,res)=>{
     const task=parseJSON(current);
     const scope=JSON.parse(fs.readFileSync(SCOPE,"utf8"));
     const grant=authorizeScoutStart(scope,task);
-    const monitor=await request({hostname:SCOUT,port:3000,path:"/api/monitor",method:"GET"},null);
+    const monitor=await request({hostname:SCOUT,port:SCOUT_PORT,path:"/api/monitor",method:"GET"},null);
     if(monitor.status!==200)return reply(res,502,{code:"SCOUT_MONITOR_UNAVAILABLE"});
     const state=parseJSON(monitor);
     if(state.busy!==false||state.activeJobId)return reply(res,409,{code:"SCOUT_BUSY"});
@@ -93,7 +95,7 @@ const server=http.createServer(async(req,res)=>{
     }
     try{fs.writeFileSync(fd,JSON.stringify({issueId:grant.issueId,sourceIds:grant.sourceIds,createdAt:new Date().toISOString()}));}
     finally{fs.closeSync(fd)}
-    const result=await request({hostname:SCOUT,port:3000,path:"/api/sources/start-many",method:"POST"},scoutPayload(grant));
+    const result=await request({hostname:SCOUT,port:SCOUT_PORT,path:"/api/sources/start-many",method:"POST"},scoutPayload(grant));
     if(result.status!==202){
       // A response may have been lost after a successful upstream start.
       // Keep idempotency record: operator must reconcile before retrying.
