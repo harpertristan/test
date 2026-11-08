@@ -15,7 +15,7 @@ export function verifyCapability(key, capability, now = Math.floor(Date.now() / 
   return runId;
 }
 
-export function bindTask(run, issue, identity, {requireLock = true, allowTodo = false} = {}) {
+export function bindTask(run, issue, identity, {requireLock = true, allowTodo = false, allowNativeCheckout = false} = {}) {
   const issueId = run?.issueId ?? run?.contextSnapshot?.issueId ?? run?.contextSnapshot?.taskId;
   if (!UUID.test(issueId || '')) refuse('TASK_BINDING_MISSING');
   if (!run || run.status !== 'running') refuse('TASK_RUN_INACTIVE');
@@ -24,10 +24,10 @@ export function bindTask(run, issue, identity, {requireLock = true, allowTodo = 
   if (!issue || issue.id !== issueId || issue.companyId !== identity.companyId)
     refuse('TASK_ISSUE_IDENTITY');
   if (issue.assigneeAgentId !== identity.agentId) refuse('TASK_ASSIGNEE_MISMATCH');
-  if (issue.status !== 'in_progress' && !(allowTodo && issue.status === 'todo')) refuse('TASK_NOT_IN_PROGRESS');
+  if (issue.status !== 'in_progress' && !(allowTodo && ['todo','backlog'].includes(issue.status))) refuse('TASK_NOT_IN_PROGRESS');
   const locks = [issue.executionRunId, issue.checkoutRunId].filter(Boolean);
   // Never allow a different active run to impersonate the owner, even for reads.
-  if (locks.some(id => id !== run.id)) refuse('TASK_RUN_LOCK_CONFLICT');
+  if (!allowNativeCheckout && locks.some(id => id !== run.id)) refuse('TASK_RUN_LOCK_CONFLICT');
   // A conversation-triggered Paperclip run may have a signed run identity and
   // exact issue binding without creating a checkout lock. Reading scoped data
   // is allowed for that active assigned run; review/status writes stay locked.
