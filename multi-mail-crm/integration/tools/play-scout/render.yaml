@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: play-scout
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    numInstances: 1
+    healthCheckPath: /api/health
+    disk:
+      name: play-scout-history
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      # Optional: add BRAVE_SEARCH_API_KEY and OPENAI_API_KEY securely in Render Environment.
+      # AI stays disabled until explicitly enabled in its own settings.
+      - key: DATA_DIR
+        value: /var/data
+      - key: APP_PASSWORD
+        generateValue: true

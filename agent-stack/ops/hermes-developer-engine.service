@@ -1,0 +1,22 @@
+[Unit]
+Description=Hermes Developer Engine - bounded diagnosis and test proposals
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /srv/hermes-stack/deployment-source/agent-stack/developer_engine.py --repo /srv/hermes-stack/deployment-source/agent-stack --out /srv/hermes-stack/state/hermes-gateway/developer-reports --propose --allow-external-model --only-new-incident
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/hermes-stack/state/hermes-gateway/developer-reports /tmp
+RestrictAddressFamilies=AF_UNIX
+TimeoutStartSec=350
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

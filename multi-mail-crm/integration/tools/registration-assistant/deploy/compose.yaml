@@ -1,0 +1,38 @@
+services:
+  app:
+    build: ..
+    restart: unless-stopped
+    init: true
+    mem_limit: 2g
+    cpus: 2
+    environment:
+      PUBLIC_ORIGIN: https://${ASSISTANT_DOMAIN:?Set ASSISTANT_DOMAIN in deploy/.env}
+      TRUST_PROXY: "1"
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_DAILY_CALL_LIMIT: ${AI_DAILY_CALL_LIMIT:-100}
+    volumes:
+      - assistant_data:/app/data
+    networks: [private]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      ASSISTANT_DOMAIN: ${ASSISTANT_DOMAIN:?Set ASSISTANT_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [private]
+volumes:
+  assistant_data:
+  caddy_data:
+  caddy_config:
+networks:
+  private:

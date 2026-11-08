@@ -1,0 +1,10 @@
+{$ASSISTANT_DOMAIN} {
+    request_body {
+        max_size 125MB
+    }
+    reverse_proxy app:3100 {
+        transport http {
+            response_header_timeout 30m
+        }
+    }
+}

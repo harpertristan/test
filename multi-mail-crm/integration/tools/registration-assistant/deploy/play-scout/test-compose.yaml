@@ -1,0 +1,38 @@
+name: scout-workspace-qa
+services:
+  app:
+    image: play-scout:workspace-qa
+    command: ["node", "scripts/start-cloud.js", "--manual"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATA_DIR: /tmp/scout-data
+      APP_PASSWORD: synthetic-workspace-password
+      VIEW_PASSWORD: synthetic-workspace-viewer-password
+      ASSISTANT_WORKSPACE: "true"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 3s
+      retries: 20
+  registration-assistant:
+    image: registration-assistant:workspace-qa
+    environment:
+      BASE_PATH: /assistant
+      PUBLIC_ORIGIN: http://127.0.0.1:3210
+      TRUST_PROXY: "1"
+      WORKSPACE_SHARED_SECRET: synthetic-workspace-key-0123456789abcdef
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/assistant/api/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 3s
+      retries: 20
+  caddy:
+    image: caddy:2
+    environment:
+      NO_PROXY: app,registration-assistant,localhost,127.0.0.1
+      WORKSPACE_SHARED_SECRET: synthetic-workspace-key-0123456789abcdef
+    ports: ["127.0.0.1:3210:80"]
+    volumes:
+      - ./Caddyfile.test:/etc/caddy/Caddyfile:ro
+    depends_on:
+      app: {condition: service_healthy}
+      registration-assistant: {condition: service_healthy}

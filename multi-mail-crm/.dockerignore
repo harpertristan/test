@@ -1,0 +1,12 @@
+.env*
+.git
+.venv
+**/__pycache__
+frontend/node_modules
+frontend/dist
+
+integration/tools
+frontend
+backups
+*.dump
+.coverage

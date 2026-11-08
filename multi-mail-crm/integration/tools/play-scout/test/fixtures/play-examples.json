@@ -1,0 +1,103 @@
+{
+  "source": "Public Google Play cards; retrieved 2026-10-19. Test fixtures, never production findings.",
+  "apps": [
+    {
+      "appId": "com.stablecom.app",
+      "title": "Stable.com",
+      "developer": "Unlimit Holding EU Ltd",
+      "developerWebsite": "https://stable.com",
+      "genreId": "FINANCE",
+      "minInstalls": 1000,
+      "free": true,
+      "price": 0,
+      "released": "Jun 19, 2026",
+      "updated": 1790169417000,
+      "summary": "Global Multicurrency Accounts",
+      "description": "Stable.com simplifies your financial management with a global multi-payment application.\n\nTailored for the diverse needs of startups, scale-ups, enterprises, individuals, and freelancers, Stable.com transforms financial management. Experience a seamless blend of multi-currency accounts, cards, and FX & transfer functionalities, delivering a comprehensive financial solution.\n\nDynamic features for every need:\n\nGlobal Accounts: Universal payments in multiple currencies. Our multicurrency corporate account supports transactions in major currencies like EUR, USD, GBP, and CNY making it perfect for global coverage. The Stable.com multicurrency account allows seamless transactions worldwide and is compatible with digital wallets like Google Pay and Apple Pay.\n\nGet paid like a local: Get paid in the currency you want and pay your suppliers or contractors in their preferred currency, from EUR and USD to CNY or MXN.\n\nOnline KYB: Sign up for an account completely digitally.\n\nComprehensive Corporate and Business Accounts: Empower your organization with our robust corporate and business account services, ensuring financial agility and control.\n\nUnhindered currency operations through FX, and transfers: Stable.com empowers businesses with seamless FX (foreign exchange) transactions, allowing for quick and efficient currency conversions at competitive rates.\n\nThe business account for going global: Pay invoices and bills faster, at a better exchange rate. Offer your customers a wide array of payment options to streamline checkout processes. This includes all major card brands and many currencies including USD, EUR, BRL, MXN, etc. Connect to supported platforms like Amazon, eBay, Google and Apple Pay and pay for ad services on AdSense, Meta and many more.\n- Multi-Currency IBAN Accounts: Open numerous accounts to streamline your business transactions.\n- Global Wire Transfers: Effortlessly conduct international transactions using SWIFT and SEPA.\n- Worldwide Payment Receptions: Receive payments from any corner of the globe, in the currency you want.\n- Currency Exchange: Seamlessly exchange major world currencies.\n- Cross-Platform Accessibility: Manage your finances on desktop or mobile, anytime, anywhere.\n- Virtual and Physical Cards: Issue cards for your team and manage expenses effortlessly.\n- Smart Financial Management: Utilize our smart filter and transaction search for real-time expense tracking.\n- Comprehensive Notifications: Get instant alerts for all transaction types.\n- Multiple Account Management: Handle various accounts simultaneously with ease.\n- Universal Payment Options: Enjoy the freedom to pay online and offline, globally.\n- Security You Can Trust:\n- Two-Factor Authentication (2FA): Secure your web app access on a PC or laptop.\n- Biometric Security: Leverage FaceID or TouchID for enhanced protection.\n- Reliable and Safe: Your financial security is our top priority.\n\nWhat's New:\n- Card Top-Up: Reload your card with ease.\n- Expanded currency support, including stablecoin transactions.\n- Online Onboarding: Enjoy a seamless self-service questionnaire and automated account opening.\n- Revamped App Design: Experience our updated, user-friendly interface."
+    },
+    {
+      "appId": "com.kleos.baas",
+      "title": "Kleos",
+      "developer": "Kleos Capital Limited",
+      "developerWebsite": "https://kleos.money",
+      "genreId": "FINANCE",
+      "minInstalls": 1000,
+      "free": true,
+      "price": 0,
+      "released": "Feb 24, 2026",
+      "updated": 1790351634000,
+      "summary": "Invest-to-Spend Revolution: earn yield and spend instantly.",
+      "description": "For the first time, your capital can grow and move at the same time.\n\nManage your Euro IBAN, access secure digital asset vaults, and spend instantly with your Kleos Visa card,\nall in one seamless app.\n\nTraditional banking separates investing and spending.\nKleos removes the trade-off.\n\nYour capital can generate yield while remaining available for everyday use.\n\nWhat you can do with Kleos:\n\n•⁠  ⁠Manage your Euro IBAN\n•⁠  ⁠Hold and convert crypto securely\n•⁠  ⁠Access curated, diversified yield vaults\n•⁠  ⁠Spend globally with your Kleos Visa card\n•⁠  ⁠Move seamlessly between fiat and digital assets.\n\nBuilt with regulated partners and institutional-grade infrastructure at the core.\n\nWelcome to the Invest-to-Spend Revolution."
+    },
+    {
+      "appId": "com.equals.stable",
+      "title": "Stable Payments",
+      "developer": "Equals Money PLC",
+      "developerWebsite": "https://account.stablepayments.co.uk",
+      "genreId": "FINANCE",
+      "minInstalls": 10,
+      "free": true,
+      "price": 0,
+      "released": "Jul 29, 2026",
+      "updated": 1791799778000,
+      "summary": "Manage Spend on the Go",
+      "description": "Manage all of your expenses and payments while on the move and travelling for business with Stable Payments. Access your expense card details, add it to your device wallet and capture receipts at the point of purchase. Tag and annotate transactions and request card balance top ups from within the app. Users that have already signed up with Stable Payments can login, manage their account and access their transactions, all within the app."
+    },
+    {
+      "appId": "com.ramp.android.app",
+      "title": "Ramp",
+      "developer": "Ramp Business Corporation",
+      "developerWebsite": "https://support.ramp.com",
+      "genreId": "FINANCE",
+      "minInstalls": 100000,
+      "free": true,
+      "price": 0,
+      "released": "Mar 29, 2023",
+      "updated": 1792182429000,
+      "summary": "Time is money. Save both",
+      "description": "Ramp is the finance automation platform designed to save you time and money. With Ramp you get corporate cards, expense management, bill payments, accounting automation and reporting—all in one easy-to-use solution.\n\n\nRamp Mobile puts finance automation in your pocket. Pay for expenses quickly with your corporate card at your fingertips. Submit expense reports and reimbursements on the go by taking a picture of your receipt and tapping in a memo or other submission requirements. Plus, with simplified visibility, you’ll always have the information you need on expense policies, recent transactions, or spend requests.\n\n\nApp Features:\n\n\n- View & lock your cards\n\n- Add card to Google Pay\n\n- Request new spend or temporary spend increase\n\n- Take a picture of your receipt and auto-match to transaction\n\n- Submit additional requirements like memos & accounting fields\n\n- Request reimbursements\n\n- View all transactions & spend requests\n\n- See your expense policy\n\n- Set communication preferences\n\n- Dark/light themes"
+    },
+    {
+      "appId": "com.iteller",
+      "title": "iTeller: Global Payouts",
+      "developer": "ITELLER PTY LTD",
+      "developerWebsite": "https://iTeller.io",
+      "genreId": "FINANCE",
+      "minInstalls": 100000,
+      "free": true,
+      "price": 0,
+      "released": "Sep 16, 2025",
+      "updated": 1788209445000,
+      "summary": "Virtual cards, digital wallet, fiat payouts and money transfers",
+      "description": "iTeller is a digital finance platform for verified users, offering digital wallet access, virtual cards, fiat payout, and money transfer services.\n\nWith iTeller, users can manage balances, access virtual card services where available, and request payouts through supported payment rails.\n\nKey features:\n\n• Digital wallet access\n• Virtual card services where available\n• Fiat payouts and money transfer services\n• On-ramp and off-ramp support\n• Secure account access and verification\n• Simple dashboard to manage balances and transactions\n\niTeller is designed for individuals and businesses who need a simple way to access card services, manage funds, and move money globally.\n\nAll services are subject to account verification, compliance checks, supported countries, transaction limits, and service availability. iTeller does not provide loans, payday loans, buy now pay later, credit facilities, or investment advice."
+    },
+    {
+      "appId": "com.cardblue.lirapay",
+      "title": "Lirapay | Freedom For Everyone",
+      "developer": "Lirapay",
+      "developerWebsite": "https://lirapay.io",
+      "genreId": "FINANCE",
+      "minInstalls": 5000,
+      "free": true,
+      "price": 0,
+      "released": "Nov 26, 2021",
+      "updated": 1788465463000,
+      "summary": "Your card, your partner in freedom",
+      "description": "An app that supports your power of choice. \n\nAt LiraPay, we believe that freedom is for everyone. So, we're bringing over the tangible poof: a cool card backed up by powerful partners. \n\nWhat can you do with the app? \n▪️Generate a physical or a virtual card;\n▪️Shop online;\n▪️Pay your bills;\n▪️Cover your travel insurance;\n▪️Send money to your family and friends. \n\nWhat you get:\n▪️The ease of getting an account in seconds, with no banking fuss;\n▪️The freedom to choose a physical card, a virtual one or a gift card;\n▪️Fast card delivery;\n▪️E-wallet (let this be our little secret!);\n▪️Free global transfers;\n▪️Our expertise of over 100 years, turned digital;\n▪️Integrity and full transparency;\n▪️24/7 customer support;\n▪️Phone number transfers;\n▪️Thorough security of transactions and data encryption ensured by high-end technology.\n\nLiraPay will become your best friend. Your digital friend. Your partner in freedom."
+    },
+    {
+      "appId": "com.mobile.zarpay",
+      "title": "ZAR: Global USD Wallet App",
+      "developer": "ZarPay",
+      "developerWebsite": "https://zarpay.app",
+      "genreId": "FINANCE",
+      "minInstalls": 500000,
+      "free": true,
+      "price": 0,
+      "released": "Sep 20, 2024",
+      "updated": 1791228540000,
+      "summary": "Save &amp; Spend in Dollars, the World’s Strongest Currency",
+      "description": "Experience the power of the world’s strongest currency with ZAR—your gateway to smarter, stronger savings in Dollars. Available across 110+ countries, ZAR empowers you to save, spend, and access your money globally with ease.\n\nKey Features:\n\nSave and Spend in USD, Globally: Seamlessly shop, pay bills, and make purchases online or abroad, all in Dollars. Avoid unnecessary international transaction fees and get more value for your money.\n\nApple Pay & Google Pay Integration: Add your ZAR cards to Apple Pay and Google Pay for effortless tap-to-pay transactions wherever you go.\n\nAccess Cash Worldwide: Withdraw your Dollars as local currency from ATMs across the globe.\n\nBank-Grade Security with Cryptographic Protection: Your money is safeguarded with best-in-class security measures, ensuring only you have access to it.\n\nTake charge of your finances with ZAR, where your money is secure, global, and always within reach.\n\nDownload now and elevate the way you save and spend."
+    }
+  ]
+}

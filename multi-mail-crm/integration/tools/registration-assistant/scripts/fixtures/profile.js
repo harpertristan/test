@@ -1,0 +1,6 @@
+// Synthetic test data only; never use real customer information in this fixture.
+export function completedProfile(values={},overrides={}){
+ const defaults={applicant_role:'contact',contact_first_name:'Alice',contact_last_name:'Example',company_name:'EXAMPLE GOODS LTD',company_number:'12345678',incorporated_on:'2025-10-03',website:'https://example.com',country:'United Kingdom',legal_form:'Private company limited by shares',company_email:'company@example.com',company_phone:'+442079460018',registered_address_line1:'8 Example Road',city:'Example City',postal_code:'AB1 2CD',registered_country:'United Kingdom',operating_address_mode:'same',tax_residence_country:'United Kingdom',tax_status:'issued',tax_number:'1234567890',vat_status:'not_registered',industry:'Retail',business_description:'Online retail of bags and accessories.',account_purpose:'Receive customer payments and pay suppliers.'};
+ return {...defaults,...Object.fromEntries(Object.entries(values).filter(([,v])=>v)),...overrides};
+}
+export async function publishProfile(call,id,overrides={}){const state=(await call(`/companies/${id}/profile`)).data;return call(`/companies/${id}/profile`,{values:completedProfile(state.values,overrides),signature:state.sourceSignature,revision:state.updatedAt,confirmed:true});}

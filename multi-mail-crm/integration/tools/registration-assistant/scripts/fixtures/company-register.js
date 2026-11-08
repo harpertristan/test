@@ -1,0 +1,2 @@
+// Synthetic overview with the structural elements used by Companies House.
+export const registryOverviewHTML=`<!doctype html><html><h1 id="company-name">EXAMPLE GOODS LTD</h1><p>Company number <strong>01234567</strong></p><dl><dt>Registered office address</dt><dd id="registered-office-address">8 Example Road, Bristol, England, BS1 1AA</dd><dt>Company type</dt><dd>Private limited company</dd><dt>Incorporated on</dt><dd>3 November 2026</dd></dl><h2>Nature of business (SIC)</h2><ul><li>47910 - Retail sale via mail order houses or via Internet</li></ul></html>`;

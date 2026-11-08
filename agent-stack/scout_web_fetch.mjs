@@ -1,0 +1,141 @@
+// Bounded public web research for Scout. This module has no SMTP, upload or intranet access.
+import dns from "node:dns/promises";
+import https from "node:https";
+import {publicIPv4,safeWebUrl,safePublicText} from "./scout_web_policy.mjs";
+const MAX_BYTES=500_000;
+const MAX_REDIRECTS=3;
+
+function decodeEntities(value){
+  return String(value).replace(/&(?:amp|quot|apos|lt|gt|nbsp|#(\d+)|#x([0-9a-f]+));/gi,(full,dec,hex)=>{
+    if(dec||hex){const number=parseInt(dec||hex,hex?16:10);
+      return number>=32&&number<=0x10ffff?String.fromCodePoint(number):" ";}
+    return ({'&amp;':'&','&quot;':'"','&apos;':"'",'&lt;':'<','&gt;':'>','&nbsp;':' '})[full.toLowerCase()]??" ";
+  });
+}
+function stripTags(html){
+  return decodeEntities(html.replace(/<!--[\s\S]*?-->/g," ")
+    .replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ")
+    .replace(/<\/(?:p|div|section|li|h[1-6]|tr)>/gi,"\n")
+    .replace(/<[^>]*>/g," ")
+    .replace(/[ \t]{2,}/g," ").replace(/\n[ \t]*/g,"\n").trim()).slice(0,10000);
+}
+function resolveResultLink(link,base){
+  let raw=decodeEntities(link);
+  try{
+    const u=new URL(raw,base);
+    if((u.hostname==="www.google.com"||u.hostname==="google.com")&&u.pathname==="/url"){
+      raw=u.searchParams.get("q")||u.searchParams.get("url")||"";
+    } else if(u.hostname.endsWith(".duckduckgo.com")&&u.pathname.startsWith("/l/")){
+      raw=u.searchParams.get("uddg")||"";
+    }
+    return safeWebUrl(new URL(raw,u).href).href;
+  }catch{return null;}
+}
+export function parsePage(html,base){
+  const title=decodeEntities(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||"").slice(0,250);
+  const description=decodeEntities(html.match(
+    /<meta\s+[^>]*(?:name=["']description["']|property=["']og:description["'])[^>]*content=["']([^"']{1,700})/i
+  )?.[1]||"").slice(0,500);
+  const seen=new Set(),links=[];
+  const href=/\b(?:href|data-url)\s*=\s*(?:"([^"]{1,1800})"|'([^']{1,1800})')/gi;
+  let hit;
+  while((hit=href.exec(html))&&links.length<40){
+    const link=resolveResultLink(hit[1]||hit[2],base);
+    if(link&&!seen.has(link)){seen.add(link);links.push(link);}
+  }
+  return {title,description,text:stripTags(html),links};
+}
+
+async function resolvePublic(hostname){
+  let records;
+  try{records=await dns.lookup(hostname,{all:true,family:4});}
+  catch{throw Error("DNS_RESOLUTION_FAILED");}
+  if(!records.length||records.length>16||records.some(r=>!publicIPv4(r.address)))
+    throw Error("NON_PUBLIC_ADDRESS");
+  return records[0].address;
+}
+
+function httpsGet(url,address){
+  return new Promise((resolve,reject)=>{
+    const req=https.get(url,{
+      timeout:10_000,
+      lookup:(hostname,options,callback)=>callback(null,address,4),
+      headers:{'User-Agent':'Hermes-Scout-PublicResearch/1.0',
+        accept:'text/html,text/plain,application/xhtml+xml',
+        'accept-encoding':'identity'},
+      maxHeaderSize:16_384
+    },res=>{
+      if([301,302,303,307,308].includes(res.statusCode)){
+        const location=res.headers.location;
+        res.resume();
+        return resolve({redirect:location||null,status:res.statusCode});
+      }
+      if(res.statusCode<200||res.statusCode>=300){
+        res.resume();return reject(Error("REMOTE_HTTP_"+res.statusCode));
+      }
+      const type=String(res.headers['content-type']||"").toLowerCase();
+      if(!/(text\/html|text\/plain|application\/xhtml\+xml)/.test(type)){
+        res.resume();return reject(Error("REMOTE_TYPE_REFUSED"));
+      }
+      let size=0;const parts=[];
+      res.on('data',part=>{
+        size+=part.length;
+        if(size>MAX_BYTES){res.destroy(Error("REMOTE_TOO_LARGE"));return;}
+        parts.push(part);
+      });
+      res.on('error',reject);
+      res.on('end',()=>resolve({status:res.statusCode,
+        html:Buffer.concat(parts).toString('utf8')}));
+    });
+    req.on('timeout',()=>req.destroy(Error("REMOTE_TIMEOUT")));
+    req.on('error',reject);
+  });
+}
+
+export async function publicOpen(value,network={resolve:resolvePublic,get:httpsGet}){
+  let url=safeWebUrl(value);
+  const seen=new Set();
+  for(let i=0;i<=MAX_REDIRECTS;i++){
+    if(seen.has(url.href))throw Error("REDIRECT_LOOP");
+    seen.add(url.href);
+    const address=await network.resolve(url.hostname);
+    if(!publicIPv4(address))throw Error("NON_PUBLIC_ADDRESS");
+    const result=await network.get(url,address);
+    if(result.redirect){
+      if(i===MAX_REDIRECTS)throw Error("REDIRECT_LIMIT");
+      url=safeWebUrl(new URL(result.redirect,url).href);
+      continue;
+    }
+    if(!result.html||typeof result.html!=="string")
+      throw Error("REMOTE_CONTENT_INVALID");
+    return {sourceUrl:url.href,checkedAt:new Date().toISOString(),status:result.status,
+      ...parsePage(result.html,url.href)};
+  }
+  throw Error("REDIRECT_LIMIT");
+}
+
+export async function publicSearch(query,network){
+  const text=safePublicText(query,180);
+  const providers=[
+    "https://www.google.com/search?q="+encodeURIComponent(text)+"&num=10",
+    "https://www.bing.com/search?q="+encodeURIComponent(text)+"&count=10",
+    "https://html.duckduckgo.com/html/?q="+encodeURIComponent(text)
+  ];
+  const errors=[];
+  for(const address of providers){
+    try{
+      const result=await publicOpen(address,network);
+      const results=result.links.filter(url=>{
+        try{
+          const host=new URL(url).hostname;
+          return !/(^|\.)google\.com$|(^|\.)bing\.com$|(^|\.)microsoft\.com$|(^|\.)duckduckgo\.com$/.test(host);
+        }catch{return false;}
+      }).slice(0,20);
+      if(results.length)return {query:text,provider:new URL(address).hostname,
+        results,checkedAt:result.checkedAt,excerpt:result.text.slice(0,2000)};
+      errors.push("NO_RESULTS");
+    }catch(e){errors.push(/^([A-Z_]+|REMOTE_HTTP_\d{3})$/.test(e.message)?e.message:"SEARCH_UNAVAILABLE");}
+  }
+  return {query:text,results:[],code:"SEARCH_RESULTS_UNAVAILABLE",
+    providerErrors:errors,checkedAt:new Date().toISOString()};
+}

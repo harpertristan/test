@@ -1,0 +1,83 @@
+name: workspace-agent
+services:
+  model-proxy:
+    image: workspace-hermes:90d6b98
+    user: '10000:10000'
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [/opt/hermes/.venv/bin/python, /opt/workspace-agent/model_proxy.py]
+    environment:
+      PYTHONDONTWRITEBYTECODE: '1'
+      ALLOWED_MODELS: gpt-4o-mini
+    volumes:
+      - type: bind
+        source: .
+        target: /opt/workspace-agent
+        read_only: true
+      - type: bind
+        source: /srv/hermes-stack/private/openai.key
+        target: /run/secrets/openai.key
+        read_only: true
+      - type: bind
+        source: /srv/hermes-stack/model-bridge
+        target: /run/model-bridge
+      - type: bind
+        source: /srv/hermes-stack/state/model-proxy
+        target: /state
+    networks: [model-egress]
+    healthcheck:
+      test: [CMD, /opt/hermes/.venv/bin/python, /opt/workspace-agent/probe_gateway.py]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=64m"]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+  hermes:
+    profiles: [interactive]
+    image: workspace-hermes:90d6b98
+    user: '10000:10000'
+    network_mode: none
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [/opt/hermes/.venv/bin/python, /opt/workspace-agent/launch_hermes.py]
+    command: [chat]
+    environment:
+      HOME: /opt/data
+      HERMES_HOME: /opt/data
+      XDG_CACHE_HOME: /tmp/cache
+      PYTHONDONTWRITEBYTECODE: '1'
+    volumes:
+      - type: bind
+        source: .
+        target: /opt/workspace-agent
+        read_only: true
+      - type: bind
+        source: /srv/hermes-stack/state/hermes
+        target: /opt/data
+      - type: bind
+        source: /srv/hermes-stack/config/hermes.yaml
+        target: /opt/data/config.yaml
+        read_only: true
+      - type: bind
+        source: /srv/hermes-stack/model-bridge
+        target: /run/model-bridge
+        read_only: true
+    tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=256m"]
+    mem_limit: 2g
+    cpus: 1
+    pids_limit: 128
+    stdin_open: true
+    tty: true
+networks:
+  model-egress: {}

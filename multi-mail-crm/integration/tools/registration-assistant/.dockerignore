@@ -1,0 +1,15 @@
+node_modules
+data
+backups
+test-results
+.env
+deploy/.env
+.git
+*.zip
+.runtime
+.update-state.json
+
+*.tar.gz
+__pycache__
+
+!public/downloads/*.zip

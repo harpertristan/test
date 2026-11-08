@@ -1,0 +1,206 @@
+name: multi-mail-crm
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend: &backend
+  build: .
+  image: multi-mail-crm-api:0.1.0
+  restart: unless-stopped
+  init: true
+  logging: *logging
+  cap_drop: [ALL]
+  env_file: .env
+  environment: &backend-env
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-crm}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-crm}
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: redis://redis:6379/1
+    JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+    FERNET_KEY: ${FERNET_KEY:?Set FERNET_KEY}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  security_opt:
+    - no-new-privileges:true
+  stop_grace_period: 90s
+
+services:
+  app:
+    profiles: [integrated]
+    build: ./integration/tools/play-scout
+    image: play-scout:3e429fe-mail-workspace
+    init: true
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATA_DIR: /var/lib/play-scout
+      ASSISTANT_WORKSPACE: "true"
+      ASSISTANT_PUBLIC_ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
+    volumes:
+      - scout_data:/var/lib/play-scout
+    depends_on:
+      scout-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  scout-init:
+    profiles: [integrated]
+    image: node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
+    user: "0:0"
+    command: [chown, '1000:1000', /data]
+    volumes:
+      - scout_data:/data
+    restart: "no"
+  registration-assistant:
+    profiles: [integrated]
+    build: ./integration/tools/registration-assistant
+    image: registration-assistant:f4319a0-mail-workspace
+    restart: unless-stopped
+    init: true
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3100"
+      BASE_PATH: /assistant
+      PUBLIC_ORIGIN: ${PUBLIC_URL:-http://localhost:3000}
+      TRUST_PROXY: "1"
+      WORKSPACE_SHARED_SECRET: ${WORKSPACE_SHARED_SECRET:-${JWT_SECRET}}
+    volumes:
+      - assistant_data:/app/data
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3100/assistant/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+  tool-gateway:
+    profiles: [integrated]
+    build:
+      context: ./integration
+      dockerfile: gateway/Dockerfile
+    image: play-scout-three-tools:local
+    restart: unless-stopped
+    init: true
+    environment:
+      WORKSPACE_SHARED_SECRET: ${WORKSPACE_SHARED_SECRET:-${JWT_SECRET}}
+    ports:
+      - "127.0.0.1:3000:3200"
+    depends_on:
+      app:
+        condition: service_healthy
+      registration-assistant:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3200/__tools/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  postgres:
+    logging: *logging
+    image: postgres:16-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crm}
+      POSTGRES_DB: ${POSTGRES_DB:-crm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 2g
+    shm_size: 256m
+
+  redis:
+    logging: *logging
+    image: redis:7.4-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    restart: unless-stopped
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 384mb, --maxmemory-policy, noeviction]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 768m
+
+  api:
+    <<: *backend
+    command: [sh, scripts/start-api.sh]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 1g
+
+  worker:
+    <<: *backend
+    depends_on:
+      api:
+        condition: service_healthy
+    command: [python, scripts/start-worker.py]
+    healthcheck:
+      test: [CMD, python, -m, app.workers.health]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    mem_limit: 2g
+
+  beat:
+    <<: *backend
+    depends_on:
+      api:
+        condition: service_healthy
+    command: [celery, -A, app.workers.celery_app:celery_app, beat, --loglevel=INFO, --schedule=/state/celerybeat-schedule]
+    volumes:
+      - beat_data:/state
+    # Named volume is initialized with image-owned /state directory.
+    healthcheck:
+      test: [CMD, python, scripts/check-beat.py]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 256m
+
+  frontend:
+    logging: *logging
+    cap_drop: [ALL]
+    build: ./frontend
+    image: multi-mail-crm-frontend:0.1.0
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:8080:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --show-error, --noproxy, 127.0.0.1, http://127.0.0.1:8080/]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+
+volumes:
+  scout_data:
+  assistant_data:
+  postgres_data:
+  redis_data:
+  beat_data:

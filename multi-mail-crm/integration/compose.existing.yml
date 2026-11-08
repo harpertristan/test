@@ -1,0 +1,23 @@
+# New CRM project joins the EXISTING workspace network; old apps are not services here.
+services:
+  tool-gateway:
+    profiles: !reset []
+    depends_on: !override
+      frontend:
+        condition: service_healthy
+    ports: !reset []
+    environment:
+      SCOUT_UPSTREAM: http://app:3000
+      ASSISTANT_UPSTREAM: http://registration-assistant:3100
+      MAIL_CRM_UPSTREAM: http://frontend:8080
+      WORKSPACE_SHARED_SECRET: ${WORKSPACE_SHARED_SECRET:?Use the existing workspace secret}
+    networks:
+      default: {}
+      old-tools:
+        aliases: [mail-crm-gateway]
+  frontend:
+    ports: !reset []
+networks:
+  old-tools:
+    external: true
+    name: ${PLAY_SCOUT_DOCKER_NETWORK:-play-scout_default}
