@@ -4,6 +4,7 @@ import http.client
 import json
 import socket
 import sys
+from pathlib import Path
 from skills_memory import SkillsError, mcp as skills_memory_access
 
 
@@ -253,6 +254,35 @@ def memory_tool(capability: str, action: str, lesson: str = None,
         return {"error": "Skill proposal rejected by local policy", "code": "SKILL_PROPOSAL_REJECTED"}
 
 
+
+TOOLS.append({
+    "name": "developer_status",
+    "description": "Прочитать последнее безопасное диагностическое заключение Developer Engine. Не запускает команды и не меняет код.",
+    "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}},
+                    "required": ["capability"], "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "openWorldHint": False},
+})
+
+
+def developer_status(capability: str) -> dict:
+    task = current_task(capability)
+    if "error" in task:
+        return {"error": "Current task is not authorized", "code": task.get("code", "TASK_NOT_AUTHORIZED")}
+    report = Path("/opt/data/developer-reports/report.json")
+    try:
+        if report.is_symlink() or not report.is_file() or report.stat().st_size > 40000:
+            return {"status": "no_developer_report"}
+        record = json.loads(report.read_text(encoding="utf8"))
+        if not isinstance(record, dict):
+            return {"status": "invalid_report"}
+        # Only strict machine metadata goes back to the agent.
+        allowed = {"time", "fingerprint", "incidentType", "proposalStatus",
+                   "productionChanged", "mailSent", "tests"}
+        return {k: v for k, v in record.items() if k in allowed}
+    except (ValueError, OSError, TypeError):
+        return {"status": "developer_report_unavailable"}
+
+
 def dispatch(method, params):
     if method == "initialize":
         supported = {"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
@@ -270,11 +300,11 @@ def dispatch(method, params):
         name, arguments = params.get("name"), params.get("arguments", {})
         if not isinstance(arguments, dict):
             raise ValueError("Invalid arguments")
-        if name not in {"current_task", "begin_task", "request_approval", "web_research", "skills_memory",
+        if name not in {"current_task", "begin_task", "request_approval", "web_research", "skills_memory", "developer_status",
                      "submit_result", "scout_start", "scout_read", "assistant_read", "mail_crm_read"}:
             raise ValueError("Unknown tool")
         expected = (
-            {"capability"} if name in ("current_task", "begin_task", "scout_start")
+            {"capability"} if name in ("current_task", "begin_task", "scout_start", "developer_status")
             else {"capability", "summary"} if name == "submit_result"
             else {"capability", "action", "destination", "subject", "details"} if name == "request_approval"
             else ({"capability", "action", "query"} if arguments.get("action") == "search"
@@ -307,6 +337,8 @@ def dispatch(method, params):
             result = read_tool(capability, operation, tool_params)
         elif name == "current_task":
             result = current_task(**arguments)
+        elif name == "developer_status":
+            result = developer_status(**arguments)
         elif name == "begin_task":
             result = begin_task(**arguments)
         elif name == "request_approval":
