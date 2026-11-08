@@ -44,6 +44,41 @@ jobs:
           bash -n agent-stack/ops/scout_start_preflight.sh
           bash -n agent-stack/ops/install_scout_start.sh
           bash -n agent-stack/ops/enable_hermes_three_service_reads.sh
+      - name: Validate embedded Python and simulated permission update
+        run: |
+          python3 - <<'PY'
+          import ast, pathlib, subprocess, tempfile, json
+          script=pathlib.Path("agent-stack/ops/enable_hermes_three_service_reads.sh").read_text()
+          blocks=script.split("<<'PY'\n")
+          assert len(blocks)==3, f"Expected two embedded Python blocks, got {len(blocks)-1}"
+          code1=blocks[1].split("\nPY\n",1)[0]
+          code2=blocks[2].split("\nPY\n",1)[0]
+          ast.parse(code1)
+          ast.parse(code2)
+          issue="2d95562b-a3f8-465e-bfa9-842dbd950acb"
+          with tempfile.TemporaryDirectory() as tmp:
+              scope=pathlib.Path(tmp)/"scope.json"
+              initial={"version":1,"grants":{issue:{
+                "issueIdentifier":"WOR-7",
+                "workspaceWide":True,
+                "operations":["scout_start","scout_findings"],
+                "mailConsent":False
+              }}}
+              scope.write_text(json.dumps(initial))
+              subprocess.run(["python3","-c",code1,str(scope),issue,"WOR-7"],check=True)
+              subprocess.run(["python3","-c",code2,str(scope),issue],check=True)
+              result=json.loads(scope.read_text())
+              ops=set(result["grants"][issue]["operations"])
+              assert {"mail_message","mail_messages","mail_tasks","scout_start"}.issubset(ops)
+              assert result["grants"][issue]["mailConsent"] is True
+              assert not ops.intersection({"mail_send","mail_delete","mail_update"})
+              # Wrong task key must fail without mutating the policy.
+              before=scope.read_bytes()
+              p=subprocess.run(["python3","-c",code1,str(scope),issue,"WRONG-KEY"],capture_output=True)
+              assert p.returncode!=0
+              assert scope.read_bytes()==before
+          print("PASS: embedded Python syntax, scope grant, no send rights, wrong-task denial")
+          PY
       - name: Compile all Python entrypoints
         run: |
           python3 -m py_compile agent-stack/hermes_gateway_bridge.py agent-stack/task_runtime_context.py agent-stack/task_control_mcp.py agent-stack/serve_hermes.py
