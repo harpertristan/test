@@ -15,6 +15,7 @@ on:
       - "agent-stack/ops/enable_hermes_three_service_reads.sh"
       - "agent-stack/ops/diagnose_hermes_run.sh"
       - "agent-stack/ops/hermes_unified_repair.sh"
+      - "agent-stack/ops/enable_paperclip_scheduler.sh"
       - "agent-stack/scout_start_policy.mjs"
       - "agent-stack/scout_start_gateway.mjs"
       - "agent-stack/task_control_mcp.py"
@@ -53,6 +54,7 @@ jobs:
           bash -n agent-stack/ops/enable_hermes_three_service_reads.sh
           bash -n agent-stack/ops/diagnose_hermes_run.sh
           bash -n agent-stack/ops/hermes_unified_repair.sh
+          bash -n agent-stack/ops/enable_paperclip_scheduler.sh
           node --check agent-stack/task_control.mjs
           node --check agent-stack/three_tool_read_sidecar.mjs
           node --check agent-stack/scout_start_gateway.mjs
@@ -127,6 +129,28 @@ jobs:
             )]}}))
             subprocess.run(["python3","-c",verify,str(mcp),str(next_scope),str(identity)],check=True)
           print("PASS: unified installer embedded Python execution and identity-bound grants")
+          PY
+      - name: Execute Paperclip scheduler patch against isolated compose fixture
+        run: |
+          python3 - <<'PY'
+          import ast,pathlib,tempfile,subprocess
+          script=pathlib.Path("agent-stack/ops/enable_paperclip_scheduler.sh").read_text()
+          code=script.split("<<'PY'\n",1)[1].split("\nPY\n",1)[0]
+          ast.parse(code)
+          with tempfile.TemporaryDirectory() as tmp:
+            original=pathlib.Path("agent-stack/compose.paperclip.yaml").read_text()
+            source=pathlib.Path(tmp)/"compose.yaml"
+            dest=pathlib.Path(tmp)/"compose.next.yaml"
+            source.write_text(original)
+            subprocess.run(["python3","-c",code,str(source),str(dest)],check=True)
+            modified=dest.read_text()
+            assert modified.count("HEARTBEAT_SCHEDULER_ENABLED: 'true'")==1
+            assert modified.count("HEARTBEAT_SCHEDULER_INTERVAL_MS: '60000'")==1
+            assert "HEARTBEAT_SCHEDULER_ENABLED: 'false'" not in modified
+            assert original.replace("      HEARTBEAT_SCHEDULER_ENABLED: 'false'","      HEARTBEAT_SCHEDULER_ENABLED: 'true'\n      HEARTBEAT_SCHEDULER_INTERVAL_MS: '60000'")==modified
+            denied=subprocess.run(["python3","-c",code,str(dest),str(source)],capture_output=True)
+            assert denied.returncode!=0,"Installer must not override already enabled scheduler"
+          print("PASS: one precise scheduler change, rerun denied")
           PY
       - name: Compile all Python entrypoints
         run: |
