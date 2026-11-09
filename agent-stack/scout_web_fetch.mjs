@@ -138,6 +138,37 @@ export async function publicOpen(value,network={resolve:resolvePublic,get:httpsG
   throw Error("REDIRECT_LIMIT");
 }
 
+// Search-engine pages contain navigation, forums and unrelated links.
+// Results remain unverified leads. Prefer destinations mentioning the requested brand.
+export function rankResearchResults(links, query) {
+  const q=String(query).toLowerCase();
+  const stop=new Set(["company","companies","limited","legal","entity","official","website","register",
+    "registry","regulator","regulated","services","business","account","financial","license",
+    "licence","google","play","information","ltd","the","and","for","with","from","about",
+    "юридическое","лицо","регулятор","регулирующие","органы","великобритании","сайт","компания"]);
+  const signal=(q.match(/[\p{L}\p{N}]{3,}/gu)||[]).filter(t=>!stop.has(t)).slice(0,5);
+  const excluded=/(^|\.)(reddit\.com|github\.com|stackoverflow\.com|youtube\.com|facebook\.com|instagram\.com|linkedin\.com|pinterest\.com|quora\.com)$/;
+  const entries=[],seen=new Set();
+  for(const link of links||[]) {
+    try {
+      const u=safeWebUrl(link), host=u.hostname.toLowerCase();
+      if(seen.has(u.href))continue;
+      seen.add(u.href);
+      if(excluded.test(host) && !/(reddit|github|stackoverflow|youtube|facebook|instagram|linkedin|pinterest|quora)/.test(q))continue;
+      if(/(^|\.)(bing\.com|google\.com|duckduckgo\.com|microsoft\.com)$/.test(host))continue;
+      const location=(host+" "+decodeURIComponent(u.pathname).toLowerCase()).slice(0,500);
+      const score=signal.filter(t=>location.includes(t)).length*4+
+        (/(^|\.)(gov\.uk|fca\.org\.uk|europa\.eu)$/.test(host)?2:0);
+      entries.push({url:u.href,score});
+    }catch{}
+  }
+  // Reject zero-evidence destinations. Otherwise an unrelated forum/link farm
+  // can become the first result merely because the search engine linked it.
+  const relevant=entries.filter(x=>x.score>=4);
+  relevant.sort((a,b)=>b.score-a.score);
+  return relevant.slice(0,20).map(x=>x.url);
+}
+
 export async function publicSearch(query,network){
   const text=safePublicText(query,180);
   const providers=[
@@ -147,15 +178,12 @@ export async function publicSearch(query,network){
     "https://html.duckduckgo.com/html/?q="+encodeURIComponent(text)
   ];
   const errors=[];
+  // Search engines can return unrelated navigation URLs. Try every provider
+  // until at least one positively matching candidate is found.
   for(const address of providers){
     try{
       const result=await publicOpen(address,network,220);
-      const results=result.links.filter(url=>{
-        try{
-          const host=new URL(url).hostname;
-          return !/(^|\.)google\.com$|(^|\.)bing\.com$|(^|\.)microsoft\.com$|(^|\.)duckduckgo\.com$/.test(host);
-        }catch{return false;}
-      }).slice(0,20);
+      const results=rankResearchResults(result.links,text);
       if(results.length)return {query:text,provider:new URL(address).hostname,
         results,checkedAt:result.checkedAt,excerpt:result.text.slice(0,2000)};
       const lower=result.text.toLowerCase();

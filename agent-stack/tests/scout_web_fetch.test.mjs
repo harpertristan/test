@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parsePage,publicOpen,publicSearch,pinnedLookup} from "../scout_web_fetch.mjs";
+import {parsePage,publicOpen,publicSearch,rankResearchResults,pinnedLookup} from "../scout_web_fetch.mjs";
 import https from "node:https";
 import net from "node:net";
 test("Google Play page exposes official linked website for investigation",()=>{
@@ -110,4 +110,28 @@ test("RSS search feed yields actual publisher links, not navigation links",()=>{
  '</channel></rss>';
  const parsed=parsePage(feed,"https://www.bing.com/search?format=rss",180);
  assert.deepEqual(parsed.links,["https://bankalpha.example/business/","https://bankbeta.example/uk/"]);
+});
+
+test("Search ranking rejects unrelated pages instead of presenting them as findings",()=>{
+  const links=[
+    "https://zhihu.com/question/123",
+    "https://github.com/unrelated/project",
+    "https://www.free2move.com/en-US/",
+    "https://www.reddit.com/r/cars"
+  ];
+  assert.deepEqual(rankResearchResults(links,"Free2move official website UK LTD"),
+    ["https://www.free2move.com/en-US/"]);
+  assert.deepEqual(rankResearchResults(["https://zhihu.com/question/123"],"Free2move legal entity"),[]);
+});
+test("Public search continues to a later provider if first results are irrelevant",async()=>{
+ let calls=0;
+ const network={
+   resolve:async()=>"8.8.8.8",
+   get:async()=>({status:200,html:++calls===1?
+      '<a href="https://zhihu.com/question/123">Forum</a>':
+      '<a href="https://free2move.com/">Free2move</a>'})
+ };
+ const result=await publicSearch("Free2move UK legal entity",network);
+ assert.deepEqual(result.results,["https://free2move.com/"]);
+ assert.ok(calls>=2);
 });
